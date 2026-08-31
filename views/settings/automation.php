@@ -109,7 +109,7 @@ $replySteps = $settings->getReplyStepsData();
                         $maxStepsToRender = max(5, count($replySteps));
                         for ($step = 1; $step <= $maxStepsToRender; $step++):
                             $stepData = $replySteps[$step] ?? [
-                                'message' => ($step === 1 ? ($settings->reply_message ?: '') : ''),
+                                'message' => '',
                                 'delay_value' => ($step === 1 ? (int)$settings->reply_delay : 0),
                                 'delay_unit' => 'seconds'
                             ];

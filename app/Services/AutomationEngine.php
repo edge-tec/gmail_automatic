@@ -141,6 +141,12 @@ class AutomationEngine {
 
         // 10. Prepare Reply Message for Step #$nextReplyStep with Template Variables
         $templateMessage = $ruleDecision['custom_message'] ?? $this->settings->getReplyMessageForStep($nextReplyStep);
+        $cleanCheck = trim(strip_tags($templateMessage));
+        if (empty($cleanCheck)) {
+            logger("Message content is missing for Step #{$nextReplyStep}. Automated email was not sent.", 'warning', $this->account->user_id, $this->account->id);
+            return ['status' => 'skipped', 'reason' => "Message content is missing for Step #{$nextReplyStep}. Automated email was not sent."];
+        }
+
         $renderedMessage = $this->renderVariables($templateMessage, [
             'sender_email' => $senderEmail,
             'sender_name' => $senderName,
@@ -482,8 +488,8 @@ class AutomationEngine {
         }
 
         $nextTemplate = FollowupTemplate::findNextStep($this->account->id, $completedStepNumber);
-        if (!$nextTemplate) {
-            // Sequence completed
+        if (!$nextTemplate || empty(trim(strip_tags($nextTemplate->message)))) {
+            // Sequence completed or template missing/empty
             $thread->update(['automation_status' => 'completed', 'next_followup_at' => null]);
             return null;
         }
@@ -507,6 +513,7 @@ class AutomationEngine {
                 'recipient_name' => $thread->sender_name,
                 'subject' => $thread->subject,
                 'reply_body' => $renderedMessage,
+                'template_id' => $nextTemplate->id,
                 'step_number' => $nextTemplate->step_number,
                 'template_name' => $nextTemplate->name,
             ],

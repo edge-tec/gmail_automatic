@@ -34,22 +34,13 @@ class AutomationSetting {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
-        $defaultMessage = json_encode([
-            1 => [
-                'message' => 'Where are you located?',
-                'delay_value' => 0,
-                'delay_unit' => 'seconds'
-            ]
-        ], JSON_UNESCAPED_UNICODE);
-
         $sql = "INSERT INTO automation_settings 
                 (gmail_account_id, auto_reply_enabled, reply_message, max_reply_per_thread, daily_reply_limit, reply_delay, followup_enabled, daily_followup_limit, timezone, working_days, working_start, working_end, created_at)
                 VALUES 
-                (:acc, 0, :msg, 3, 100, 0, 0, 100, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', {$now})";
+                (:acc, 0, NULL, 3, 100, 0, 0, 100, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', {$now})";
 
         Database::execute($sql, [
             'acc' => $accountId,
-            'msg' => $defaultMessage,
         ]);
 
         return self::findByAccountId($accountId);
@@ -71,13 +62,7 @@ class AutomationSetting {
 
     public function getReplyStepsData(): array {
         if (!$this->reply_message) {
-            return [
-                1 => [
-                    'message' => 'Where are you located?',
-                    'delay_value' => (int)$this->reply_delay,
-                    'delay_unit' => 'seconds'
-                ]
-            ];
+            return [];
         }
 
         $decoded = json_decode($this->reply_message, true);
@@ -141,25 +126,8 @@ class AutomationSetting {
             }
         }
 
-        // 2. Try previous available steps in reverse (e.g. if step 5 requested but only 4 defined, use step 4)
-        for ($s = $step - 1; $s >= 1; $s--) {
-            if (isset($steps[$s])) {
-                $msg = trim($steps[$s]['message'] ?? '');
-                if (!empty($msg) && $msg !== '<p><br></p>') {
-                    return $steps[$s]['message'];
-                }
-            }
-        }
-
-        // 3. Try any non-empty step in the sequence
-        foreach ($steps as $sNum => $sData) {
-            $msg = trim($sData['message'] ?? '');
-            if (!empty($msg) && $msg !== '<p><br></p>') {
-                return $sData['message'];
-            }
-        }
-
-        return "Hello {{first_name}},\n\nThank you for your reply! Our team will get back to you shortly.";
+        // Return empty string if not configured by user. Never return hardcoded demo text.
+        return '';
     }
 
     public function getReplyDelaySecondsForStep(int $step): int {

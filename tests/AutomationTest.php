@@ -90,7 +90,14 @@ class AutomationTest extends TestCase {
         ]);
 
         $settings = $account->getSettings() ?? AutomationSetting::createDefault($account->id);
-        $settings->update(['auto_reply_enabled' => 1]);
+        $settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => json_encode([
+                1 => ['message' => 'Custom Step 1: Where are you located?', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+                2 => ['message' => 'Custom Step 2: Contact on WhatsApp', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+                3 => ['message' => 'Custom Step 3: Here is the link', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            ], JSON_UNESCAPED_UNICODE)
+        ]);
 
         $engine = new AutomationEngine($account);
 
@@ -376,5 +383,107 @@ class AutomationTest extends TestCase {
         ]);
         $this->assertEquals('skipped', $resBi['status']);
         $this->assertStringContainsString('domain extension', $resBi['reason']);
+    }
+
+    public function testStrictUserConfiguredMessageEnforcement(): void {
+        $user = User::create([
+            'name' => 'Strict Test User',
+            'email' => 'stricttest_' . uniqid() . '@example.com',
+            'password' => password_hash('secret', PASSWORD_BCRYPT),
+            'role' => 'user',
+            'status' => 'active',
+        ]);
+
+        $account = GmailAccount::createOrUpdate([
+            'user_id' => $user->id,
+            'gmail_email' => 'strict_' . uniqid() . '@gmail.com',
+            'access_token' => 'access_tok_strict',
+            'refresh_token' => 'refresh_tok_strict',
+            'token_expires_at' => date('Y-m-d H:i:s', time() + 3600),
+        ]);
+
+        $settings = AutomationSetting::createDefault($account->id);
+        $settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => json_encode([
+                1 => ['message' => 'Hello, this is my exact customized message 1.', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+                2 => ['message' => 'Hello, this is my exact customized message 2.', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            ], JSON_UNESCAPED_UNICODE),
+        ]);
+
+        $engine = new AutomationEngine($account);
+
+        // 1. First incoming email: must schedule exact user message 1
+        $res1 = $engine->processIncomingMessage([
+            'message_id' => 'msg_strict_1',
+            'thread_id' => 'th_strict_1',
+            'sender_email' => 'lead1@customer.com',
+            'sender_name' => 'Lead One',
+            'to' => $account->gmail_email,
+            'subject' => 'Inquiry',
+            'snippet' => 'Hi',
+            'body' => 'Hi',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->assertEquals('scheduled', $res1['status']);
+        $job1 = ScheduledJob::find($res1['job_id']);
+        $this->assertNotNull($job1);
+        $payload1 = $job1->getPayloadArray();
+        $this->assertEquals('Hello, this is my exact customized message 1.', $payload1['reply_body']);
+
+        // 2. Second reply in thread: must schedule exact user message 2
+        $thread = EmailThread::findByAccountAndThreadId($account->id, 'th_strict_1');
+        $thread->update(['reply_count' => 1]);
+
+        $res2 = $engine->processIncomingMessage([
+            'message_id' => 'msg_strict_2',
+            'thread_id' => 'th_strict_1',
+            'sender_email' => 'lead1@customer.com',
+            'sender_name' => 'Lead One',
+            'to' => $account->gmail_email,
+            'subject' => 'Re: Inquiry',
+            'snippet' => 'Follow up',
+            'body' => 'Follow up',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->assertEquals('scheduled', $res2['status']);
+        $job2 = ScheduledJob::find($res2['job_id']);
+        $this->assertNotNull($job2);
+        $payload2 = $job2->getPayloadArray();
+        $this->assertEquals('Hello, this is my exact customized message 2.', $payload2['reply_body']);
+
+        // 3. Third reply in thread: Step 3 is NOT configured by user, must SKIP and NEVER send fallback text
+        $thread->update(['reply_count' => 2]);
+        $res3 = $engine->processIncomingMessage([
+            'message_id' => 'msg_strict_3',
+            'thread_id' => 'th_strict_1',
+            'sender_email' => 'lead1@customer.com',
+            'sender_name' => 'Lead One',
+            'to' => $account->gmail_email,
+            'subject' => 'Re: Inquiry 2',
+            'snippet' => 'Another follow up',
+            'body' => 'Another follow up',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->assertEquals('skipped', $res3['status']);
+        $this->assertStringContainsString('Message content is missing for Step #3', $res3['reason']);
+
+        // 4. Test QueueWorker cancels job if user emptied message before sending
+        $settings->update([
+            'reply_message' => json_encode([
+                1 => ['message' => '', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            ], JSON_UNESCAPED_UNICODE),
+        ]);
+
+        $worker = new \App\Services\QueueWorker();
+        // Execute job1: since user deleted/emptied step 1 message, worker must cancel the job
+        $workerResult = $worker->processJob($job1);
+        $this->assertTrue($workerResult);
+        $job1Updated = ScheduledJob::find($job1->id);
+        $this->assertEquals('cancelled', $job1Updated->status);
+        $this->assertStringContainsString('Message content is missing', $job1Updated->last_error);
     }
 }

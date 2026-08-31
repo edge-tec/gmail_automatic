@@ -93,15 +93,17 @@ class QueueWorker {
             $payload = $job->getPayloadArray();
             $recipientEmail = $payload['recipient_email'] ?? $thread->sender_email;
             $subject = $payload['subject'] ?? $thread->subject;
-            $body = $payload['reply_body'] ?? '';
-
-            if (empty($recipientEmail) || empty($body)) {
-                throw new Exception("Missing recipient or message body in job payload");
+            
+            if (empty($recipientEmail)) {
+                throw new Exception("Missing recipient email address in job payload");
             }
 
             // Check Account Automation Settings
             $settings = $account->getSettings();
             $usage = $account->getTodayUsage();
+            $engine = new AutomationEngine($account);
+
+            $finalBody = '';
 
             if ($job->job_type === 'auto_reply') {
                 if (!$settings || !$settings->auto_reply_enabled) {
@@ -111,10 +113,27 @@ class QueueWorker {
                     return true;
                 }
 
+                // Strictly fetch latest live user-configured message from database for this step
+                $stepNumber = (int)($payload['reply_step'] ?? 1);
+                $liveTemplate = $settings->getReplyMessageForStep($stepNumber);
+
+                if (empty(trim(strip_tags($liveTemplate)))) {
+                    $job->cancel('Message content is missing. Automated email was not sent.');
+                    logger("Cancelled auto-reply job #{$job->id}: Message content is missing for Step #{$stepNumber}. Automated email was not sent.", 'warning', $account->user_id, $account->id);
+                    echo "  ↳ Cancelled: Message content is missing for Step #{$stepNumber}.\n";
+                    return true;
+                }
+
+                $finalBody = $engine->renderVariables($liveTemplate, [
+                    'sender_email' => $recipientEmail,
+                    'sender_name' => $payload['recipient_name'] ?? $thread->sender_name,
+                    'subject' => $subject,
+                    'date' => date('Y-m-d H:i:s'),
+                ]);
+
                 // Check daily limit only for NEW leads/traffic (reply_count == 0); multi-turn replies to existing leads count as 1
                 if ($thread->reply_count === 0 && $usage['reply_count'] >= ($settings->daily_reply_limit ?? 100)) {
                     // Reschedule for tomorrow
-                    $engine = new AutomationEngine($account);
                     $nextTime = $engine->calculateNextAllowedSendTime(true);
                     $job->update([
                         'status' => 'pending',
@@ -132,8 +151,25 @@ class QueueWorker {
                     return true;
                 }
 
+                $templateId = (int)($payload['template_id'] ?? 0);
+                $stepNumber = (int)($payload['step_number'] ?? 1);
+                $template = $templateId ? FollowupTemplate::find($templateId) : FollowupTemplate::findNextStep($account->id, $stepNumber - 1);
+
+                if (!$template || $template->status !== 'active' || empty(trim(strip_tags($template->message)))) {
+                    $job->cancel('Follow-up template is missing, disabled, or deleted. Automated email was not sent.');
+                    logger("Cancelled follow-up job #{$job->id}: Follow-up template is missing or disabled. Automated email was not sent.", 'warning', $account->user_id, $account->id);
+                    echo "  ↳ Cancelled: Follow-up template is missing or disabled.\n";
+                    return true;
+                }
+
+                $finalBody = $engine->renderVariables($template->message, [
+                    'sender_email' => $recipientEmail,
+                    'sender_name' => $payload['recipient_name'] ?? $thread->sender_name,
+                    'subject' => $subject,
+                    'date' => date('Y-m-d H:i:s'),
+                ]);
+
                 if ($usage['followup_count'] >= ($settings->daily_followup_limit ?? 100)) {
-                    $engine = new AutomationEngine($account);
                     $nextTime = $engine->calculateNextAllowedSendTime(true);
                     $job->update([
                         'status' => 'pending',
@@ -145,12 +181,18 @@ class QueueWorker {
                 }
             }
 
-            // Send via Gmail API
+            if (empty(trim(strip_tags($finalBody)))) {
+                $job->cancel('Message content is missing. Automated email was not sent.');
+                logger("Blocked automated email: Message content is empty. Job #{$job->id} cancelled.", 'warning', $account->user_id, $account->id);
+                return true;
+            }
+
+            // Send via Gmail API - Strictly User-Configured Content Only
             $gmailService = new GmailService($account);
             $sent = $gmailService->sendThreadReply(
                 $recipientEmail,
                 $subject,
-                $body,
+                $finalBody,
                 $thread->gmail_thread_id,
                 $payload['in_reply_to'] ?? null,
                 $payload['references'] ?? null
