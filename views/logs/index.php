@@ -94,7 +94,24 @@
                             <?php endif; ?>
                         </td>
                         <td>
-                            <div class="fw-semibold text-dark text-break"><?= e($log['message']) ?></div>
+                            <?php 
+                                $rawMessage = $log['message'];
+                                if (str_starts_with($rawMessage, 'Saved reply_steps')) {
+                                    $displayMsg = 'Updated auto-reply message sequence settings';
+                                } else {
+                                    $displayMsg = $rawMessage;
+                                }
+                                $isLong = mb_strlen($displayMsg) > 160;
+                            ?>
+                            <div class="fw-semibold text-dark text-break">
+                                <?php if ($isLong): ?>
+                                    <span id="log_short_<?= $log['id'] ?>"><?= e(mb_substr($displayMsg, 0, 160)) ?>...</span>
+                                    <span id="log_full_<?= $log['id'] ?>" class="d-none"><?= e($displayMsg) ?></span>
+                                    <a href="javascript:void(0)" class="small text-primary text-decoration-none ms-1" onclick="document.getElementById('log_short_<?= $log['id'] ?>').classList.toggle('d-none'); document.getElementById('log_full_<?= $log['id'] ?>').classList.toggle('d-none'); this.textContent = this.textContent === 'Show more' ? 'Show less' : 'Show more';">Show more</a>
+                                <?php else: ?>
+                                    <?= e($displayMsg) ?>
+                                <?php endif; ?>
+                            </div>
                             <?php if (!empty($log['context_json'])): ?>
                                 <div class="text-muted font-monospace small mt-1" style="font-size: 0.75rem;"><?= e($log['context_json']) ?></div>
                             <?php endif; ?>

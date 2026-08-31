@@ -104,7 +104,8 @@ class AutomationSettingsController {
             ];
 
             $replyMessage = json_encode($cleanSteps, JSON_UNESCAPED_UNICODE);
-            logger("Saved reply_steps for account {$account->id} ({$account->gmail_email}): " . $replyMessage, 'info', $account->user_id, $account->id);
+            $stepsCount = count(array_filter(array_keys($cleanSteps), fn($k) => $k !== '_blacklist'));
+            logger("Updated auto-reply message sequence ({$stepsCount} steps configured) successfully", 'info', $account->user_id, $account->id);
         } elseif (is_array($replyMessagesInput)) {
             $cleanMessages = [];
             foreach ($replyMessagesInput as $step => $msg) {
