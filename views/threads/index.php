@@ -1,17 +1,26 @@
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
     <div>
         <h4 class="fw-bold mb-1">Conversation Threads</h4>
         <p class="text-muted small mb-0">Track all incoming conversations, reply counts, follow-up progression, and thread statuses.</p>
     </div>
-    <div class="d-flex gap-2">
-        <a href="<?= url('/threads') ?>" class="btn btn-sm <?= empty($selectedStatus) ? 'btn-primary' : 'btn-outline-secondary' ?>">All</a>
-        <a href="<?= url('/threads?status=active') ?>" class="btn btn-sm <?= $selectedStatus === 'active' ? 'btn-primary' : 'btn-outline-secondary' ?>">Active</a>
-        <a href="<?= url('/threads?status=replied') ?>" class="btn btn-sm <?= $selectedStatus === 'replied' ? 'btn-primary' : 'btn-outline-secondary' ?>">Replied</a>
-        <a href="<?= url('/threads?status=stopped') ?>" class="btn btn-sm <?= $selectedStatus === 'stopped' ? 'btn-primary' : 'btn-outline-secondary' ?>">Stopped</a>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="btn-group btn-group-sm">
+            <a href="<?= url('/threads') ?>" class="btn <?= empty($selectedStatus) ? 'btn-primary' : 'btn-outline-secondary' ?>">All</a>
+            <a href="<?= url('/threads?status=active') ?>" class="btn <?= $selectedStatus === 'active' ? 'btn-primary' : 'btn-outline-secondary' ?>">Active</a>
+            <a href="<?= url('/threads?status=replied') ?>" class="btn <?= $selectedStatus === 'replied' ? 'btn-primary' : 'btn-outline-secondary' ?>">Replied</a>
+            <a href="<?= url('/threads?status=stopped') ?>" class="btn <?= $selectedStatus === 'stopped' ? 'btn-primary' : 'btn-outline-secondary' ?>">Stopped</a>
+        </div>
+
+        <?php if (!empty($threads)): ?>
+        <button type="button" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#clearAllModal">
+            <i class="fa-solid fa-trash-can"></i>
+            <span>Clear Email List</span>
+        </button>
+        <?php endif; ?>
     </div>
 </div>
 
-<div class="card">
+<div class="card shadow-sm border-0">
     <div class="card-body p-0">
         <?php if (empty($threads)): ?>
         <div class="text-center p-5">
@@ -31,7 +40,7 @@
                         <th>Follow-ups</th>
                         <th>Next Follow-up</th>
                         <th>Status</th>
-                        <th class="text-end">Actions</th>
+                        <th class="text-end" style="width: 170px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -73,9 +82,18 @@
                             <?php endif; ?>
                         </td>
                         <td class="text-end">
-                            <a href="<?= url("/threads/{$t['id']}") ?>" class="btn btn-sm btn-primary">
-                                <i class="fa-solid fa-eye me-1"></i> View Thread
-                            </a>
+                            <div class="d-inline-flex gap-1">
+                                <a href="<?= url("/threads/{$t['id']}") ?>" class="btn btn-sm btn-primary" title="View Thread">
+                                    <i class="fa-solid fa-eye me-1"></i> View
+                                </a>
+
+                                <form action="<?= url("/threads/{$t['id']}/delete") ?>" method="POST" class="d-inline">
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Conversation" onclick="return confirm('Delete conversation with <?= e($t['sender_email']) ?>?')">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -83,5 +101,48 @@
             </table>
         </div>
         <?php endif; ?>
+    </div>
+</div>
+
+<!-- Clear Email List Modal -->
+<div class="modal fade" id="clearAllModal" tabindex="-1" aria-labelledby="clearAllModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="<?= url('/threads/clear-all') ?>" method="POST">
+                <?= csrf_field() ?>
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold text-danger" id="clearAllModalLabel">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i> Clear Email List
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">Are you sure you want to clear conversation threads? This will remove thread records, message history, and cancel any pending automated replies.</p>
+
+                    <?php if (!empty($accounts) && count($accounts) > 1): ?>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Select Account to Clear</label>
+                        <select name="account_id" class="form-select">
+                            <option value="">All Connected Accounts (Everything)</option>
+                            <?php foreach ($accounts as $acc): ?>
+                                <option value="<?= $acc->id ?>"><?= e($acc->gmail_email) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <?php endif; ?>
+
+                    <div class="alert alert-warning small mb-0">
+                        <i class="fa-solid fa-circle-info me-1"></i> Note: This only clears local application database records. Your original emails in Gmail will not be touched.
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger d-flex align-items-center gap-1">
+                        <i class="fa-solid fa-trash-can"></i>
+                        <span>Confirm & Clear</span>
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>

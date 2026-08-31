@@ -105,6 +105,35 @@ class EmailThread {
         return ScheduledJob::findPendingByThreadId($this->id);
     }
 
+    public function delete(): bool {
+        Database::execute("DELETE FROM scheduled_jobs WHERE thread_id = :id", ['id' => $this->id]);
+        Database::execute("DELETE FROM email_messages WHERE thread_id = :id", ['id' => $this->id]);
+        return Database::execute("DELETE FROM email_threads WHERE id = :id", ['id' => $this->id]);
+    }
+
+    public static function deleteAllByUserId(int $userId, ?int $accountId = null): int {
+        $where = "g.user_id = :uid";
+        $params = ['uid' => $userId];
+        if ($accountId) {
+            $where .= " AND t.gmail_account_id = :acc";
+            $params['acc'] = $accountId;
+        }
+
+        $threads = Database::query("SELECT t.id FROM email_threads t JOIN gmail_accounts g ON t.gmail_account_id = g.id WHERE {$where}", $params);
+        if (empty($threads)) {
+            return 0;
+        }
+
+        $ids = array_column($threads, 'id');
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        Database::execute("DELETE FROM scheduled_jobs WHERE thread_id IN ($placeholders)", $ids);
+        Database::execute("DELETE FROM email_messages WHERE thread_id IN ($placeholders)", $ids);
+        Database::execute("DELETE FROM email_threads WHERE id IN ($placeholders)", $ids);
+
+        return count($ids);
+    }
+
     public static function fromRow(array $row): self {
         $t = new self();
         $t->id = (int)$row['id'];

@@ -56,6 +56,8 @@ $router->post('/settings/followups/step/{id}/delete', 'FollowupController@delete
 // Conversation Threads
 $router->get('/threads', 'ThreadController@index', [AuthMiddleware::class]);
 $router->get('/threads/{id}', 'ThreadController@show', [AuthMiddleware::class]);
+$router->post('/threads/clear-all', 'ThreadController@clearAll', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/threads/{id}/delete', 'ThreadController@delete', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/threads/{id}/toggle-automation', 'ThreadController@toggleAutomation', [AuthMiddleware::class, CSRFMiddleware::class]);
 
 // Admin Panel Routes

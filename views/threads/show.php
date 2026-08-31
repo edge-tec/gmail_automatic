@@ -45,10 +45,18 @@
                             <i class="fa-solid fa-play me-1"></i> Resume Automation
                         </button>
                     <?php else: ?>
-                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <button type="submit" class="btn btn-sm btn-outline-warning">
                             <i class="fa-solid fa-hand me-1"></i> Stop Automation
                         </button>
                     <?php endif; ?>
+                </form>
+
+                <!-- Delete Conversation Button -->
+                <form action="<?= url("/threads/{$thread->id}/delete") ?>" method="POST" onsubmit="return confirm('Are you sure you want to delete this conversation and its history?');">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Conversation">
+                        <i class="fa-solid fa-trash-can me-1"></i> Delete
+                    </button>
                 </form>
             </div>
         </div>
