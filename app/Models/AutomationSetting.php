@@ -52,6 +52,9 @@ class AutomationSetting {
         foreach ($data as $key => $val) {
             $fields[] = "{$key} = :{$key}";
             $params[$key] = $val;
+            if (property_exists($this, $key)) {
+                $this->$key = $val;
+            }
         }
 
         $driver = config('database.default', 'mysql');

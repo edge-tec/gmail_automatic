@@ -8,6 +8,7 @@ use App\Models\EmailThread;
 use App\Models\EmailMessage;
 use App\Models\DailyUsage;
 use App\Models\SystemSetting;
+use App\Models\FollowupTemplate;
 use Exception;
 
 class QueueWorker {

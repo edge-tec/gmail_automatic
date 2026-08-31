@@ -114,7 +114,24 @@ class FollowupController {
         }
 
         $accountId = $step->gmail_account_id;
+        $stepId = $step->id;
+        $stepNum = $step->step_number;
         $step->delete();
+
+        // Immediately cancel any pending scheduled jobs for this deleted follow-up step
+        \App\Core\Database::execute(
+            "UPDATE scheduled_jobs 
+             SET status = 'cancelled', last_error = 'Follow-up step was deleted by user' 
+             WHERE gmail_account_id = :acc 
+               AND job_type = 'follow_up' 
+               AND status = 'pending' 
+               AND (payload LIKE :tplId OR payload LIKE :stepNum)",
+            [
+                'acc' => $accountId,
+                'tplId' => '%"template_id":' . $stepId . '%',
+                'stepNum' => '%"step_number":' . $stepNum . '%',
+            ]
+        );
 
         // Re-index remaining steps
         $remaining = FollowupTemplate::findByAccountId($accountId);
@@ -123,7 +140,23 @@ class FollowupController {
             $r->update(['step_number' => $idx++]);
         }
 
-        flash('success', 'Follow-up step deleted successfully.');
+        flash('success', 'Follow-up step deleted successfully and pending jobs cancelled.');
+        redirect("/settings/followups/{$accountId}");
+    }
+
+    public function deleteAll(Request $request, int $accountId): void {
+        $user = Auth::user();
+        $account = GmailAccount::find($accountId);
+        if (!$account || $account->user_id !== $user->id) {
+            flash('error', 'Account not found.');
+            redirect('/settings/followups');
+            return;
+        }
+
+        \App\Core\Database::execute("DELETE FROM followup_templates WHERE gmail_account_id = :acc", ['acc' => $account->id]);
+        \App\Core\Database::execute("UPDATE scheduled_jobs SET status = 'cancelled', last_error = 'All follow-up steps deleted by user' WHERE gmail_account_id = :acc AND job_type = 'follow_up' AND status = 'pending'", ['acc' => $account->id]);
+
+        flash('success', 'All follow-up steps deleted successfully and pending jobs cancelled.');
         redirect("/settings/followups/{$accountId}");
     }
 }

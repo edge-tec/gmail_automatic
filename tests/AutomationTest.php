@@ -486,4 +486,126 @@ class AutomationTest extends TestCase {
         $this->assertEquals('cancelled', $job1Updated->status);
         $this->assertStringContainsString('Message content is missing', $job1Updated->last_error);
     }
+
+    public function testMessageUpdateAndDeletionWorkflow(): void {
+        $user = User::create([
+            'name' => 'Update Test User',
+            'email' => 'updatetest_' . uniqid() . '@example.com',
+            'password' => password_hash('secret', PASSWORD_BCRYPT),
+            'role' => 'user',
+            'status' => 'active',
+        ]);
+
+        $account = GmailAccount::createOrUpdate([
+            'user_id' => $user->id,
+            'gmail_email' => 'update_' . uniqid() . '@gmail.com',
+            'access_token' => 'access_tok_upd',
+            'refresh_token' => 'refresh_tok_upd',
+            'token_expires_at' => date('Y-m-d H:i:s', time() + 3600),
+        ]);
+
+        $settings = AutomationSetting::createDefault($account->id);
+        $settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => json_encode([
+                1 => ['message' => 'Original Message 123', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            ], JSON_UNESCAPED_UNICODE),
+        ]);
+
+        $engine = new AutomationEngine($account);
+
+        // Schedule auto-reply
+        $res = $engine->processIncomingMessage([
+            'message_id' => 'msg_upd_1',
+            'thread_id' => 'th_upd_1',
+            'sender_email' => 'user@domain.com',
+            'sender_name' => 'User Domain',
+            'to' => $account->gmail_email,
+            'subject' => 'Hello',
+            'snippet' => 'Hi',
+            'body' => 'Hi',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->assertEquals('scheduled', $res['status']);
+        $jobId = $res['job_id'];
+
+        // User edits message to 'NEW CUSTOM MESSAGE 12345'
+        $settings->update([
+            'reply_message' => json_encode([
+                1 => ['message' => 'NEW CUSTOM MESSAGE 12345', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            ], JSON_UNESCAPED_UNICODE),
+        ]);
+
+        // When queue worker processes the job, it must verify and fetch 'NEW CUSTOM MESSAGE 12345'
+        $freshJob = ScheduledJob::find($jobId);
+        $this->assertNotNull($freshJob);
+        
+        $liveMsg = $settings->getReplyMessageForStep(1);
+        $this->assertEquals('NEW CUSTOM MESSAGE 12345', $liveMsg);
+
+        // User then deletes all messages (sets reply_message to null)
+        $settings->update(['reply_message' => null]);
+        ScheduledJob::cancelPendingJobsByAccountAndType($account->id, 'auto_reply', 'All auto-reply messages were deleted by user');
+
+        $cancelledJob = ScheduledJob::find($jobId);
+        $this->assertEquals('cancelled', $cancelledJob->status);
+        $this->assertStringContainsString('deleted by user', $cancelledJob->last_error);
+    }
+
+    public function testFollowupDeletionCancelsPendingJob(): void {
+        $user = User::create([
+            'name' => 'Followup User',
+            'email' => 'fu_' . uniqid() . '@example.com',
+            'password' => password_hash('secret', PASSWORD_BCRYPT),
+            'role' => 'user',
+            'status' => 'active',
+        ]);
+
+        $account = GmailAccount::createOrUpdate([
+            'user_id' => $user->id,
+            'gmail_email' => 'fu_' . uniqid() . '@gmail.com',
+            'access_token' => 'access_tok_fu',
+            'refresh_token' => 'refresh_tok_fu',
+            'token_expires_at' => date('Y-m-d H:i:s', time() + 3600),
+        ]);
+
+        $template = FollowupTemplate::create([
+            'user_id' => $user->id,
+            'gmail_account_id' => $account->id,
+            'step_number' => 1,
+            'name' => 'Follow-up #1',
+            'message' => 'Checking in on you!',
+            'delay_value' => 2,
+            'delay_unit' => 'days',
+            'status' => 'active',
+        ]);
+
+        $thread = EmailThread::createOrGet($account->id, 'th_fu_' . uniqid(), [
+            'sender_email' => 'contact@corp.com',
+            'sender_name' => 'Contact Corp',
+            'subject' => 'Our Project',
+        ]);
+        $thread->update(['reply_count' => 1, 'automation_status' => 'active']);
+
+        $settings = AutomationSetting::createDefault($account->id);
+        $settings->update(['followup_enabled' => 1]);
+
+        $engine = new AutomationEngine($account);
+        $fuJob = $engine->scheduleNextFollowupStep($thread, 0);
+        $this->assertNotNull($fuJob);
+        $this->assertEquals('pending', $fuJob->status);
+
+        // Delete template
+        $template->delete();
+
+        // Worker executes: since template was deleted, worker must cancel the job
+        $worker = new \App\Services\QueueWorker();
+        $workerResult = $worker->processJob($fuJob);
+        $this->assertTrue($workerResult);
+
+        $fuJobUpdated = ScheduledJob::find($fuJob->id);
+        $this->assertEquals('cancelled', $fuJobUpdated->status);
+        $this->assertStringContainsString('Follow-up template is missing', $fuJobUpdated->last_error);
+    }
 }

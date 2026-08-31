@@ -172,10 +172,10 @@ class AutomationSettingsController {
             'working_end' => $workingEnd,
         ]);
 
-        if (!$autoReplyEnabled) {
-            \App\Models\ScheduledJob::cancelPendingJobsByAccountAndType($account->id, 'auto_reply', 'Auto reply was disabled in settings');
+        if (!$autoReplyEnabled || empty($replyMessage)) {
+            \App\Models\ScheduledJob::cancelPendingJobsByAccountAndType($account->id, 'auto_reply', 'Auto-reply was disabled or all messages cleared');
         } else {
-            // Update any pending queued auto-reply jobs with the new customized step messages
+            // Update or cancel pending queued auto-reply jobs based on the new customized step messages
             $pendingJobs = \App\Core\Database::query(
                 "SELECT * FROM scheduled_jobs WHERE gmail_account_id = :acc AND status = 'pending' AND job_type = 'auto_reply'",
                 ['acc' => $account->id]
@@ -186,11 +186,20 @@ class AutomationSettingsController {
                     $payload = json_decode($pj['payload'], true);
                     if (is_array($payload) && isset($payload['reply_step'])) {
                         $step = (int)$payload['reply_step'];
-                        $payload['reply_body'] = $updatedSettings->getReplyMessageForStep($step);
-                        \App\Core\Database::execute(
-                            "UPDATE scheduled_jobs SET payload = :p WHERE id = :id",
-                            ['p' => json_encode($payload, JSON_UNESCAPED_UNICODE), 'id' => $pj['id']]
-                        );
+                        $latestStepMsg = $updatedSettings->getReplyMessageForStep($step);
+                        if (empty(trim(strip_tags($latestStepMsg)))) {
+                            // Message for this step was deleted by user -> cancel job immediately
+                            \App\Core\Database::execute(
+                                "UPDATE scheduled_jobs SET status = 'cancelled', last_error = :err WHERE id = :id",
+                                ['err' => "Auto-reply message for Step #{$step} was deleted by user", 'id' => $pj['id']]
+                            );
+                        } else {
+                            $payload['reply_body'] = $latestStepMsg;
+                            \App\Core\Database::execute(
+                                "UPDATE scheduled_jobs SET payload = :p WHERE id = :id",
+                                ['p' => json_encode($payload, JSON_UNESCAPED_UNICODE), 'id' => $pj['id']]
+                            );
+                        }
                     }
                 }
             }
@@ -200,6 +209,31 @@ class AutomationSettingsController {
         }
 
         flash('success', "Automation settings updated successfully for {$account->gmail_email}!");
+        redirect("/settings/automation/{$account->id}");
+    }
+
+    public function clearAll(Request $request, int $accountId): void {
+        $user = Auth::user();
+        $account = GmailAccount::find($accountId);
+        if (!$account || $account->user_id !== $user->id) {
+            flash('error', 'Account not found.');
+            redirect('/settings/automation');
+            return;
+        }
+
+        $settings = $account->getSettings();
+        if ($settings) {
+            $settings->update(['reply_message' => null]);
+        }
+
+        \App\Models\ScheduledJob::cancelPendingJobsByAccountAndType(
+            $account->id,
+            'auto_reply',
+            'All auto-reply messages were deleted by user'
+        );
+
+        logger("Permanently deleted all auto-reply messages and cancelled all pending queue jobs for {$account->gmail_email}", 'info', $account->user_id, $account->id);
+        flash('success', 'All auto-reply messages have been permanently deleted and all pending jobs cancelled.');
         redirect("/settings/automation/{$account->id}");
     }
 }
