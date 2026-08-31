@@ -68,9 +68,13 @@ $replySteps = $settings->getReplyStepsData();
                         <i class="fa-solid fa-comments text-primary"></i>
                         <span>Conversational Auto-Reply Sequence</span>
                     </span>
-                    <div class="form-check form-switch m-0">
-                        <input class="form-check-input" type="checkbox" name="auto_reply_enabled" value="1" id="auto_reply_enabled" <?= $settings->auto_reply_enabled ? 'checked' : '' ?>>
-                        <label class="form-check-label small fw-semibold ms-1" for="auto_reply_enabled">Enable Automation</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="form-check form-switch m-0 fs-5">
+                            <input class="form-check-input" type="checkbox" name="auto_reply_enabled" value="1" id="auto_reply_enabled" role="switch" style="cursor: pointer;" <?= $settings->auto_reply_enabled ? 'checked' : '' ?>>
+                        </div>
+                        <label class="form-check-label small fw-bold text-dark m-0" for="auto_reply_enabled" style="cursor: pointer;">
+                            <?= $settings->auto_reply_enabled ? '<span class="text-success"><i class="fa-solid fa-circle-check me-1"></i>Automation Enabled</span>' : '<span class="text-secondary"><i class="fa-solid fa-circle-pause me-1"></i>Automation Disabled</span>' ?>
+                        </label>
                     </div>
                 </div>
                 <div class="card-body">

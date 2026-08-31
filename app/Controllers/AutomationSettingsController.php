@@ -120,6 +120,9 @@ class AutomationSettingsController {
             $replyMessage = trim($request->input('reply_message', ''));
         }
 
+        $autoReplyEnabled = (bool)$request->input('auto_reply_enabled', 0);
+        $followupEnabled = (bool)$request->input('followup_enabled', 0);
+        $dailyFollowupLimit = max(1, (int)$request->input('daily_followup_limit', 100));
         $maxReplyPerThread = max(1, (int)$request->input('max_reply_per_thread', 3));
         $dailyReplyLimit = max(1, (int)$request->input('daily_reply_limit', 100));
         $scheduleMode = $request->input('schedule_mode', 'instant');
