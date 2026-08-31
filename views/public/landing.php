@@ -230,7 +230,7 @@
                     </div>
 
                     <!-- Trust Points -->
-                    <div class="d-flex flex-wrap gap-3 justify-content-center justify-content-lg-start text-muted small fw-semibold">
+                    <div class="d-flex flex-wrap gap-3 justify-content-center justify-content-lg-start text-muted small fw-semibold mb-2">
                         <span><i class="fa-solid fa-shield-check text-success me-1"></i> Secure Gmail OAuth</span>
                         <span>&bull;</span>
                         <span><i class="fa-solid fa-bolt text-primary me-1"></i> Automated Replies</span>
@@ -238,6 +238,12 @@
                         <span><i class="fa-solid fa-arrows-split-up-and-left text-info me-1"></i> Smart Follow-ups</span>
                         <span>&bull;</span>
                         <span><i class="fa-solid fa-server text-warning me-1"></i> Server-Side Automation</span>
+                    </div>
+
+                    <div class="text-center text-lg-start text-muted small">
+                        <a href="https://2xbets.net/privacy" class="text-secondary text-decoration-none fw-semibold">Privacy Policy</a>
+                        <span class="mx-1">&bull;</span>
+                        <a href="https://2xbets.net/terms" class="text-secondary text-decoration-none fw-semibold">Terms of Service</a>
                     </div>
                 </div>
 
@@ -929,8 +935,8 @@
                 <div class="col-6 col-md-3 col-lg-2">
                     <h6 class="fw-bold text-white mb-3">Legal</h6>
                     <ul class="list-unstyled small d-flex flex-column gap-2 text-muted">
-                        <li><a href="<?= url('/privacy') ?>" class="text-decoration-none text-muted">Privacy Policy</a></li>
-                        <li><a href="<?= url('/terms') ?>" class="text-decoration-none text-muted">Terms of Service</a></li>
+                        <li><a href="https://2xbets.net/privacy" class="text-decoration-none text-muted">Privacy Policy</a></li>
+                        <li><a href="https://2xbets.net/terms" class="text-decoration-none text-muted">Terms of Service</a></li>
                     </ul>
                 </div>
 
@@ -943,8 +949,12 @@
                 </div>
             </div>
 
-            <div class="border-top border-secondary border-opacity-25 pt-4 text-center text-muted small">
-                &copy; <?= date('Y') ?> Gmail Automation Platform (2xbets.net). All rights reserved.
+            <div class="border-top border-secondary border-opacity-25 pt-4 text-center text-muted small d-flex flex-wrap justify-content-center align-items-center gap-2">
+                <span>&copy; <?= date('Y') ?> Gmail Automation Platform (2xbets.net). All rights reserved.</span>
+                <span>&bull;</span>
+                <a href="https://2xbets.net/privacy" class="text-decoration-none text-light fw-semibold">Privacy Policy</a>
+                <span>&bull;</span>
+                <a href="https://2xbets.net/terms" class="text-decoration-none text-light fw-semibold">Terms of Service</a>
             </div>
         </div>
     </footer>
