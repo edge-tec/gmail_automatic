@@ -15,7 +15,7 @@
     <div class="col-12 col-sm-6 col-xl-3">
         <div class="stat-card d-flex align-items-center justify-content-between">
             <div>
-                <div class="text-muted small fw-semibold">Today's Replies Sent</div>
+                <div class="text-muted small fw-semibold">Today's Leads Replied</div>
                 <div class="fs-3 fw-bold mt-1 text-success"><?= $todayUsage['total_replies'] ?></div>
             </div>
             <div class="stat-icon bg-success bg-opacity-10 text-success">

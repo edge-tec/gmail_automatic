@@ -245,9 +245,9 @@ $replySteps = $settings->getReplyStepsData();
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Daily Reply Limit</label>
+                        <label class="form-label small fw-semibold">Daily Reply Limit (Unique Leads / Traffic)</label>
                         <input type="number" name="daily_reply_limit" class="form-control" min="1" max="1000" value="<?= $settings->daily_reply_limit ?>">
-                        <div class="form-text small">Maximum automated replies per day from this account.</div>
+                        <div class="form-text small">Maximum unique leads/traffic to reply to per day. Multiple replies in the same conversation with the same lead count as <strong>1</strong>.</div>
                     </div>
 
                     <hr class="my-3">

@@ -104,16 +104,17 @@ class QueueWorker {
             $usage = $account->getTodayUsage();
 
             if ($job->job_type === 'auto_reply') {
-                if ($usage['reply_count'] >= ($settings->daily_reply_limit ?? 100)) {
+                // Check daily limit only for NEW leads/traffic (reply_count == 0); multi-turn replies to existing leads count as 1
+                if ($thread->reply_count === 0 && $usage['reply_count'] >= ($settings->daily_reply_limit ?? 100)) {
                     // Reschedule for tomorrow
                     $engine = new AutomationEngine($account);
                     $nextTime = $engine->calculateNextAllowedSendTime(true);
                     $job->update([
                         'status' => 'pending',
                         'scheduled_at' => $nextTime,
-                        'last_error' => 'Daily reply limit reached. Postponed to next day.',
+                        'last_error' => 'Daily lead/traffic limit reached. Postponed to next day.',
                     ]);
-                    echo "  ↳ Daily reply limit reached. Postponed to {$nextTime}.\n";
+                    echo "  ↳ Daily lead/traffic limit reached. Postponed to {$nextTime}.\n";
                     return false;
                 }
             } elseif ($job->job_type === 'follow_up') {
@@ -161,11 +162,15 @@ class QueueWorker {
 
             // Update thread counters & timestamps
             if ($job->job_type === 'auto_reply') {
+                // Only increment daily quota when initiating reply with a lead (first reply)
+                if ($thread->reply_count === 0) {
+                    DailyUsage::incrementReply($account->id);
+                }
+
                 $thread->update([
                     'reply_count' => $thread->reply_count + 1,
                     'last_outgoing_at' => $sentAt,
                 ]);
-                DailyUsage::incrementReply($account->id);
 
                 // Schedule follow-up Step 1 if enabled
                 $engine = new AutomationEngine($account);
