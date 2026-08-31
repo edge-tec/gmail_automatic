@@ -135,6 +135,9 @@ class GmailAccountController {
         if ($settings) {
             $newState = !$settings->auto_reply_enabled;
             $settings->update(['auto_reply_enabled' => $newState ? 1 : 0]);
+            if (!$newState) {
+                \App\Models\ScheduledJob::cancelPendingJobsByAccountAndType($account->id, 'auto_reply', 'Auto reply toggle turned off');
+            }
             flash('success', "Auto Reply " . ($newState ? "Enabled" : "Disabled") . " for {$account->gmail_email}");
         }
 
@@ -151,6 +154,9 @@ class GmailAccountController {
         if ($settings) {
             $newState = !$settings->followup_enabled;
             $settings->update(['followup_enabled' => $newState ? 1 : 0]);
+            if (!$newState) {
+                \App\Models\ScheduledJob::cancelPendingJobsByAccountAndType($account->id, 'follow_up', 'Follow-up toggle turned off');
+            }
             flash('success', "Follow-up Automation " . ($newState ? "Enabled" : "Disabled") . " for {$account->gmail_email}");
         }
 

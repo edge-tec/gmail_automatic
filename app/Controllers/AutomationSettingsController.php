@@ -155,6 +155,13 @@ class AutomationSettingsController {
             'working_end' => $workingEnd,
         ]);
 
+        if (!$autoReplyEnabled) {
+            \App\Models\ScheduledJob::cancelPendingJobsByAccountAndType($account->id, 'auto_reply', 'Auto reply was disabled in settings');
+        }
+        if (!$followupEnabled) {
+            \App\Models\ScheduledJob::cancelPendingJobsByAccountAndType($account->id, 'follow_up', 'Follow-up automation was disabled in settings');
+        }
+
         flash('success', "Automation settings updated successfully for {$account->gmail_email}!");
         redirect("/settings/automation/{$account->id}");
     }

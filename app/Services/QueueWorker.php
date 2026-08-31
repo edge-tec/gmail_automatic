@@ -99,11 +99,18 @@ class QueueWorker {
                 throw new Exception("Missing recipient or message body in job payload");
             }
 
-            // Check daily limit
+            // Check Account Automation Settings
             $settings = $account->getSettings();
             $usage = $account->getTodayUsage();
 
             if ($job->job_type === 'auto_reply') {
+                if (!$settings || !$settings->auto_reply_enabled) {
+                    $job->cancel('Auto-reply is currently turned off for this account');
+                    logger("Skipped auto-reply job #{$job->id} because auto-reply is turned off for {$account->gmail_email}", 'info', $account->user_id, $account->id);
+                    echo "  ↳ Skipped: Auto-reply is turned off for {$account->gmail_email}.\n";
+                    return true;
+                }
+
                 // Check daily limit only for NEW leads/traffic (reply_count == 0); multi-turn replies to existing leads count as 1
                 if ($thread->reply_count === 0 && $usage['reply_count'] >= ($settings->daily_reply_limit ?? 100)) {
                     // Reschedule for tomorrow
@@ -118,6 +125,13 @@ class QueueWorker {
                     return false;
                 }
             } elseif ($job->job_type === 'follow_up') {
+                if (!$settings || !$settings->followup_enabled) {
+                    $job->cancel('Follow-up automation is currently turned off for this account');
+                    logger("Skipped follow-up job #{$job->id} because follow-up is turned off for {$account->gmail_email}", 'info', $account->user_id, $account->id);
+                    echo "  ↳ Skipped: Follow-up is turned off for {$account->gmail_email}.\n";
+                    return true;
+                }
+
                 if ($usage['followup_count'] >= ($settings->daily_followup_limit ?? 100)) {
                     $engine = new AutomationEngine($account);
                     $nextTime = $engine->calculateNextAllowedSendTime(true);

@@ -82,6 +82,26 @@ class ScheduledJob {
         return Database::execute($sql, $params);
     }
 
+    public function cancel(string $reason = 'Cancelled'): bool {
+        return $this->update([
+            'status' => 'cancelled',
+            'last_error' => $reason,
+        ]);
+    }
+
+    public static function cancelPendingJobsByAccountAndType(int $accountId, string $jobType, string $reason = 'Automation turned off'): int {
+        $driver = config('database.default', 'mysql');
+        $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
+        $sql = "UPDATE scheduled_jobs 
+                SET status = 'cancelled', last_error = :reason, updated_at = {$now}
+                WHERE gmail_account_id = :acc AND job_type = :type AND status = 'pending'";
+        return Database::execute($sql, [
+            'acc' => $accountId,
+            'type' => $jobType,
+            'reason' => $reason,
+        ]);
+    }
+
     public function getPayloadArray(): array {
         if (!$this->payload) {
             return [];
