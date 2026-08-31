@@ -243,6 +243,32 @@ class AdminController {
         return View::render('admin/logs', ['logs' => $logs]);
     }
 
+    public function filters(): string {
+        $blacklistEmails = SystemSetting::get('blacklist_emails', '');
+        $blacklistDomains = SystemSetting::get('blacklist_domains', '');
+        $blacklistKeywords = SystemSetting::get('blacklist_keywords', '');
+
+        return View::render('admin/filters', [
+            'blacklistEmails' => $blacklistEmails,
+            'blacklistDomains' => $blacklistDomains,
+            'blacklistKeywords' => $blacklistKeywords,
+        ]);
+    }
+
+    public function updateFilters(Request $request): void {
+        $emails = trim($request->input('blacklist_emails', ''));
+        $domains = trim($request->input('blacklist_domains', ''));
+        $keywords = trim($request->input('blacklist_keywords', ''));
+
+        SystemSetting::set('blacklist_emails', $emails);
+        SystemSetting::set('blacklist_domains', $domains);
+        SystemSetting::set('blacklist_keywords', $keywords);
+
+        logger("Admin updated system-wide blacklist filters (Emails, Domains, Keywords)", 'info', Auth::id());
+        flash('success', 'Blacklist filters and skip rules updated successfully!');
+        redirect('/admin/filters');
+    }
+
     public function toggleGlobalAutomation(Request $request): void {
         $current = SystemSetting::get('global_automation_enabled', '1');
         $new = $current === '1' ? '0' : '1';

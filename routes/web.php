@@ -75,6 +75,8 @@ $router->post('/admin/users/create', 'AdminController@createUser', [AdminMiddlew
 $router->post('/admin/users/{id}/update', 'AdminController@updateUser', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/users/{id}/toggle', 'AdminController@toggleUserStatus', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/users/{id}/delete', 'AdminController@deleteUser', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->get('/admin/filters', 'AdminController@filters', [AdminMiddleware::class]);
+$router->post('/admin/filters', 'AdminController@updateFilters', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/settings', 'AdminController@settings', [AdminMiddleware::class]);
 $router->post('/admin/settings', 'AdminController@updateSettings', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/logs', 'AdminController@logs', [AdminMiddleware::class]);

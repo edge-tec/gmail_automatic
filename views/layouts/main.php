@@ -78,6 +78,12 @@
                     </a>
                 </li>
                 <li>
+                    <a href="<?= url('/admin/filters') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/filters') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-ban text-danger"></i>
+                        <span>Blacklist Filters</span>
+                    </a>
+                </li>
+                <li>
                     <a href="<?= url('/admin/settings') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/settings') ? 'active' : '' ?>">
                         <i class="fa-solid fa-sliders"></i>
                         <span>API Settings</span>

@@ -169,4 +169,72 @@ class AutomationTest extends TestCase {
         ]);
         $this->assertEquals('limit_reached', $limitResult['status']);
     }
+
+    public function testAdminBlacklistFilters(): void {
+        $user = User::create([
+            'name' => 'Admin Tester',
+            'email' => 'admin_test_' . uniqid() . '@example.com',
+            'password' => password_hash('secret', PASSWORD_BCRYPT),
+            'role' => 'admin',
+            'status' => 'active',
+        ]);
+
+        $account = GmailAccount::createOrUpdate([
+            'user_id' => $user->id,
+            'gmail_email' => 'acc_bl_' . uniqid() . '@gmail.com',
+            'access_token' => 'access_tok_bl',
+            'refresh_token' => 'refresh_tok_bl',
+            'token_expires_at' => date('Y-m-d H:i:s', time() + 3600),
+        ]);
+
+        $settings = $account->getSettings() ?? AutomationSetting::createDefault($account->id);
+        $settings->update(['auto_reply_enabled' => 1]);
+
+        $engine = new AutomationEngine($account);
+
+        // 1. Test Blacklisted Email
+        \App\Models\SystemSetting::set('blacklist_emails', 'spammer@block.com, badguy@evil.com');
+        $resEmail = $engine->processIncomingMessage([
+            'message_id' => 'msg_bl_1',
+            'thread_id' => 'th_bl_1',
+            'sender_email' => 'spammer@block.com',
+            'sender_name' => 'Spammer',
+            'subject' => 'Hello there',
+            'snippet' => 'Buy now',
+            'body' => 'Buy now',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $resEmail['status']);
+        $this->assertStringContainsString('blacklisted by admin', $resEmail['reason']);
+
+        // 2. Test Blacklisted Domain
+        \App\Models\SystemSetting::set('blacklist_domains', 'spamdomain.org, junkmail.net');
+        $resDomain = $engine->processIncomingMessage([
+            'message_id' => 'msg_bl_2',
+            'thread_id' => 'th_bl_2',
+            'sender_email' => 'anyone@spamdomain.org',
+            'sender_name' => 'Anyone',
+            'subject' => 'Important proposal',
+            'snippet' => 'Hey',
+            'body' => 'Hey',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $resDomain['status']);
+        $this->assertStringContainsString('blacklisted by admin', $resDomain['reason']);
+
+        // 3. Test Blacklisted Keyword / Content
+        \App\Models\SystemSetting::set('blacklist_keywords', 'unsubscribe, out of office, delivery failure');
+        $resContent = $engine->processIncomingMessage([
+            'message_id' => 'msg_bl_3',
+            'thread_id' => 'th_bl_3',
+            'sender_email' => 'normal@client.com',
+            'sender_name' => 'Normal User',
+            'subject' => 'Automatic Reply: Out of Office until Monday',
+            'snippet' => 'I am out of office',
+            'body' => 'I am currently out of office.',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $resContent['status']);
+        $this->assertStringContainsString('blacklisted keyword', $resContent['reason']);
+    }
 }
