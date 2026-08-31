@@ -60,7 +60,8 @@ foreach ($accounts as $account) {
 
             // Process message through Automation Engine
             $result = $engine->processIncomingMessage($msgData);
-            echo "  ↳ Processed message {$msgId}: Result = {$result['status']}\n";
+            $reasonInfo = !empty($result['reason']) ? " (Reason: {$result['reason']})" : "";
+            echo "  ↳ Processed message {$msgId}: Result = {$result['status']}{$reasonInfo}\n";
         }
 
         // Update last sync timestamp
