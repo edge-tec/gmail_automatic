@@ -93,7 +93,7 @@ class AutomationTest extends TestCase {
         $settings->update([
             'auto_reply_enabled' => 1,
             'reply_message' => json_encode([
-                1 => ['message' => 'Custom Step 1: Where are you located?', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+                1 => ['message' => 'CUSTOM-AUTO-REPLY-TEST-98765: This is a manually configured user message.', 'delay_value' => 0, 'delay_unit' => 'seconds'],
                 2 => ['message' => 'Custom Step 2: Contact on WhatsApp', 'delay_value' => 0, 'delay_unit' => 'seconds'],
                 3 => ['message' => 'Custom Step 3: Here is the link', 'delay_value' => 0, 'delay_unit' => 'seconds'],
             ], JSON_UNESCAPED_UNICODE)
