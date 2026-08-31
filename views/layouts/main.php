@@ -57,8 +57,8 @@
                 </li>
 
                 <?php if (auth_user() && auth_user()->role === 'admin'): ?>
-                <hr class="text-secondary my-3">
-                <div class="text-uppercase text-xs text-muted px-2 mb-2 font-monospace" style="font-size: 0.75rem;">Admin Area</div>
+                <hr class="my-3">
+                <div class="sidebar-heading px-2 mb-2">Admin Area</div>
                 <li>
                     <a href="<?= url('/admin') ?>" class="nav-link <?= $_SERVER['REQUEST_URI'] === '/admin' ? 'active' : '' ?>">
                         <i class="fa-solid fa-gauge-high"></i>
@@ -94,7 +94,7 @@
                         </div>
                         <div class="text-truncate" style="max-width: 130px;">
                             <div class="text-white small fw-semibold text-truncate"><?= e(auth_user()->name ?? 'User') ?></div>
-                            <div class="text-muted" style="font-size: 0.75rem;"><?= e(auth_user()->role ?? 'user') ?></div>
+                            <div class="user-role"><?= ucfirst(e(auth_user()->role ?? 'user')) ?></div>
                         </div>
                     </div>
                     <a href="<?= url('/logout') ?>" class="sidebar-logout-btn" title="Logout">
