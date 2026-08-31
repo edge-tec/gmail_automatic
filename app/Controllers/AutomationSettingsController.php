@@ -95,6 +95,13 @@ class AutomationSettingsController {
                     'delay_unit' => 'seconds'
                 ];
             }
+
+            $cleanSteps['_blacklist'] = [
+                'emails' => trim($request->input('blacklist_emails', '')),
+                'domains' => trim($request->input('blacklist_domains', '')),
+                'keywords' => trim($request->input('blacklist_keywords', '')),
+            ];
+
             $replyMessage = json_encode($cleanSteps, JSON_UNESCAPED_UNICODE);
         } elseif (is_array($replyMessagesInput)) {
             $cleanMessages = [];
@@ -115,6 +122,13 @@ class AutomationSettingsController {
                     'delay_unit' => 'seconds'
                 ];
             }
+
+            $cleanMessages['_blacklist'] = [
+                'emails' => trim($request->input('blacklist_emails', '')),
+                'domains' => trim($request->input('blacklist_domains', '')),
+                'keywords' => trim($request->input('blacklist_keywords', '')),
+            ];
+
             $replyMessage = json_encode($cleanMessages, JSON_UNESCAPED_UNICODE);
         } else {
             $replyMessage = trim($request->input('reply_message', ''));

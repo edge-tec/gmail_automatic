@@ -27,6 +27,7 @@ class AutomationEngine {
      * Process an incoming email parsed array
      */
     public function processIncomingMessage(array $msgData): array {
+        $this->settings = $this->account->getSettings();
         $msgId = $msgData['message_id'];
         $threadId = $msgData['thread_id'];
         $senderEmail = strtolower(trim($msgData['sender_email']));
@@ -93,8 +94,8 @@ class AutomationEngine {
             return ['status' => 'skipped', 'reason' => 'Global automation is disabled'];
         }
 
-        // 6. Check Global Admin Blacklist (Emails, Domains, and Content/Keywords)
-        $blacklistDecision = $this->checkAdminBlacklist($senderEmail, $subject, $body);
+        // 6. Check Blacklist Rules (Admin + Account Level: Emails, Domains, and Content/Keywords)
+        $blacklistDecision = $this->checkBlacklistRules($senderEmail, $subject, $body);
         if ($blacklistDecision['action'] === 'skip') {
             logger("Skipped incoming email from {$senderEmail}: {$blacklistDecision['reason']}", 'warning', $this->account->user_id, $this->account->id);
             return ['status' => 'skipped', 'reason' => $blacklistDecision['reason']];
@@ -250,44 +251,70 @@ class AutomationEngine {
     }
 
     /**
-     * Check global admin blacklist rules (Email, Domain, and Content)
+     * Check both Global Admin and Account-Level User Blacklist rules (Email, Domain, and Content)
      */
-    private function checkAdminBlacklist(string $senderEmail, string $subject, string $body): array {
+    private function checkBlacklistRules(string $senderEmail, string $subject, string $body): array {
         $senderEmailClean = strtolower(trim($senderEmail));
-        
-        // 1. Blacklisted Emails
-        $blacklistEmailsRaw = SystemSetting::get('blacklist_emails', '');
-        if (!empty($blacklistEmailsRaw)) {
-            $blacklistedEmails = array_filter(array_map('trim', preg_split('/[\r\n,]+/', strtolower($blacklistEmailsRaw))));
-            if (in_array($senderEmailClean, $blacklistedEmails)) {
-                return ['action' => 'skip', 'reason' => "Sender email '{$senderEmailClean}' is blacklisted by admin"];
+        $senderParts = explode('@', $senderEmailClean);
+        $senderDomain = isset($senderParts[1]) ? trim($senderParts[1]) : '';
+        $combinedContent = strtolower($subject . ' ' . strip_tags($body));
+
+        // 1. Global Admin Blacklisted Emails
+        $adminEmailsRaw = SystemSetting::get('blacklist_emails', '');
+        $adminBlacklistedEmails = array_filter(array_map('trim', preg_split('/[\r\n,]+/', strtolower($adminEmailsRaw))));
+        if (in_array($senderEmailClean, $adminBlacklistedEmails)) {
+            return ['action' => 'skip', 'reason' => "Sender email '{$senderEmailClean}' is blacklisted by admin"];
+        }
+
+        // 2. User Account Blacklisted Emails
+        if ($this->settings) {
+            $userEmailsRaw = $this->settings->getBlacklistEmails();
+            $userBlacklistedEmails = array_filter(array_map('trim', preg_split('/[\r\n,]+/', strtolower($userEmailsRaw))));
+            if (in_array($senderEmailClean, $userBlacklistedEmails)) {
+                return ['action' => 'skip', 'reason' => "Sender email '{$senderEmailClean}' is in account blacklist"];
             }
         }
 
-        // 2. Blacklisted Domains
-        $blacklistDomainsRaw = SystemSetting::get('blacklist_domains', '');
-        if (!empty($blacklistDomainsRaw)) {
-            $blacklistedDomains = array_filter(array_map('trim', preg_split('/[\r\n,]+/', strtolower($blacklistDomainsRaw))));
-            $senderParts = explode('@', $senderEmailClean);
-            $senderDomain = isset($senderParts[1]) ? trim($senderParts[1]) : '';
-            if (!empty($senderDomain)) {
-                foreach ($blacklistedDomains as $bDomain) {
-                    $bDomain = ltrim($bDomain, '@');
-                    if ($senderDomain === $bDomain || str_ends_with($senderDomain, '.' . $bDomain)) {
-                        return ['action' => 'skip', 'reason' => "Sender domain '@{$senderDomain}' is blacklisted by admin"];
-                    }
+        // 3. Global Admin Blacklisted Domains
+        $adminDomainsRaw = SystemSetting::get('blacklist_domains', '');
+        $adminBlacklistedDomains = array_filter(array_map('trim', preg_split('/[\r\n,]+/', strtolower($adminDomainsRaw))));
+        if (!empty($senderDomain)) {
+            foreach ($adminBlacklistedDomains as $bDomain) {
+                $bDomain = ltrim($bDomain, '@');
+                if ($senderDomain === $bDomain || str_ends_with($senderDomain, '.' . $bDomain)) {
+                    return ['action' => 'skip', 'reason' => "Sender domain '@{$senderDomain}' is blacklisted by admin"];
                 }
             }
         }
 
-        // 3. Blacklisted Content / Keywords
-        $blacklistKeywordsRaw = SystemSetting::get('blacklist_keywords', '');
-        if (!empty($blacklistKeywordsRaw)) {
-            $blacklistedKeywords = array_filter(array_map('trim', preg_split('/[\r\n,]+/', strtolower($blacklistKeywordsRaw))));
-            $combinedContent = strtolower($subject . ' ' . strip_tags($body));
-            foreach ($blacklistedKeywords as $keyword) {
+        // 4. User Account Blacklisted Domains
+        if ($this->settings && !empty($senderDomain)) {
+            $userDomainsRaw = $this->settings->getBlacklistDomains();
+            $userBlacklistedDomains = array_filter(array_map('trim', preg_split('/[\r\n,]+/', strtolower($userDomainsRaw))));
+            foreach ($userBlacklistedDomains as $bDomain) {
+                $bDomain = ltrim($bDomain, '@');
+                if ($senderDomain === $bDomain || str_ends_with($senderDomain, '.' . $bDomain)) {
+                    return ['action' => 'skip', 'reason' => "Sender domain '@{$senderDomain}' is in account blacklist"];
+                }
+            }
+        }
+
+        // 5. Global Admin Blacklisted Content / Keywords
+        $adminKeywordsRaw = SystemSetting::get('blacklist_keywords', '');
+        $adminBlacklistedKeywords = array_filter(array_map('trim', preg_split('/[\r\n,]+/', strtolower($adminKeywordsRaw))));
+        foreach ($adminBlacklistedKeywords as $keyword) {
+            if (!empty($keyword) && str_contains($combinedContent, $keyword)) {
+                return ['action' => 'skip', 'reason' => "Content matches admin blacklisted keyword '{$keyword}'"];
+            }
+        }
+
+        // 6. User Account Blacklisted Content / Keywords
+        if ($this->settings) {
+            $userKeywordsRaw = $this->settings->getBlacklistKeywords();
+            $userBlacklistedKeywords = array_filter(array_map('trim', preg_split('/[\r\n,]+/', strtolower($userKeywordsRaw))));
+            foreach ($userBlacklistedKeywords as $keyword) {
                 if (!empty($keyword) && str_contains($combinedContent, $keyword)) {
-                    return ['action' => 'skip', 'reason' => "Content matches blacklisted keyword '{$keyword}'"];
+                    return ['action' => 'skip', 'reason' => "Content matches account blacklisted keyword '{$keyword}'"];
                 }
             }
         }

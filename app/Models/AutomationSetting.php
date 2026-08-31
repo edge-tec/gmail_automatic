@@ -146,6 +146,35 @@ class AutomationSetting {
         }
     }
 
+    public function getBlacklistData(): array {
+        if (!$this->reply_message) {
+            return ['emails' => '', 'domains' => '', 'keywords' => ''];
+        }
+
+        $decoded = json_decode($this->reply_message, true);
+        if (is_array($decoded) && isset($decoded['_blacklist']) && is_array($decoded['_blacklist'])) {
+            return [
+                'emails' => $decoded['_blacklist']['emails'] ?? '',
+                'domains' => $decoded['_blacklist']['domains'] ?? '',
+                'keywords' => $decoded['_blacklist']['keywords'] ?? '',
+            ];
+        }
+
+        return ['emails' => '', 'domains' => '', 'keywords' => ''];
+    }
+
+    public function getBlacklistEmails(): string {
+        return $this->getBlacklistData()['emails'] ?? '';
+    }
+
+    public function getBlacklistDomains(): string {
+        return $this->getBlacklistData()['domains'] ?? '';
+    }
+
+    public function getBlacklistKeywords(): string {
+        return $this->getBlacklistData()['keywords'] ?? '';
+    }
+
     public static function fromRow(array $row): self {
         $setting = new self();
         $setting->id = (int)$row['id'];

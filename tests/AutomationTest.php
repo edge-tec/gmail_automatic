@@ -236,5 +236,44 @@ class AutomationTest extends TestCase {
         ]);
         $this->assertEquals('skipped', $resContent['status']);
         $this->assertStringContainsString('blacklisted keyword', $resContent['reason']);
+
+        // 4. Test User Account-Level Blacklisted Email
+        $settings->update([
+            'reply_message' => json_encode([
+                1 => ['message' => 'Hello', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+                '_blacklist' => [
+                    'emails' => 'blockeduser@test.com',
+                    'domains' => 'blockedhost.com',
+                    'keywords' => 'casino bonus',
+                ]
+            ])
+        ]);
+
+        $resUserEmail = $engine->processIncomingMessage([
+            'message_id' => 'msg_bl_4',
+            'thread_id' => 'th_bl_4',
+            'sender_email' => 'blockeduser@test.com',
+            'sender_name' => 'Blocked User',
+            'subject' => 'Hello',
+            'snippet' => 'Test',
+            'body' => 'Test',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $resUserEmail['status']);
+        $this->assertStringContainsString('in account blacklist', $resUserEmail['reason']);
+
+        // 5. Test User Account-Level Blacklisted Keyword
+        $resUserKeyword = $engine->processIncomingMessage([
+            'message_id' => 'msg_bl_5',
+            'thread_id' => 'th_bl_5',
+            'sender_email' => 'regular@client.com',
+            'sender_name' => 'Regular User',
+            'subject' => 'Claim your casino bonus today!',
+            'snippet' => 'Claim now',
+            'body' => 'Claim now',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $resUserKeyword['status']);
+        $this->assertStringContainsString('account blacklisted keyword', $resUserKeyword['reason']);
     }
 }

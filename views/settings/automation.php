@@ -233,6 +233,40 @@ $replySteps = $settings->getReplyStepsData();
                     </div>
                 </div>
             </div>
+
+            <!-- Account Blacklist & Skip Filter Card -->
+            <div class="card shadow-sm border-0 mt-4">
+                <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-center">
+                    <span class="d-flex align-items-center gap-2 fw-semibold text-danger">
+                        <i class="fa-solid fa-ban"></i>
+                        <span class="text-dark">Account Blacklist &amp; Skip Filters</span>
+                    </span>
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle small font-monospace">Auto-Skip Rules</span>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Emails matching any of these criteria will be skipped automatically without sending auto-replies or follow-ups.</p>
+                    
+                    <div class="row g-3">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold text-dark"><i class="fa-solid fa-at text-danger me-1"></i> Blacklisted Emails</label>
+                            <textarea name="blacklist_emails" rows="4" class="form-control font-monospace" style="font-size: 0.82rem;" placeholder="spam@example.com&#10;noreply@google.com"><?= e($settings->getBlacklistEmails()) ?></textarea>
+                            <div class="form-text small" style="font-size: 0.72rem;">One email per line</div>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold text-dark"><i class="fa-solid fa-globe text-primary me-1"></i> Blacklisted Domains</label>
+                            <textarea name="blacklist_domains" rows="4" class="form-control font-monospace" style="font-size: 0.82rem;" placeholder="spamdomain.com&#10;mailtrack.io"><?= e($settings->getBlacklistDomains()) ?></textarea>
+                            <div class="form-text small" style="font-size: 0.72rem;">Without '@' (one per line)</div>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold text-dark"><i class="fa-solid fa-file-lines text-warning me-1"></i> Blacklisted Keywords</label>
+                            <textarea name="blacklist_keywords" rows="4" class="form-control font-monospace" style="font-size: 0.82rem;" placeholder="unsubscribe&#10;out of office&#10;delivery failure"><?= e($settings->getBlacklistKeywords()) ?></textarea>
+                            <div class="form-text small" style="font-size: 0.72rem;">Subject/body words (one per line)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Limits & Delays Sidebar -->
