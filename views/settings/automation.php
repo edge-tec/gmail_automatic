@@ -103,9 +103,10 @@ $replySteps = $settings->getReplyStepsData();
                             2 => ['title' => '2nd Auto Reply', 'badge' => 'When Lead Replies 1st Time', 'desc' => 'Sent automatically when the lead/traffic replies back to your 1st email.'],
                             3 => ['title' => '3rd Auto Reply', 'badge' => 'When Lead Replies 2nd Time', 'desc' => 'Sent automatically when the lead/traffic replies back again.'],
                             4 => ['title' => '4th Auto Reply', 'badge' => 'When Lead Replies 3rd Time', 'desc' => 'Sent automatically when the lead/traffic replies back again.'],
+                            5 => ['title' => '5th Auto Reply', 'badge' => 'When Lead Replies 4 Times', 'desc' => 'Sent automatically when the lead replies back again.'],
                         ];
 
-                        $maxStepsToRender = max(4, count($replySteps));
+                        $maxStepsToRender = max(5, count($replySteps));
                         for ($step = 1; $step <= $maxStepsToRender; $step++):
                             $stepData = $replySteps[$step] ?? [
                                 'message' => ($step === 1 ? ($settings->reply_message ?: '') : ''),

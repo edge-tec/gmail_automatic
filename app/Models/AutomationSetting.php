@@ -126,15 +126,34 @@ class AutomationSetting {
 
     public function getReplyMessageForStep(int $step): string {
         $steps = $this->getReplyStepsData();
-        if (isset($steps[$step]) && !empty(trim($steps[$step]['message']))) {
-            return $steps[$step]['message'];
+        
+        // 1. Direct step match
+        if (isset($steps[$step])) {
+            $msg = trim($steps[$step]['message'] ?? '');
+            if (!empty($msg) && $msg !== '<p><br></p>') {
+                return $steps[$step]['message'];
+            }
         }
 
-        if (isset($steps[1]) && !empty(trim($steps[1]['message']))) {
-            return $steps[1]['message'];
+        // 2. Try previous available steps in reverse (e.g. if step 5 requested but only 4 defined, use step 4)
+        for ($s = $step - 1; $s >= 1; $s--) {
+            if (isset($steps[$s])) {
+                $msg = trim($steps[$s]['message'] ?? '');
+                if (!empty($msg) && $msg !== '<p><br></p>') {
+                    return $steps[$s]['message'];
+                }
+            }
         }
 
-        return reset($steps)['message'] ?? "Hello {{first_name}},\n\nThank you for your reply! Our team will get back to you shortly.";
+        // 3. Try any non-empty step in the sequence
+        foreach ($steps as $sNum => $sData) {
+            $msg = trim($sData['message'] ?? '');
+            if (!empty($msg) && $msg !== '<p><br></p>') {
+                return $sData['message'];
+            }
+        }
+
+        return "Hello {{first_name}},\n\nThank you for your reply! Our team will get back to you shortly.";
     }
 
     public function getReplyDelaySecondsForStep(int $step): int {
