@@ -334,6 +334,21 @@ document.addEventListener('DOMContentLoaded', function() {
         ['clean']
     ];
 
+    function syncQuillToHidden(step) {
+        const quill = quillInstances[step];
+        const hiddenInput = document.getElementById(`hidden_message_${step}`);
+        if (quill && hiddenInput) {
+            const text = quill.getText().trim();
+            hiddenInput.value = text.length > 0 ? quill.root.innerHTML : '';
+        }
+    }
+
+    function syncAllQuills() {
+        for (const step in quillInstances) {
+            syncQuillToHidden(step);
+        }
+    }
+
     const stepElements = document.querySelectorAll('.quill-editor-box');
     stepElements.forEach((el, index) => {
         const step = index + 1;
@@ -347,13 +362,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         quillInstances[step] = quill;
 
+        // Immediately sync initial HTML
+        syncQuillToHidden(step);
+
         // Immediately sync on any text change
         quill.on('text-change', function() {
-            const hiddenInput = document.getElementById(`hidden_message_${step}`);
-            if (hiddenInput) {
-                const text = quill.getText().trim();
-                hiddenInput.value = text.length > 0 ? quill.root.innerHTML : '';
-            }
+            syncQuillToHidden(step);
         });
 
         // Track last focused editor
@@ -378,16 +392,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const position = range ? range.index : targetQuill.getLength();
                 targetQuill.insertText(position, variable);
                 targetQuill.setSelection(position + variable.length);
-                
-                // Sync to hidden input
-                for (const step in quillInstances) {
-                    if (quillInstances[step] === targetQuill) {
-                        const hiddenInput = document.getElementById(`hidden_message_${step}`);
-                        if (hiddenInput) {
-                            hiddenInput.value = targetQuill.root.innerHTML;
-                        }
-                    }
-                }
+                syncAllQuills();
             }
         });
     });
@@ -396,16 +401,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('autoReplyForm');
     if (form) {
         form.addEventListener('submit', function(e) {
-            for (const step in quillInstances) {
-                const quill = quillInstances[step];
-                const hiddenInput = document.getElementById(`hidden_message_${step}`);
-                if (hiddenInput) {
-                    const text = quill.getText().trim();
-                    hiddenInput.value = text.length > 0 ? quill.root.innerHTML : '';
-                }
-            }
+            syncAllQuills();
         });
     }
+
+    // Also sync on submit button click
+    document.querySelectorAll('button[type="submit"]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            syncAllQuills();
+        });
+    });
 });
 
 function toggleScheduleMode(mode) {

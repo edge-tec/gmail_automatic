@@ -91,7 +91,7 @@ class AutomationSettingsController {
             }
             if (empty($cleanSteps)) {
                 $cleanSteps[1] = [
-                    'message' => "Hello {{first_name}},\n\nThank you for reaching out! We have received your message regarding \"{{subject}}\" and our team will get back to you shortly.\n\nBest regards,\nAutomated Support",
+                    'message' => 'Where are you located?',
                     'delay_value' => 0,
                     'delay_unit' => 'seconds'
                 ];
@@ -104,6 +104,7 @@ class AutomationSettingsController {
             ];
 
             $replyMessage = json_encode($cleanSteps, JSON_UNESCAPED_UNICODE);
+            logger("Saved reply_steps for account {$account->id} ({$account->gmail_email}): " . $replyMessage, 'info', $account->user_id, $account->id);
         } elseif (is_array($replyMessagesInput)) {
             $cleanMessages = [];
             foreach ($replyMessagesInput as $step => $msg) {
@@ -118,7 +119,7 @@ class AutomationSettingsController {
             }
             if (empty($cleanMessages)) {
                 $cleanMessages[1] = [
-                    'message' => "Hello {{first_name}},\n\nThank you for reaching out! We have received your message regarding \"{{subject}}\" and our team will get back to you shortly.\n\nBest regards,\nAutomated Support",
+                    'message' => 'Where are you located?',
                     'delay_value' => 0,
                     'delay_unit' => 'seconds'
                 ];

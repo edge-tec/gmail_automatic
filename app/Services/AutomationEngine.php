@@ -148,6 +148,8 @@ class AutomationEngine {
             'date' => $date,
         ]);
 
+        logger("Prepared Auto-Reply Step #{$nextReplyStep} for {$senderEmail}: " . substr(strip_tags($renderedMessage), 0, 120), 'info', $this->account->user_id, $this->account->id);
+
         // 11. Schedule the Auto Reply Job (Step #$nextReplyStep)
         $job = ScheduledJob::create([
             'gmail_account_id' => $this->account->id,

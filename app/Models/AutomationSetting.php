@@ -34,7 +34,13 @@ class AutomationSetting {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
-        $defaultMessage = "Hello {{first_name}},\n\nThank you for reaching out! We have received your message regarding \"{{subject}}\" and our team will get back to you shortly.\n\nBest regards,\nAutomated Support";
+        $defaultMessage = json_encode([
+            1 => [
+                'message' => 'Where are you located?',
+                'delay_value' => 0,
+                'delay_unit' => 'seconds'
+            ]
+        ], JSON_UNESCAPED_UNICODE);
 
         $sql = "INSERT INTO automation_settings 
                 (gmail_account_id, auto_reply_enabled, reply_message, max_reply_per_thread, daily_reply_limit, reply_delay, followup_enabled, daily_followup_limit, timezone, working_days, working_start, working_end, created_at)
@@ -67,7 +73,7 @@ class AutomationSetting {
         if (!$this->reply_message) {
             return [
                 1 => [
-                    'message' => "Hello {{first_name}},\n\nThank you for reaching out! We have received your message regarding \"{{subject}}\" and our team will get back to you shortly.\n\nBest regards,\nAutomated Support",
+                    'message' => 'Where are you located?',
                     'delay_value' => (int)$this->reply_delay,
                     'delay_unit' => 'seconds'
                 ]
