@@ -51,6 +51,149 @@ class AdminController {
         return View::render('admin/users', ['users' => $users]);
     }
 
+    public function createUser(Request $request): void {
+        $name = trim($request->input('name', ''));
+        $email = strtolower(trim($request->input('email', '')));
+        $password = $request->input('password', '');
+        $role = $request->input('role', 'user');
+        $status = $request->input('status', 'active');
+
+        if (empty($name) || strlen($name) < 2) {
+            flash('error', 'Please enter a valid user name (at least 2 characters).');
+            redirect('/admin/users');
+            return;
+        }
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            flash('error', 'Please enter a valid email address.');
+            redirect('/admin/users');
+            return;
+        }
+
+        if (empty($password) || strlen($password) < 6) {
+            flash('error', 'Password must be at least 6 characters.');
+            redirect('/admin/users');
+            return;
+        }
+
+        if (!in_array($role, ['user', 'admin'])) {
+            $role = 'user';
+        }
+
+        if (!in_array($status, ['active', 'suspended'])) {
+            $status = 'active';
+        }
+
+        $existing = User::findByEmail($email);
+        if ($existing) {
+            flash('error', "A user with email {$email} already exists.");
+            redirect('/admin/users');
+            return;
+        }
+
+        $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+
+        $user = User::create([
+            'name' => $name,
+            'email' => $email,
+            'password' => $hashedPassword,
+            'role' => $role,
+            'status' => $status,
+        ]);
+
+        logger("Admin created new user account: {$email} (Role: {$role})", 'info', Auth::id());
+        flash('success', "User [{$name}] ({$email}) created successfully!");
+        redirect('/admin/users');
+    }
+
+    public function updateUser(Request $request, int $id): void {
+        $user = User::find($id);
+        if (!$user) {
+            flash('error', 'User not found.');
+            redirect('/admin/users');
+            return;
+        }
+
+        $name = trim($request->input('name', ''));
+        $email = strtolower(trim($request->input('email', '')));
+        $password = $request->input('password', '');
+        $role = $request->input('role', $user->role);
+        $status = $request->input('status', $user->status);
+
+        if (empty($name) || strlen($name) < 2) {
+            flash('error', 'Please enter a valid name.');
+            redirect('/admin/users');
+            return;
+        }
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            flash('error', 'Please enter a valid email address.');
+            redirect('/admin/users');
+            return;
+        }
+
+        // Email uniqueness check if changed
+        if ($email !== strtolower($user->email)) {
+            $existing = User::findByEmail($email);
+            if ($existing) {
+                flash('error', "Email {$email} is already in use by another account.");
+                redirect('/admin/users');
+                return;
+            }
+        }
+
+        // Protect current admin from revoking own admin or suspending self
+        if ($user->id === Auth::id()) {
+            $role = 'admin';
+            $status = 'active';
+        }
+
+        $dataToUpdate = [
+            'name' => $name,
+            'email' => $email,
+            'role' => in_array($role, ['user', 'admin']) ? $role : 'user',
+            'status' => in_array($status, ['active', 'suspended']) ? $status : 'active',
+        ];
+
+        // If password is provided, change it
+        if (!empty($password)) {
+            if (strlen($password) < 6) {
+                flash('error', 'New password must be at least 6 characters.');
+                redirect('/admin/users');
+                return;
+            }
+            $dataToUpdate['password'] = password_hash($password, PASSWORD_BCRYPT);
+        }
+
+        $user->update($dataToUpdate);
+        logger("Admin updated user account ID: {$user->id} ({$email})", 'info', Auth::id());
+        flash('success', "User [{$name}] updated successfully!");
+        redirect('/admin/users');
+    }
+
+    public function deleteUser(Request $request, int $id): void {
+        $user = User::find($id);
+        if (!$user) {
+            flash('error', 'User not found.');
+            redirect('/admin/users');
+            return;
+        }
+
+        if ($user->id === Auth::id()) {
+            flash('error', 'You cannot delete your own admin account.');
+            redirect('/admin/users');
+            return;
+        }
+
+        $name = $user->name;
+        $email = $user->email;
+        $user->delete();
+
+        logger("Admin deleted user account: {$email}", 'warning', Auth::id());
+        flash('success', "User [{$name}] ({$email}) and all related data have been deleted.");
+        redirect('/admin/users');
+    }
+
     public function toggleUserStatus(Request $request, int $id): void {
         $user = User::find($id);
         if (!$user) {

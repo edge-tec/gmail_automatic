@@ -61,7 +61,10 @@ $router->post('/threads/{id}/toggle-automation', 'ThreadController@toggleAutomat
 // Admin Panel Routes
 $router->get('/admin', 'AdminController@index', [AdminMiddleware::class]);
 $router->get('/admin/users', 'AdminController@users', [AdminMiddleware::class]);
+$router->post('/admin/users/create', 'AdminController@createUser', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/users/{id}/update', 'AdminController@updateUser', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/users/{id}/toggle', 'AdminController@toggleUserStatus', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/users/{id}/delete', 'AdminController@deleteUser', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/settings', 'AdminController@settings', [AdminMiddleware::class]);
 $router->post('/admin/settings', 'AdminController@updateSettings', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/logs', 'AdminController@logs', [AdminMiddleware::class]);
