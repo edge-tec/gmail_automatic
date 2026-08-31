@@ -24,6 +24,10 @@ $router->get('/register', 'AuthController@showRegister');
 $router->post('/register', 'AuthController@register', [CSRFMiddleware::class]);
 $router->get('/logout', 'AuthController@logout');
 
+// Public Legal Pages
+$router->get('/privacy', 'LegalController@privacy');
+$router->get('/terms', 'LegalController@terms');
+
 // Webhook Route (Exempt from CSRF)
 $router->post('/webhook/gmail/pubsub', 'WebhookController@handlePubSub');
 

@@ -40,6 +40,11 @@
         </div>
 
         <div class="text-center mt-4 text-muted small">
+            <div class="d-flex justify-content-center gap-3 mb-1">
+                <a href="<?= url('/privacy') ?>" class="text-decoration-none text-muted">Privacy Policy</a>
+                <span>&bull;</span>
+                <a href="<?= url('/terms') ?>" class="text-decoration-none text-muted">Terms of Service</a>
+            </div>
             &copy; <?= date('Y') ?> Gmail Automation System. All rights reserved.
         </div>
     </div>
