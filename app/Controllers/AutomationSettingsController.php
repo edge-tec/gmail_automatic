@@ -70,17 +70,50 @@ class AutomationSettingsController {
             $settings = AutomationSetting::createDefault($account->id);
         }
 
+        $replyStepsInput = $request->input('reply_steps');
         $replyMessagesInput = $request->input('reply_messages');
-        if (is_array($replyMessagesInput)) {
+
+        if (is_array($replyStepsInput)) {
+            $cleanSteps = [];
+            foreach ($replyStepsInput as $step => $stepData) {
+                $stepNum = (int)$step;
+                if (is_array($stepData)) {
+                    $msg = trim($stepData['message'] ?? '');
+                    if (!empty($msg)) {
+                        $cleanSteps[$stepNum] = [
+                            'message' => $msg,
+                            'delay_value' => max(0, (int)($stepData['delay_value'] ?? 0)),
+                            'delay_unit' => in_array($stepData['delay_unit'] ?? '', ['seconds', 'minutes', 'hours', 'days']) ? $stepData['delay_unit'] : 'seconds'
+                        ];
+                    }
+                }
+            }
+            if (empty($cleanSteps)) {
+                $cleanSteps[1] = [
+                    'message' => "Hello {{first_name}},\n\nThank you for reaching out! We have received your message regarding \"{{subject}}\" and our team will get back to you shortly.\n\nBest regards,\nAutomated Support",
+                    'delay_value' => 0,
+                    'delay_unit' => 'seconds'
+                ];
+            }
+            $replyMessage = json_encode($cleanSteps, JSON_UNESCAPED_UNICODE);
+        } elseif (is_array($replyMessagesInput)) {
             $cleanMessages = [];
             foreach ($replyMessagesInput as $step => $msg) {
                 $stepNum = (int)$step;
                 if (!empty(trim($msg))) {
-                    $cleanMessages[$stepNum] = trim($msg);
+                    $cleanMessages[$stepNum] = [
+                        'message' => trim($msg),
+                        'delay_value' => 0,
+                        'delay_unit' => 'seconds'
+                    ];
                 }
             }
             if (empty($cleanMessages)) {
-                $cleanMessages[1] = "Hello {{first_name}},\n\nThank you for reaching out! We have received your message regarding \"{{subject}}\" and our team will get back to you shortly.\n\nBest regards,\nAutomated Support";
+                $cleanMessages[1] = [
+                    'message' => "Hello {{first_name}},\n\nThank you for reaching out! We have received your message regarding \"{{subject}}\" and our team will get back to you shortly.\n\nBest regards,\nAutomated Support",
+                    'delay_value' => 0,
+                    'delay_unit' => 'seconds'
+                ];
             }
             $replyMessage = json_encode($cleanMessages, JSON_UNESCAPED_UNICODE);
         } else {

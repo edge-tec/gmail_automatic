@@ -111,13 +111,15 @@ class AutomationEngine {
             return ['status' => 'limit_reached', 'reason' => "Max reply per thread reached ({$this->settings->max_reply_per_thread})"];
         }
 
-        // 9. Check Daily Reply Limit
+        // 9. Check Daily Reply Limit & Step Delay
         $usage = $this->account->getTodayUsage();
+        $stepDelay = $this->settings->getReplyDelaySecondsForStep($nextReplyStep);
+
         if ($usage['reply_count'] >= $this->settings->daily_reply_limit) {
             // Schedule for next day beginning of working hour
             $scheduledAt = $this->calculateNextAllowedSendTime(true);
         } else {
-            $scheduledAt = $this->calculateNextAllowedSendTime(false, $this->settings->reply_delay);
+            $scheduledAt = $this->calculateNextAllowedSendTime(false, $stepDelay);
         }
 
         // 10. Prepare Reply Message for Step #$nextReplyStep with Template Variables

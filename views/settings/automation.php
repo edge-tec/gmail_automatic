@@ -1,11 +1,47 @@
 <?php
-$isInstant = ($settings->working_start === '00:00' && $settings->working_end === '23:59' && (int)$settings->reply_delay === 0 && count(explode(',', $settings->working_days)) >= 7);
-$replyMessages = $settings->getReplyMessages();
+$isInstant = ($settings->working_start === '00:00' && $settings->working_end === '23:59' && count(explode(',', $settings->working_days)) >= 7);
+$replySteps = $settings->getReplyStepsData();
 ?>
+<!-- Quill.js Rich Text Editor CSS -->
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+<style>
+.ql-toolbar.ql-snow {
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    background: #f8fafc;
+    border-color: #dee2e6;
+}
+.ql-container.ql-snow {
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    background: #ffffff;
+    border-color: #dee2e6;
+    font-size: 0.95rem;
+    min-height: 140px;
+}
+.variable-badge {
+    cursor: pointer;
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+.variable-badge:hover {
+    background: #4f46e5;
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+</style>
+
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
     <div>
         <h4 class="fw-bold mb-1">Auto Reply & Sequential Response Settings</h4>
-        <p class="text-muted small mb-0">Configure 1st, 2nd, 3rd, and 4th auto-replies when traffic/leads reply back repeatedly in the same thread.</p>
+        <p class="text-muted small mb-0">Configure rich-text responses with links and images, per-step delay times, and 24/7 automation.</p>
     </div>
     <!-- Account Selector Dropdown -->
     <div class="d-flex align-items-center gap-2">
@@ -20,7 +56,7 @@ $replyMessages = $settings->getReplyMessages();
     </div>
 </div>
 
-<form action="<?= url("/settings/automation/{$selectedAccount->id}") ?>" method="POST">
+<form id="autoReplyForm" action="<?= url("/settings/automation/{$selectedAccount->id}") ?>" method="POST">
     <?= csrf_field() ?>
 
     <div class="row g-4">
@@ -39,8 +75,13 @@ $replyMessages = $settings->getReplyMessages();
                 </div>
                 <div class="card-body">
                     <!-- Variable Helper Tags -->
-                    <div class="mb-4 p-3 bg-light rounded">
-                        <label class="form-label small fw-bold text-muted mb-2 text-uppercase">Insert Variables:</label>
+                    <div class="mb-4 p-3 bg-light rounded border">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                            <label class="form-label small fw-bold text-muted m-0 text-uppercase">
+                                <i class="fa-solid fa-wand-magic-sparkles text-primary me-1"></i> Click to Insert Variables:
+                            </label>
+                            <span class="small text-muted" style="font-size: 0.75rem;">(Inserts into active editor)</span>
+                        </div>
                         <div class="d-flex flex-wrap gap-2">
                             <span class="variable-badge" data-variable="{{first_name}}"><i class="fa-solid fa-plus me-1"></i>{{first_name}}</span>
                             <span class="variable-badge" data-variable="{{last_name}}"><i class="fa-solid fa-plus me-1"></i>{{last_name}}</span>
@@ -48,32 +89,33 @@ $replyMessages = $settings->getReplyMessages();
                             <span class="variable-badge" data-variable="{{subject}}"><i class="fa-solid fa-plus me-1"></i>{{subject}}</span>
                             <span class="variable-badge" data-variable="{{date}}"><i class="fa-solid fa-plus me-1"></i>{{date}}</span>
                         </div>
-                        <div class="small text-muted mt-2" style="font-size: 0.8rem;">
-                            Click any variable to copy or insert into active message body.
-                        </div>
                     </div>
 
                     <!-- Sequential Reply Steps (1st, 2nd, 3rd, 4th...) -->
                     <div id="replyStepsContainer">
                         <?php 
                         $stepTitles = [
-                            1 => ['title' => '1st Auto Reply', 'badge' => 'Initial Contact', 'desc' => 'Sent immediately when a contact/traffic sends their first email.'],
+                            1 => ['title' => '1st Auto Reply', 'badge' => 'Initial Email', 'desc' => 'Sent when a contact/traffic sends their first email.'],
                             2 => ['title' => '2nd Auto Reply', 'badge' => 'When Lead Replies 1st Time', 'desc' => 'Sent automatically when the lead/traffic replies back to your 1st email.'],
                             3 => ['title' => '3rd Auto Reply', 'badge' => 'When Lead Replies 2nd Time', 'desc' => 'Sent automatically when the lead/traffic replies back again.'],
                             4 => ['title' => '4th Auto Reply', 'badge' => 'When Lead Replies 3rd Time', 'desc' => 'Sent automatically when the lead/traffic replies back again.'],
                         ];
 
-                        $maxStepsToRender = max(4, count($replyMessages));
+                        $maxStepsToRender = max(4, count($replySteps));
                         for ($step = 1; $step <= $maxStepsToRender; $step++):
-                            $msgContent = $replyMessages[$step] ?? ($step === 1 ? $settings->reply_message : '');
+                            $stepData = $replySteps[$step] ?? [
+                                'message' => ($step === 1 ? ($settings->reply_message ?: '') : ''),
+                                'delay_value' => ($step === 1 ? (int)$settings->reply_delay : 0),
+                                'delay_unit' => 'seconds'
+                            ];
                             $meta = $stepTitles[$step] ?? [
                                 'title' => "{$step}th Auto Reply",
                                 'badge' => "When Lead Replies " . ($step - 1) . " Times",
                                 'desc' => "Sent automatically when the lead replies back {$step} times."
                             ];
                         ?>
-                        <div class="card mb-3 border bg-white step-card" id="step_card_<?= $step ?>">
-                            <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+                        <div class="card mb-4 border shadow-sm step-card" id="step_card_<?= $step ?>">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 flex-wrap gap-2">
                                 <div>
                                     <span class="fw-bold text-dark me-2">
                                         <i class="fa-solid fa-reply text-primary me-1"></i> <?= $meta['title'] ?>
@@ -82,11 +124,27 @@ $replyMessages = $settings->getReplyMessages();
                                         <?= $meta['badge'] ?>
                                     </span>
                                 </div>
-                                <span class="text-muted small">Step #<?= $step ?></span>
+                                
+                                <!-- Step Delay Control -->
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="small fw-semibold text-muted"><i class="fa-regular fa-clock me-1 text-primary"></i> Delay:</span>
+                                    <input type="number" name="reply_steps[<?= $step ?>][delay_value]" class="form-control form-control-sm text-center" style="width: 75px;" min="0" max="999" value="<?= (int)($stepData['delay_value'] ?? 0) ?>">
+                                    <select name="reply_steps[<?= $step ?>][delay_unit]" class="form-select form-select-sm" style="width: 100px;">
+                                        <option value="seconds" <?= ($stepData['delay_unit'] ?? 'seconds') === 'seconds' ? 'selected' : '' ?>>Seconds</option>
+                                        <option value="minutes" <?= ($stepData['delay_unit'] ?? '') === 'minutes' ? 'selected' : '' ?>>Minutes</option>
+                                        <option value="hours" <?= ($stepData['delay_unit'] ?? '') === 'hours' ? 'selected' : '' ?>>Hours</option>
+                                        <option value="days" <?= ($stepData['delay_unit'] ?? '') === 'days' ? 'selected' : '' ?>>Days</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="card-body p-3">
-                                <div class="small text-muted mb-2"><?= $meta['desc'] ?></div>
-                                <textarea name="reply_messages[<?= $step ?>]" id="reply_message_<?= $step ?>" rows="4" class="form-control font-monospace reply-textarea" style="font-size: 0.9rem;" placeholder="Enter message for Step #<?= $step ?>..."><?= e($msgContent) ?></textarea>
+                                <div class="small text-muted mb-2"><?= $meta['desc'] ?> <span class="text-secondary">(Supports Links & Images via Toolbar)</span></div>
+                                
+                                <!-- Quill Rich Text Editor Container -->
+                                <div id="quill_editor_<?= $step ?>" class="quill-editor-box">
+                                    <?= $stepData['message'] ?>
+                                </div>
+                                <input type="hidden" name="reply_steps[<?= $step ?>][message]" id="hidden_message_<?= $step ?>">
                             </div>
                         </div>
                         <?php endfor; ?>
@@ -110,7 +168,7 @@ $replyMessages = $settings->getReplyMessages();
                                         <input class="form-check-input mt-1" type="radio" name="schedule_mode" id="mode_instant" value="instant" <?= $isInstant ? 'checked' : '' ?> onchange="toggleScheduleMode(this.value)">
                                         <div>
                                             <div class="fw-bold text-dark"><i class="fa-solid fa-bolt text-warning me-1"></i> Instant 24/7 (Anytime)</div>
-                                            <div class="small text-muted mt-1">Send 1st, 2nd, 3rd, 4th replies instantly 24/7 anytime an email is received without delays or working hour limits.</div>
+                                            <div class="small text-muted mt-1">Send auto-replies 24/7 anytime an email is received according to each step's delay without working hour limits.</div>
                                         </div>
                                     </div>
                                 </label>
@@ -177,15 +235,9 @@ $replyMessages = $settings->getReplyMessages();
         <div class="col-12 col-lg-4">
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-header bg-transparent py-3">
-                    <i class="fa-solid fa-shield-halved me-2 text-primary"></i> <strong>Limits & Delays</strong>
+                    <i class="fa-solid fa-shield-halved me-2 text-primary"></i> <strong>Limits & Settings</strong>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3" id="replyDelayGroup">
-                        <label class="form-label small fw-semibold">Reply Delay (in seconds)</label>
-                        <input type="number" name="reply_delay" id="reply_delay" class="form-control" min="0" max="86400" value="<?= $settings->reply_delay ?>">
-                        <div class="form-text small">Set <strong>0</strong> for instant sending without delay.</div>
-                    </div>
-
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Per-Thread Reply Limit</label>
                         <input type="number" name="max_reply_per_thread" class="form-control" min="1" max="50" value="<?= $settings->max_reply_per_thread ?>">
@@ -227,38 +279,82 @@ $replyMessages = $settings->getReplyMessages();
     </div>
 </form>
 
+<!-- Quill.js Rich Text Editor Script -->
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
 <script>
-let lastFocusedTextarea = document.getElementById('reply_message_1');
+const quillInstances = {};
+let activeQuill = null;
 
-document.querySelectorAll('.reply-textarea').forEach(el => {
-    el.addEventListener('focus', function() {
-        lastFocusedTextarea = this;
+document.addEventListener('DOMContentLoaded', function() {
+    const toolbarOptions = [
+        ['bold', 'italic', 'underline'],
+        [{ 'color': [] }, { 'background': [] }],
+        [{ 'header': [1, 2, 3, false] }],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        ['link', 'image'],
+        ['clean']
+    ];
+
+    const stepElements = document.querySelectorAll('.quill-editor-box');
+    stepElements.forEach((el, index) => {
+        const step = index + 1;
+        const quill = new Quill(el, {
+            theme: 'snow',
+            modules: {
+                toolbar: toolbarOptions
+            },
+            placeholder: `Write auto-reply message for Step #${step}...`
+        });
+
+        quillInstances[step] = quill;
+
+        // Track last focused editor
+        quill.on('selection-change', function(range) {
+            if (range) {
+                activeQuill = quill;
+            }
+        });
+
+        if (step === 1) {
+            activeQuill = quill;
+        }
     });
-});
 
-document.querySelectorAll('.variable-badge').forEach(badge => {
-    badge.addEventListener('click', function() {
-        const variable = this.getAttribute('data-variable');
-        if (lastFocusedTextarea) {
-            const start = lastFocusedTextarea.selectionStart || 0;
-            const end = lastFocusedTextarea.selectionEnd || 0;
-            const text = lastFocusedTextarea.value;
-            lastFocusedTextarea.value = text.substring(0, start) + variable + text.substring(end);
-            lastFocusedTextarea.focus();
-            lastFocusedTextarea.selectionStart = lastFocusedTextarea.selectionEnd = start + variable.length;
+    // Variable badges insertion
+    document.querySelectorAll('.variable-badge').forEach(badge => {
+        badge.addEventListener('click', function() {
+            const variable = this.getAttribute('data-variable');
+            const targetQuill = activeQuill || quillInstances[1];
+            if (targetQuill) {
+                const range = targetQuill.getSelection(true);
+                const position = range ? range.index : targetQuill.getLength();
+                targetQuill.insertText(position, variable);
+                targetQuill.setSelection(position + variable.length);
+            }
+        });
+    });
+
+    // Form submit: sync Quill HTML content to hidden inputs
+    document.getElementById('autoReplyForm').addEventListener('submit', function() {
+        for (const step in quillInstances) {
+            const quill = quillInstances[step];
+            const hiddenInput = document.getElementById(`hidden_message_${step}`);
+            if (hiddenInput) {
+                // If text is not empty, get HTML
+                const text = quill.getText().trim();
+                hiddenInput.value = text.length > 0 ? quill.root.innerHTML : '';
+            }
         }
     });
 });
 
 function toggleScheduleMode(mode) {
     const customSection = document.getElementById('customScheduleSection');
-    const delayInput = document.getElementById('reply_delay');
     const cardInstant = document.getElementById('cardModeInstant');
     const cardCustom = document.getElementById('cardModeCustom');
 
     if (mode === 'instant') {
         customSection.classList.add('d-none');
-        if (delayInput) delayInput.value = '0';
         cardInstant.classList.add('border-primary', 'bg-primary-subtle');
         cardCustom.classList.remove('border-primary', 'bg-primary-subtle');
     } else {

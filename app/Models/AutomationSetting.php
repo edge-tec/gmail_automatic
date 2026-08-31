@@ -63,35 +63,87 @@ class AutomationSetting {
         return Database::execute($sql, $params);
     }
 
-    public function getReplyMessages(): array {
+    public function getReplyStepsData(): array {
         if (!$this->reply_message) {
             return [
-                1 => "Hello {{first_name}},\n\nThank you for reaching out! We have received your message regarding \"{{subject}}\" and our team will get back to you shortly.\n\nBest regards,\nAutomated Support"
+                1 => [
+                    'message' => "Hello {{first_name}},\n\nThank you for reaching out! We have received your message regarding \"{{subject}}\" and our team will get back to you shortly.\n\nBest regards,\nAutomated Support",
+                    'delay_value' => (int)$this->reply_delay,
+                    'delay_unit' => 'seconds'
+                ]
             ];
         }
 
         $decoded = json_decode($this->reply_message, true);
         if (is_array($decoded) && !empty($decoded)) {
-            return $decoded;
+            $result = [];
+            foreach ($decoded as $step => $data) {
+                $stepNum = (int)$step;
+                if (is_array($data)) {
+                    $result[$stepNum] = [
+                        'message' => $data['message'] ?? '',
+                        'delay_value' => (int)($data['delay_value'] ?? 0),
+                        'delay_unit' => $data['delay_unit'] ?? 'seconds'
+                    ];
+                } else {
+                    $result[$stepNum] = [
+                        'message' => (string)$data,
+                        'delay_value' => $stepNum === 1 ? (int)$this->reply_delay : 0,
+                        'delay_unit' => 'seconds'
+                    ];
+                }
+            }
+            return $result;
         }
 
         return [
-            1 => $this->reply_message
+            1 => [
+                'message' => $this->reply_message,
+                'delay_value' => (int)$this->reply_delay,
+                'delay_unit' => 'seconds'
+            ]
         ];
     }
 
+    public function getReplyMessages(): array {
+        $steps = $this->getReplyStepsData();
+        $msgs = [];
+        foreach ($steps as $s => $item) {
+            $msgs[$s] = $item['message'];
+        }
+        return $msgs;
+    }
+
     public function getReplyMessageForStep(int $step): string {
-        $messages = $this->getReplyMessages();
-        if (isset($messages[$step]) && !empty(trim($messages[$step]))) {
-            return $messages[$step];
+        $steps = $this->getReplyStepsData();
+        if (isset($steps[$step]) && !empty(trim($steps[$step]['message']))) {
+            return $steps[$step]['message'];
         }
 
-        // If step not defined, use the last defined step or step 1
-        if (isset($messages[1])) {
-            return $messages[1];
+        if (isset($steps[1]) && !empty(trim($steps[1]['message']))) {
+            return $steps[1]['message'];
         }
 
-        return reset($messages) ?: "Hello {{first_name}},\n\nThank you for your reply! Our team will get back to you shortly.";
+        return reset($steps)['message'] ?? "Hello {{first_name}},\n\nThank you for your reply! Our team will get back to you shortly.";
+    }
+
+    public function getReplyDelaySecondsForStep(int $step): int {
+        $steps = $this->getReplyStepsData();
+        $stepData = $steps[$step] ?? ($steps[1] ?? null);
+        if (!$stepData) {
+            return (int)$this->reply_delay;
+        }
+
+        $val = (int)($stepData['delay_value'] ?? 0);
+        $unit = $stepData['delay_unit'] ?? 'seconds';
+
+        switch ($unit) {
+            case 'minutes': return $val * 60;
+            case 'hours':   return $val * 3600;
+            case 'days':    return $val * 86400;
+            case 'seconds':
+            default:        return $val;
+        }
     }
 
     public static function fromRow(array $row): self {

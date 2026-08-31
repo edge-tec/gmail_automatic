@@ -281,12 +281,28 @@ class GmailService {
             $replySubject = trim($subject);
         }
 
+        $isHtml = (strip_tags($bodyText) !== $bodyText || str_contains($bodyText, '<') || str_contains($bodyText, 'http'));
+        
         $replyHeaders = [];
         $replyHeaders[] = "From: <{$fromEmail}>";
         $replyHeaders[] = "To: <{$toEmail}>";
         $replyHeaders[] = "Subject: =?UTF-8?B?" . base64_encode($replySubject) . "?=";
         $replyHeaders[] = "MIME-Version: 1.0";
-        $replyHeaders[] = "Content-Type: text/plain; charset=UTF-8";
+        
+        if ($isHtml) {
+            $replyHeaders[] = "Content-Type: text/html; charset=UTF-8";
+            // Ensure basic HTML wrapper if not present
+            if (!str_contains($bodyText, '<html')) {
+                $htmlBody = "<div style=\"font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #222222;\">" . $bodyText . "</div>";
+            } else {
+                $htmlBody = $bodyText;
+            }
+            $formattedBody = $htmlBody;
+        } else {
+            $replyHeaders[] = "Content-Type: text/plain; charset=UTF-8";
+            $formattedBody = $bodyText;
+        }
+        
         $replyHeaders[] = "Content-Transfer-Encoding: 8bit";
 
         if ($inReplyToMessageIdHeader) {
@@ -295,7 +311,7 @@ class GmailService {
             $replyHeaders[] = "References: {$ref}";
         }
 
-        $rawMime = implode("\r\n", $replyHeaders) . "\r\n\r\n" . $bodyText;
+        $rawMime = implode("\r\n", $replyHeaders) . "\r\n\r\n" . $formattedBody;
 
         $msg = new GoogleMessage();
         $msg->setRaw($this->encodeBase64Url($rawMime));
