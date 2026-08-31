@@ -45,7 +45,8 @@
                 <span>&bull;</span>
                 <a href="<?= url('/terms') ?>" class="text-decoration-none text-muted">Terms of Service</a>
             </div>
-            &copy; <?= date('Y') ?> Gmail Automation System. All rights reserved.
+            <div>&copy; <?= date('Y') ?> Gmail Automation System. All rights reserved.</div>
+            <div class="mt-1 text-secondary">All rights &amp; design by <strong>Mizanur Rahman</strong> | <a href="tel:+8801611195794" class="text-decoration-none text-secondary fw-semibold">+8801611195794</a></div>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

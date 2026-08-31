@@ -167,6 +167,16 @@
                 <!-- View Output -->
                 <?= $content ?>
             </main>
+
+            <!-- Footer -->
+            <footer class="mt-auto py-3 px-4 border-top bg-white text-muted small d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    &copy; <?= date('Y') ?> <strong><?= e(config('app.name', 'Gmail Automation System')) ?></strong>. All rights reserved.
+                </div>
+                <div class="text-secondary">
+                    All rights &amp; design by <strong>Mizanur Rahman</strong> | <i class="fa-solid fa-phone text-primary me-1"></i><a href="tel:+8801611195794" class="text-decoration-none text-secondary fw-bold">+8801611195794</a>
+                </div>
+            </footer>
         </div>
     </div>
 

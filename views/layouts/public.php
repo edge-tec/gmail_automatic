@@ -97,6 +97,7 @@
                 <a href="<?= url('/login') ?>" class="text-decoration-none text-muted">Dashboard</a>
             </div>
             <div>&copy; <?= date('Y') ?> Gmail Automation Platform (2xbets.net). All rights reserved.</div>
+            <div class="mt-1 text-secondary">All rights &amp; design by <strong>Mizanur Rahman</strong> | <a href="tel:+8801611195794" class="text-decoration-none text-secondary fw-semibold">+8801611195794</a></div>
         </div>
     </footer>
 </body>
