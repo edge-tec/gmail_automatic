@@ -215,16 +215,18 @@ class AutomationEngine {
      * Calculate allowed send time considering delay, timezone, working days, and working hours
      */
     public function calculateNextAllowedSendTime(bool $forceTomorrow = false, int $delaySeconds = 0): string {
-        $timezoneStr = $this->settings->timezone ?? 'Asia/Dhaka';
-        $tz = new DateTimeZone($timezoneStr);
-        $now = new DateTime('now', $tz);
+        $appTz = new \DateTimeZone(date_default_timezone_get());
+        $userTzStr = $this->settings->timezone ?? date_default_timezone_get();
+        $userTz = new \DateTimeZone($userTzStr);
+
+        $userNow = new \DateTime('now', $userTz);
 
         if ($forceTomorrow) {
-            $now->modify('+1 day');
+            $userNow->modify('+1 day');
         }
 
         if ($delaySeconds > 0) {
-            $now->modify("+{$delaySeconds} seconds");
+            $userNow->modify("+{$delaySeconds} seconds");
         }
 
         $workingDays = array_map('trim', explode(',', $this->settings->working_days ?? 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'));
@@ -239,32 +241,33 @@ class AutomationEngine {
         // Adjust if current time is outside allowed working window
         $maxAttempts = 14;
         while ($maxAttempts-- > 0) {
-            $dayName = $now->format('l');
+            $dayName = $userNow->format('l');
             if (!in_array($dayName, $workingDays)) {
-                $now->modify('+1 day');
-                $now->setTime($startHour, $startMin, 0);
+                $userNow->modify('+1 day');
+                $userNow->setTime($startHour, $startMin, 0);
                 continue;
             }
 
-            $currentHour = (int)$now->format('G');
-            $currentMin = (int)$now->format('i');
+            $currentHour = (int)$userNow->format('G');
+            $currentMin = (int)$userNow->format('i');
             $currentTotalMin = ($currentHour * 60) + $currentMin;
             $startTotalMin = ($startHour * 60) + $startMin;
             $endTotalMin = ($endHour * 60) + $endMin;
 
             if ($currentTotalMin < $startTotalMin) {
-                $now->setTime($startHour, $startMin, 0);
+                $userNow->setTime($startHour, $startMin, 0);
                 break;
             } elseif ($currentTotalMin > $endTotalMin) {
-                $now->modify('+1 day');
-                $now->setTime($startHour, $startMin, 0);
+                $userNow->modify('+1 day');
+                $userNow->setTime($startHour, $startMin, 0);
                 continue;
             } else {
                 break;
             }
         }
 
-        return $now->format('Y-m-d H:i:s');
+        $userNow->setTimezone($appTz);
+        return $userNow->format('Y-m-d H:i:s');
     }
 
     /**
