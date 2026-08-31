@@ -51,6 +51,7 @@ class AutomationSettingsController {
             'accounts' => $accounts,
             'selectedAccount' => $selectedAccount,
             'settings' => $settings,
+            'replySteps' => $settings->getReplyStepsData(),
             'timezones' => $timezones,
         ]);
     }

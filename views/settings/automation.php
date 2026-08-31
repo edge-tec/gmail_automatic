@@ -146,9 +146,9 @@ $replySteps = $settings->getReplyStepsData();
                                 
                                 <!-- Quill Rich Text Editor Container -->
                                 <div id="quill_editor_<?= $step ?>" class="quill-editor-box">
-                                    <?= $stepData['message'] ?>
+                                    <?= $stepData['message'] ?? '' ?>
                                 </div>
-                                <input type="hidden" name="reply_steps[<?= $step ?>][message]" id="hidden_message_<?= $step ?>">
+                                <input type="hidden" name="reply_steps[<?= $step ?>][message]" id="hidden_message_<?= $step ?>" value="<?= htmlspecialchars($stepData['message'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                             </div>
                         </div>
                         <?php endfor; ?>
@@ -346,6 +346,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
         quillInstances[step] = quill;
 
+        // Immediately sync on any text change
+        quill.on('text-change', function() {
+            const hiddenInput = document.getElementById(`hidden_message_${step}`);
+            if (hiddenInput) {
+                const text = quill.getText().trim();
+                hiddenInput.value = text.length > 0 ? quill.root.innerHTML : '';
+            }
+        });
+
         // Track last focused editor
         quill.on('selection-change', function(range) {
             if (range) {
@@ -368,22 +377,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 const position = range ? range.index : targetQuill.getLength();
                 targetQuill.insertText(position, variable);
                 targetQuill.setSelection(position + variable.length);
+                
+                // Sync to hidden input
+                for (const step in quillInstances) {
+                    if (quillInstances[step] === targetQuill) {
+                        const hiddenInput = document.getElementById(`hidden_message_${step}`);
+                        if (hiddenInput) {
+                            hiddenInput.value = targetQuill.root.innerHTML;
+                        }
+                    }
+                }
             }
         });
     });
 
-    // Form submit: sync Quill HTML content to hidden inputs
-    document.getElementById('autoReplyForm').addEventListener('submit', function() {
-        for (const step in quillInstances) {
-            const quill = quillInstances[step];
-            const hiddenInput = document.getElementById(`hidden_message_${step}`);
-            if (hiddenInput) {
-                // If text is not empty, get HTML
-                const text = quill.getText().trim();
-                hiddenInput.value = text.length > 0 ? quill.root.innerHTML : '';
+    // Form submit: final sync Quill HTML content to hidden inputs
+    const form = document.getElementById('autoReplyForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            for (const step in quillInstances) {
+                const quill = quillInstances[step];
+                const hiddenInput = document.getElementById(`hidden_message_${step}`);
+                if (hiddenInput) {
+                    const text = quill.getText().trim();
+                    hiddenInput.value = text.length > 0 ? quill.root.innerHTML : '';
+                }
             }
-        }
-    });
+        });
+    }
 });
 
 function toggleScheduleMode(mode) {

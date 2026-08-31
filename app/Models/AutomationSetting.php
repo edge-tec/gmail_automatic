@@ -78,7 +78,14 @@ class AutomationSetting {
         if (is_array($decoded) && !empty($decoded)) {
             $result = [];
             foreach ($decoded as $step => $data) {
+                if ($step === '_blacklist') {
+                    continue;
+                }
                 $stepNum = (int)$step;
+                if ($stepNum <= 0) {
+                    continue;
+                }
+
                 if (is_array($data)) {
                     $result[$stepNum] = [
                         'message' => $data['message'] ?? '',
@@ -93,7 +100,10 @@ class AutomationSetting {
                     ];
                 }
             }
-            return $result;
+            if (!empty($result)) {
+                ksort($result);
+                return $result;
+            }
         }
 
         return [
