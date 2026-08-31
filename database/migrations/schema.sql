@@ -237,18 +237,26 @@ CREATE TABLE IF NOT EXISTS payments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     plan_id INT NULL,
+    gateway VARCHAR(50) NOT NULL DEFAULT 'stripe', -- stripe, bkash, nagad
+    payment_method_type VARCHAR(50) NOT NULL DEFAULT 'api', -- api, manual_number
+    sender_number VARCHAR(100) NULL,
+    transaction_id VARCHAR(191) NULL,
     stripe_session_id VARCHAR(191) NULL UNIQUE,
     stripe_payment_intent_id VARCHAR(191) NULL,
     stripe_invoice_id VARCHAR(191) NULL,
     amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    amount_bdt DECIMAL(10,2) NULL,
     currency VARCHAR(10) NOT NULL DEFAULT 'usd',
-    status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, paid, failed, cancelled, refunded
+    status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, paid, failed, rejected, cancelled, refunded
+    admin_notes TEXT NULL,
     paid_at DATETIME NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_payment_user (user_id),
-    INDEX idx_payment_status (status)
+    INDEX idx_payment_status (status),
+    INDEX idx_payment_gateway (gateway),
+    INDEX idx_payment_trx (transaction_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS email_templates (

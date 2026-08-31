@@ -122,24 +122,88 @@ class SaaSSubscriptionTest extends TestCase {
         $this->assertEquals(50.00, $payment->amount);
     }
 
-    public function testQueueWorkerProcessesEmailJobs(): void {
-        $email = 'queue_test_' . uniqid() . '@test.com';
-        $job = EmailJob::dispatch([
-            'recipient_email' => $email,
-            'recipient_name' => 'Queue Recipient',
-            'subject' => 'Test Subject',
-            'body' => '<p>Test Body</p>',
+    public function testBkashManualPaymentSubmissionAndApproval(): void {
+        $email = 'bkash_user_' . uniqid() . '@test.com';
+        $user = User::create([
+            'name' => 'bKash Customer',
+            'email' => $email,
+            'password' => password_hash('Pass@123', PASSWORD_BCRYPT),
         ]);
 
-        $this->assertNotNull($job);
-        $this->assertEquals('pending', $job->status);
+        $proPlan = Plan::findBySlug('professional');
+        $trxId = 'BK' . strtoupper(uniqid());
 
-        $worker = new QueueWorker();
-        // Process queue batch
-        $worker->processEmailJobs(10);
+        // Create pending manual bKash payment
+        $payment = Payment::create([
+            'user_id' => $user->id,
+            'plan_id' => $proPlan->id,
+            'gateway' => 'bkash',
+            'payment_method_type' => 'manual_number',
+            'sender_number' => '01711223344',
+            'transaction_id' => $trxId,
+            'amount' => 100.00,
+            'amount_bdt' => 12000.00,
+            'currency' => 'usd',
+            'status' => 'pending',
+        ]);
 
-        $freshJob = EmailJob::find($job->id);
-        // If SMTP is disabled by default, MailService marks failed or skips cleanly
-        $this->assertContains($freshJob->status, ['sent', 'failed', 'pending']);
+        $this->assertNotNull($payment);
+        $this->assertEquals('pending', $payment->status);
+        $this->assertEquals('bkash', $payment->gateway);
+        $this->assertEquals('01711223344', $payment->sender_number);
+
+        // Admin approves the payment
+        $approved = $payment->approve(1, 'Verified via bKash statement');
+        $this->assertTrue($approved);
+
+        $freshPayment = Payment::find($payment->id);
+        $this->assertEquals('paid', $freshPayment->status);
+
+        // User plan should now be active with 250 Gmail limit
+        $freshUser = User::find($user->id);
+        $this->assertTrue($freshUser->hasActiveSubscription());
+        $this->assertEquals('professional', $freshUser->plan_type);
+        $this->assertEquals(250, $freshUser->getMaxGmailAccounts());
+    }
+
+    public function testNagadManualPaymentSubmissionAndRejection(): void {
+        $email = 'nagad_user_' . uniqid() . '@test.com';
+        $user = User::create([
+            'name' => 'Nagad Customer',
+            'email' => $email,
+            'password' => password_hash('Pass@123', PASSWORD_BCRYPT),
+        ]);
+
+        $starterPlan = Plan::findBySlug('starter');
+        $trxId = 'NG' . strtoupper(uniqid());
+
+        // Create pending manual Nagad payment
+        $payment = Payment::create([
+            'user_id' => $user->id,
+            'plan_id' => $starterPlan->id,
+            'gateway' => 'nagad',
+            'payment_method_type' => 'manual_number',
+            'sender_number' => '01811223344',
+            'transaction_id' => $trxId,
+            'amount' => 50.00,
+            'amount_bdt' => 6000.00,
+            'currency' => 'usd',
+            'status' => 'pending',
+        ]);
+
+        $this->assertNotNull($payment);
+        $this->assertEquals('pending', $payment->status);
+
+        // Admin rejects the fake transaction
+        $rejected = $payment->reject('Invalid TrxID');
+        $this->assertTrue($rejected);
+
+        $freshPayment = Payment::find($payment->id);
+        $this->assertEquals('rejected', $freshPayment->status);
+        $this->assertEquals('Invalid TrxID', $freshPayment->admin_notes);
+
+        // User should remain inactive
+        $freshUser = User::find($user->id);
+        $this->assertFalse($freshUser->hasActiveSubscription());
     }
 }

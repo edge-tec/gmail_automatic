@@ -43,10 +43,32 @@ class SeedData {
             'smtp_encryption' => 'tls',
             'smtp_from_name' => 'Gmail Automation',
             'smtp_from_email' => 'support@2xbets.net',
-            // Stripe settings
+            // Stripe Gateway
+            'stripe_enabled' => '1',
             'stripe_publishable_key' => '',
             'stripe_secret_key' => '',
             'stripe_webhook_secret' => '',
+            // bKash Gateway (Personal Number & API)
+            'bkash_enabled' => '1',
+            'bkash_type' => 'manual_number', // manual_number or merchant_api
+            'bkash_number' => '01611195794',
+            'bkash_account_type' => 'Personal', // Personal, Agent, Merchant
+            'bkash_exchange_rate' => '120', // 1 USD = 120 BDT
+            'bkash_instructions' => 'Send Money to bKash Personal Number: 01611195794. Enter your Sender Phone Number & Transaction ID (TrxID) below to submit verification.',
+            'bkash_app_key' => '',
+            'bkash_app_secret' => '',
+            'bkash_username' => '',
+            'bkash_password' => '',
+            // Nagad Gateway (Personal Number & API)
+            'nagad_enabled' => '1',
+            'nagad_type' => 'manual_number', // manual_number or merchant_api
+            'nagad_number' => '01611195794',
+            'nagad_account_type' => 'Personal', // Personal, Agent, Merchant
+            'nagad_exchange_rate' => '120', // 1 USD = 120 BDT
+            'nagad_instructions' => 'Send Money to Nagad Personal Number: 01611195794. Enter your Sender Phone Number & Transaction ID (TrxID) below to submit verification.',
+            'nagad_merchant_id' => '',
+            'nagad_public_key' => '',
+            'nagad_private_key' => '',
         ];
 
         foreach ($defaults as $key => $val) {

@@ -114,8 +114,14 @@
                     </a>
                 </li>
                 <li>
+                    <a href="<?= url('/admin/gateways') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/gateways') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-credit-card text-success"></i>
+                        <span>Payment Gateways</span>
+                    </a>
+                </li>
+                <li>
                     <a href="<?= url('/admin/payments') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/payments') ? 'active' : '' ?>">
-                        <i class="fa-solid fa-receipt text-success"></i>
+                        <i class="fa-solid fa-receipt text-primary"></i>
                         <span>Payments &amp; Invoices</span>
                     </a>
                 </li>

@@ -7,12 +7,18 @@ class Payment {
     public int $id;
     public int $user_id;
     public ?int $plan_id = null;
+    public string $gateway = 'stripe'; // stripe, bkash, nagad
+    public string $payment_method_type = 'api'; // api, manual_number
+    public ?string $sender_number = null;
+    public ?string $transaction_id = null;
     public ?string $stripe_session_id = null;
     public ?string $stripe_payment_intent_id = null;
     public ?string $stripe_invoice_id = null;
-    public float $amount;
-    public string $currency;
-    public string $status; // pending, paid, failed, cancelled, refunded
+    public float $amount = 0.00;
+    public ?float $amount_bdt = null;
+    public string $currency = 'usd';
+    public string $status = 'pending'; // pending, paid, failed, rejected, cancelled, refunded
+    public ?string $admin_notes = null;
     public ?string $paid_at = null;
     public ?string $created_at = null;
     public ?string $updated_at = null;
@@ -24,6 +30,11 @@ class Payment {
 
     public static function findBySessionId(string $sessionId): ?self {
         $row = Database::first("SELECT * FROM payments WHERE stripe_session_id = :sid LIMIT 1", ['sid' => $sessionId]);
+        return $row ? self::fromRow($row) : null;
+    }
+
+    public static function findByTransactionId(string $trxId): ?self {
+        $row = Database::first("SELECT * FROM payments WHERE transaction_id = :trx LIMIT 1", ['trx' => $trxId]);
         return $row ? self::fromRow($row) : null;
     }
 
@@ -40,22 +51,40 @@ class Payment {
         return array_map([self::class, 'fromRow'], $rows);
     }
 
+    public static function getPendingManual(int $limit = 50): array {
+        $rows = Database::query("SELECT * FROM payments WHERE status = 'pending' ORDER BY created_at DESC LIMIT {$limit}");
+        return array_map([self::class, 'fromRow'], $rows);
+    }
+
     public static function create(array $data): self {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
-        $sql = "INSERT INTO payments (user_id, plan_id, stripe_session_id, stripe_payment_intent_id, stripe_invoice_id, amount, currency, status, paid_at, created_at)
-                VALUES (:uid, :pid, :sess, :pi, :inv, :amount, :curr, :status, :paid, {$now})";
+        $sql = "INSERT INTO payments (
+                    user_id, plan_id, gateway, payment_method_type, sender_number, transaction_id, 
+                    stripe_session_id, stripe_payment_intent_id, stripe_invoice_id, 
+                    amount, amount_bdt, currency, status, admin_notes, paid_at, created_at
+                ) VALUES (
+                    :uid, :pid, :gw, :pmt, :sender, :trx, 
+                    :sess, :pi, :inv, 
+                    :amount, :bdt, :curr, :status, :notes, :paid, {$now}
+                )";
 
         Database::execute($sql, [
             'uid' => $data['user_id'],
             'pid' => $data['plan_id'] ?? null,
+            'gw' => $data['gateway'] ?? 'stripe',
+            'pmt' => $data['payment_method_type'] ?? 'api',
+            'sender' => $data['sender_number'] ?? null,
+            'trx' => $data['transaction_id'] ?? null,
             'sess' => $data['stripe_session_id'] ?? null,
             'pi' => $data['stripe_payment_intent_id'] ?? null,
             'inv' => $data['stripe_invoice_id'] ?? null,
             'amount' => (float)($data['amount'] ?? 0.00),
+            'bdt' => isset($data['amount_bdt']) ? (float)$data['amount_bdt'] : null,
             'curr' => strtolower($data['currency'] ?? 'usd'),
             'status' => $data['status'] ?? 'pending',
+            'notes' => $data['admin_notes'] ?? null,
             'paid' => $data['paid_at'] ?? null,
         ]);
 
@@ -77,6 +106,58 @@ class Payment {
         return Database::execute($sql, $params);
     }
 
+    /**
+     * Approve pending manual payment and activate user subscription
+     */
+    public function approve(int $adminId = 0, string $notes = 'Approved by Admin'): bool {
+        $now = date('Y-m-d H:i:s');
+        $this->update([
+            'status' => 'paid',
+            'paid_at' => $now,
+            'admin_notes' => $notes,
+        ]);
+
+        $user = $this->getUser();
+        $plan = $this->getPlan();
+
+        if ($user && $plan) {
+            $user->update([
+                'plan_id' => $plan->id,
+                'plan_type' => $plan->slug,
+                'subscription_status' => 'active',
+                'gmail_limit' => $plan->gmail_limit,
+                'subscription_started_at' => $now,
+                'subscription_expires_at' => date('Y-m-d H:i:s', strtotime('+1 month')),
+            ]);
+
+            logger("Payment #{$this->id} approved by admin. Activated {$plan->name} plan for user {$user->email}", 'info', $adminId, null);
+
+            // Dispatch purchase confirmation email
+            $eventKey = "purchase_approved:{$this->id}";
+            EmailJob::dispatchTemplate('purchase_confirmation', $user->email, [
+                'name' => $user->name,
+                'plan_name' => $plan->name,
+                'plan_price' => number_format($this->amount, 2),
+                'gmail_limit' => $plan->gmail_limit,
+                'transaction_id' => $this->transaction_id ?? "PAY-{$this->id}",
+                'start_date' => date('d M Y'),
+                'renewal_date' => date('d M Y', strtotime('+1 month')),
+            ], $eventKey, $user->id, $user->name);
+        }
+
+        return true;
+    }
+
+    /**
+     * Reject pending manual payment
+     */
+    public function reject(string $reason = 'Payment verification rejected'): bool {
+        return $this->update([
+            'status' => 'rejected',
+            'admin_notes' => $reason,
+        ]);
+    }
+
     public function getPlan(): ?Plan {
         return $this->plan_id ? Plan::find($this->plan_id) : null;
     }
@@ -90,12 +171,18 @@ class Payment {
         $p->id = (int)$row['id'];
         $p->user_id = (int)$row['user_id'];
         $p->plan_id = isset($row['plan_id']) ? (int)$row['plan_id'] : null;
+        $p->gateway = $row['gateway'] ?? 'stripe';
+        $p->payment_method_type = $row['payment_method_type'] ?? 'api';
+        $p->sender_number = $row['sender_number'] ?? null;
+        $p->transaction_id = $row['transaction_id'] ?? null;
         $p->stripe_session_id = $row['stripe_session_id'] ?? null;
         $p->stripe_payment_intent_id = $row['stripe_payment_intent_id'] ?? null;
         $p->stripe_invoice_id = $row['stripe_invoice_id'] ?? null;
         $p->amount = (float)$row['amount'];
+        $p->amount_bdt = isset($row['amount_bdt']) ? (float)$row['amount_bdt'] : null;
         $p->currency = $row['currency'] ?? 'usd';
         $p->status = $row['status'] ?? 'pending';
+        $p->admin_notes = $row['admin_notes'] ?? null;
         $p->paid_at = $row['paid_at'] ?? null;
         $p->created_at = $row['created_at'] ?? null;
         $p->updated_at = $row['updated_at'] ?? null;

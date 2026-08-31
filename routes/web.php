@@ -36,6 +36,9 @@ $router->get('/dashboard', 'DashboardController@index', [AuthMiddleware::class])
 $router->get('/billing', 'BillingController@index', [AuthMiddleware::class]);
 $router->post('/billing/start-trial', 'BillingController@startTrial', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->get('/billing/checkout/{planId}', 'BillingController@checkout', [AuthMiddleware::class]);
+$router->post('/billing/checkout/{planId}/stripe', 'BillingController@processStripe', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/billing/checkout/{planId}/bkash', 'BillingController@submitBkash', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/billing/checkout/{planId}/nagad', 'BillingController@submitNagad', [AuthMiddleware::class, CSRFMiddleware::class]);
 
 // Gmail Accounts
 $router->get('/accounts', 'GmailAccountController@index', [AuthMiddleware::class]);
@@ -93,9 +96,13 @@ $router->post('/admin/trial', 'AdminController@updateTrial', [AdminMiddleware::c
 $router->get('/admin/smtp', 'AdminController@smtp', [AdminMiddleware::class]);
 $router->post('/admin/smtp', 'AdminController@updateSmtp', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/smtp/test', 'AdminController@testSmtp', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->get('/admin/gateways', 'AdminController@gateways', [AdminMiddleware::class]);
+$router->post('/admin/gateways', 'AdminController@updateGateways', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/email-templates', 'AdminController@emailTemplates', [AdminMiddleware::class]);
 $router->post('/admin/email-templates/{id}/update', 'AdminController@updateEmailTemplate', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/payments', 'AdminController@payments', [AdminMiddleware::class]);
+$router->post('/admin/payments/{id}/approve', 'AdminController@approvePayment', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/payments/{id}/reject', 'AdminController@rejectPayment', [AdminMiddleware::class, CSRFMiddleware::class]);
 
 $router->get('/admin/filters', 'AdminController@filters', [AdminMiddleware::class]);
 $router->post('/admin/filters', 'AdminController@updateFilters', [AdminMiddleware::class, CSRFMiddleware::class]);

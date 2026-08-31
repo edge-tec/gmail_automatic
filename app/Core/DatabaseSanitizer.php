@@ -43,6 +43,23 @@ class DatabaseSanitizer {
                         // Ignore if column already exists
                     }
                 }
+
+                $paymentCols = [
+                    'gateway' => "VARCHAR(50) NOT NULL DEFAULT 'stripe'",
+                    'payment_method_type' => "VARCHAR(50) NOT NULL DEFAULT 'api'",
+                    'sender_number' => "VARCHAR(100) NULL",
+                    'transaction_id' => "VARCHAR(191) NULL",
+                    'amount_bdt' => "DECIMAL(10,2) NULL",
+                    'admin_notes' => "TEXT NULL",
+                ];
+
+                foreach ($paymentCols as $col => $type) {
+                    try {
+                        Database::execute("ALTER TABLE payments ADD COLUMN IF NOT EXISTS {$col} {$type}");
+                    } catch (\Throwable $t) {
+                        // Ignore if column already exists
+                    }
+                }
             }
 
             // 1. Purge any legacy default boilerplate from automation_settings table

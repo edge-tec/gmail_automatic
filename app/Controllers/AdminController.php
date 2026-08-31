@@ -352,10 +352,156 @@ class AdminController {
         redirect('/admin/email-templates');
     }
 
+    // --- Payment Gateways (Stripe, bKash, Nagad) ---
+    public function gateways(): string {
+        $stripeEnabled = (bool)(int)SystemSetting::get('stripe_enabled', '1');
+        $stripePubKey = SystemSetting::get('stripe_publishable_key', '');
+        $stripeSecKey = SystemSetting::get('stripe_secret_key', '');
+        $stripeWebhook = SystemSetting::get('stripe_webhook_secret', '');
+
+        // bKash
+        $bkashEnabled = (bool)(int)SystemSetting::get('bkash_enabled', '1');
+        $bkashType = SystemSetting::get('bkash_type', 'manual_number');
+        $bkashNumber = SystemSetting::get('bkash_number', '01611195794');
+        $bkashAccType = SystemSetting::get('bkash_account_type', 'Personal');
+        $bkashRate = SystemSetting::get('bkash_exchange_rate', '120');
+        $bkashInstructions = SystemSetting::get('bkash_instructions', 'Send Money to bKash Personal Number: 01611195794. Enter your Sender Phone Number & TrxID below to submit verification.');
+        $bkashAppKey = SystemSetting::get('bkash_app_key', '');
+        $bkashAppSecret = SystemSetting::get('bkash_app_secret', '');
+        $bkashUsername = SystemSetting::get('bkash_username', '');
+        $bkashPassword = SystemSetting::get('bkash_password', '');
+
+        // Nagad
+        $nagadEnabled = (bool)(int)SystemSetting::get('nagad_enabled', '1');
+        $nagadType = SystemSetting::get('nagad_type', 'manual_number');
+        $nagadNumber = SystemSetting::get('nagad_number', '01611195794');
+        $nagadAccType = SystemSetting::get('nagad_account_type', 'Personal');
+        $nagadRate = SystemSetting::get('nagad_exchange_rate', '120');
+        $nagadInstructions = SystemSetting::get('nagad_instructions', 'Send Money to Nagad Personal Number: 01611195794. Enter your Sender Phone Number & TrxID below to submit verification.');
+        $nagadMerchantId = SystemSetting::get('nagad_merchant_id', '');
+        $nagadPublicKey = SystemSetting::get('nagad_public_key', '');
+        $nagadPrivateKey = SystemSetting::get('nagad_private_key', '');
+
+        return View::render('admin/gateways', [
+            'stripe' => [
+                'enabled' => $stripeEnabled,
+                'publishable_key' => $stripePubKey,
+                'secret_key' => $stripeSecKey,
+                'webhook_secret' => $stripeWebhook,
+            ],
+            'bkash' => [
+                'enabled' => $bkashEnabled,
+                'type' => $bkashType,
+                'number' => $bkashNumber,
+                'account_type' => $bkashAccType,
+                'rate' => $bkashRate,
+                'instructions' => $bkashInstructions,
+                'app_key' => $bkashAppKey,
+                'app_secret' => $bkashAppSecret,
+                'username' => $bkashUsername,
+                'password' => $bkashPassword,
+            ],
+            'nagad' => [
+                'enabled' => $nagadEnabled,
+                'type' => $nagadType,
+                'number' => $nagadNumber,
+                'account_type' => $nagadAccType,
+                'rate' => $nagadRate,
+                'instructions' => $nagadInstructions,
+                'merchant_id' => $nagadMerchantId,
+                'public_key' => $nagadPublicKey,
+                'private_key' => $nagadPrivateKey,
+            ],
+        ]);
+    }
+
+    public function updateGateways(Request $request): void {
+        // Stripe
+        SystemSetting::set('stripe_enabled', $request->input('stripe_enabled') ? '1' : '0');
+        SystemSetting::set('stripe_publishable_key', trim($request->input('stripe_publishable_key', '')));
+        $secKey = $request->input('stripe_secret_key');
+        if (!empty($secKey)) {
+            SystemSetting::set('stripe_secret_key', trim($secKey));
+        }
+        $whSec = $request->input('stripe_webhook_secret');
+        if (!empty($whSec)) {
+            SystemSetting::set('stripe_webhook_secret', trim($whSec));
+        }
+
+        // bKash
+        SystemSetting::set('bkash_enabled', $request->input('bkash_enabled') ? '1' : '0');
+        SystemSetting::set('bkash_type', $request->input('bkash_type', 'manual_number'));
+        SystemSetting::set('bkash_number', trim($request->input('bkash_number', '01611195794')));
+        SystemSetting::set('bkash_account_type', $request->input('bkash_account_type', 'Personal'));
+        SystemSetting::set('bkash_exchange_rate', trim($request->input('bkash_exchange_rate', '120')));
+        SystemSetting::set('bkash_instructions', trim($request->input('bkash_instructions', '')));
+        SystemSetting::set('bkash_app_key', trim($request->input('bkash_app_key', '')));
+        $bkashSec = $request->input('bkash_app_secret');
+        if (!empty($bkashSec)) {
+            SystemSetting::set('bkash_app_secret', trim($bkashSec));
+        }
+        SystemSetting::set('bkash_username', trim($request->input('bkash_username', '')));
+        $bkashPass = $request->input('bkash_password');
+        if (!empty($bkashPass)) {
+            SystemSetting::set('bkash_password', trim($bkashPass));
+        }
+
+        // Nagad
+        SystemSetting::set('nagad_enabled', $request->input('nagad_enabled') ? '1' : '0');
+        SystemSetting::set('nagad_type', $request->input('nagad_type', 'manual_number'));
+        SystemSetting::set('nagad_number', trim($request->input('nagad_number', '01611195794')));
+        SystemSetting::set('nagad_account_type', $request->input('nagad_account_type', 'Personal'));
+        SystemSetting::set('nagad_exchange_rate', trim($request->input('nagad_exchange_rate', '120')));
+        SystemSetting::set('nagad_instructions', trim($request->input('nagad_instructions', '')));
+        SystemSetting::set('nagad_merchant_id', trim($request->input('nagad_merchant_id', '')));
+        $nagadPub = $request->input('nagad_public_key');
+        if (!empty($nagadPub)) {
+            SystemSetting::set('nagad_public_key', trim($nagadPub));
+        }
+        $nagadPriv = $request->input('nagad_private_key');
+        if (!empty($nagadPriv)) {
+            SystemSetting::set('nagad_private_key', trim($nagadPriv));
+        }
+
+        logger("Admin updated Payment Gateway settings (Stripe, bKash, Nagad)", 'info', Auth::id());
+        flash('success', 'Payment gateway configurations saved successfully.');
+        redirect('/admin/gateways');
+    }
+
     // --- Payments & Billing History ---
     public function payments(): string {
         $payments = Payment::all(100);
         return View::render('admin/payments', ['payments' => $payments]);
+    }
+
+    public function approvePayment(Request $request, int $id): void {
+        $payment = Payment::find($id);
+        if (!$payment) {
+            flash('error', 'Payment record not found.');
+            redirect('/admin/payments');
+            return;
+        }
+
+        $notes = trim($request->input('admin_notes', 'Manually verified and approved by Admin.'));
+        $payment->approve(Auth::id(), $notes);
+
+        flash('success', "Payment #{$payment->id} approved and subscription activated successfully!");
+        redirect('/admin/payments');
+    }
+
+    public function rejectPayment(Request $request, int $id): void {
+        $payment = Payment::find($id);
+        if (!$payment) {
+            flash('error', 'Payment record not found.');
+            redirect('/admin/payments');
+            return;
+        }
+
+        $reason = trim($request->input('admin_notes', 'Payment verification rejected.'));
+        $payment->reject($reason);
+
+        flash('warning', "Payment #{$payment->id} has been marked as rejected.");
+        redirect('/admin/payments');
     }
 
     // --- General Settings ---
