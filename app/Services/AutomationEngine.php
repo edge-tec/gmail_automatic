@@ -109,7 +109,9 @@ class AutomationEngine {
         // 8. Check Custom Automation Rules (sender/subject/body filters)
         $ruleDecision = $this->evaluateRules($senderEmail, $subject, $body);
         if ($ruleDecision['action'] === 'skip') {
-            return ['status' => 'skipped', 'reason' => 'Skipped by custom automation rule'];
+            $reason = $ruleDecision['reason'] ?? 'Skipped by custom automation rule';
+            logger("Skipped incoming email from {$senderEmail}: {$reason}", 'warning', $this->account->user_id, $this->account->id);
+            return ['status' => 'skipped', 'reason' => $reason];
         }
 
         // 9. Check Per-Thread Reply Limit
@@ -327,11 +329,17 @@ class AutomationEngine {
      */
     private function evaluateRules(string $senderEmail, string $subject, string $body): array {
         $rules = AutomationRule::findByAccountId($this->account->id);
+        $senderEmailLower = strtolower($senderEmail);
+        $senderParts = explode('@', $senderEmailLower);
+        $senderDomain = isset($senderParts[1]) ? trim($senderParts[1]) : '';
+
         foreach ($rules as $rule) {
             $match = false;
-            $val = strtolower($rule->rule_value);
+            $val = strtolower(trim($rule->rule_value));
 
-            if ($rule->rule_type === 'sender_contains' && str_contains(strtolower($senderEmail), $val)) {
+            if ($rule->rule_type === 'sender_contains' && str_contains($senderEmailLower, $val)) {
+                $match = true;
+            } elseif ($rule->rule_type === 'sender_domain' && ($senderDomain === ltrim($val, '@') || str_ends_with($senderDomain, '.' . ltrim($val, '@')))) {
                 $match = true;
             } elseif ($rule->rule_type === 'subject_contains' && str_contains(strtolower($subject), $val)) {
                 $match = true;
@@ -341,7 +349,7 @@ class AutomationEngine {
 
             if ($match) {
                 if ($rule->action === 'skip') {
-                    return ['action' => 'skip'];
+                    return ['action' => 'skip', 'reason' => "Skipped by filter rule #{$rule->id} ({$rule->rule_type}: '{$rule->rule_value}')"];
                 }
                 if ($rule->action === 'custom_reply' && $rule->template_id) {
                     $tpl = \App\Models\ReplyTemplate::find($rule->template_id);

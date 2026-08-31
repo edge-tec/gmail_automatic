@@ -50,6 +50,12 @@
                     </a>
                 </li>
                 <li>
+                    <a href="<?= url('/rules') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/rules') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-filter text-info"></i>
+                        <span>Filter Rules</span>
+                    </a>
+                </li>
+                <li>
                     <a href="<?= url('/threads') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/threads') ? 'active' : '' ?>">
                         <i class="fa-solid fa-comments"></i>
                         <span>Conversations</span>

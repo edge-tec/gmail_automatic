@@ -57,6 +57,13 @@ $router->post('/settings/followups/{id}/create', 'FollowupController@create', [A
 $router->post('/settings/followups/step/{id}/update', 'FollowupController@update', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/settings/followups/step/{id}/delete', 'FollowupController@delete', [AuthMiddleware::class, CSRFMiddleware::class]);
 
+// Filter & Routing Rules
+$router->get('/rules', 'RuleController@index', [AuthMiddleware::class]);
+$router->get('/rules/{id}', 'RuleController@index', [AuthMiddleware::class]);
+$router->post('/rules/{id}/create', 'RuleController@create', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/rules/{id}/toggle', 'RuleController@toggle', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/rules/{id}/delete', 'RuleController@delete', [AuthMiddleware::class, CSRFMiddleware::class]);
+
 // Conversation Threads
 $router->get('/threads', 'ThreadController@index', [AuthMiddleware::class]);
 $router->get('/threads/{id}', 'ThreadController@show', [AuthMiddleware::class]);

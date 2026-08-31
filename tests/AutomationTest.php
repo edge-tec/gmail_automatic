@@ -275,5 +275,28 @@ class AutomationTest extends TestCase {
         ]);
         $this->assertEquals('skipped', $resUserKeyword['status']);
         $this->assertStringContainsString('account blacklisted keyword', $resUserKeyword['reason']);
+
+        // 6. Test Custom Automation Rule (Domain Filter -> Skip)
+        \App\Models\AutomationRule::create([
+            'user_id' => $user->id,
+            'gmail_account_id' => $account->id,
+            'rule_type' => 'sender_domain',
+            'rule_value' => 'customfilter.com',
+            'action' => 'skip',
+            'status' => 'active',
+        ]);
+
+        $resRuleSkip = $engine->processIncomingMessage([
+            'message_id' => 'msg_rule_1',
+            'thread_id' => 'th_rule_1',
+            'sender_email' => 'contact@customfilter.com',
+            'sender_name' => 'Custom Filter Lead',
+            'subject' => 'Inquiry',
+            'snippet' => 'Details',
+            'body' => 'Details',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $resRuleSkip['status']);
+        $this->assertStringContainsString('filter rule', $resRuleSkip['reason']);
     }
 }

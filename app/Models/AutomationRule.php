@@ -28,6 +28,18 @@ class AutomationRule {
         return array_map([self::class, 'fromRow'], $rows);
     }
 
+    public static function findByAccountIdAll(int $accountId): array {
+        $rows = Database::query(
+            "SELECT * FROM automation_rules WHERE gmail_account_id = :acc ORDER BY id DESC",
+            ['acc' => $accountId]
+        );
+        return array_map([self::class, 'fromRow'], $rows);
+    }
+
+    public function getTemplate(): ?ReplyTemplate {
+        return $this->template_id ? ReplyTemplate::find($this->template_id) : null;
+    }
+
     public static function create(array $data): self {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
