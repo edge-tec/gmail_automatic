@@ -54,6 +54,7 @@ if ($isCli) {
 
     // Run migrations
     try {
+        new App();
         MigrationRunner::run();
         touch(__DIR__ . '/storage/installed.lock');
         echo "\n✓ Installation completed successfully!\n";
@@ -109,6 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     file_put_contents(__DIR__ . '/.env', $envStr);
 
     try {
+        new App();
         MigrationRunner::run();
         // Update admin if custom email/pass provided
         $admin = \App\Models\User::findByEmail('admin@example.com');
