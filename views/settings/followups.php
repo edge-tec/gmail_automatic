@@ -205,9 +205,7 @@
                         </div>
                         
                         <!-- Quill Create Box -->
-                        <div id="quill_create_step" style="min-height: 150px;">
-                            <p>Hi {{first_name}},</p><p>Just following up on my previous email regarding <strong>{{subject}}</strong>. Please let me know if you have any questions!</p>
-                        </div>
+                        <div id="quill_create_step" style="min-height: 150px;"></div>
                         <input type="hidden" name="message" id="hidden_create_msg">
                     </div>
 

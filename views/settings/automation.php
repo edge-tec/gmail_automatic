@@ -130,16 +130,20 @@ $replySteps = $settings->getReplyStepsData();
                                     </span>
                                 </div>
                                 
-                                <!-- Step Delay Control -->
-                                <div class="d-flex align-items-center gap-2">
+                                <!-- Step Delay Control & Delete/Clear Button -->
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
                                     <span class="small fw-semibold text-muted"><i class="fa-regular fa-clock me-1 text-primary"></i> Delay:</span>
-                                    <input type="number" name="reply_steps[<?= $step ?>][delay_value]" class="form-control form-control-sm text-center" style="width: 75px;" min="0" max="999" value="<?= (int)($stepData['delay_value'] ?? 0) ?>">
-                                    <select name="reply_steps[<?= $step ?>][delay_unit]" class="form-select form-select-sm" style="width: 100px;">
+                                    <input type="number" name="reply_steps[<?= $step ?>][delay_value]" class="form-control form-control-sm text-center" style="width: 70px;" min="0" max="999" value="<?= (int)($stepData['delay_value'] ?? 0) ?>">
+                                    <select name="reply_steps[<?= $step ?>][delay_unit]" class="form-select form-select-sm" style="width: 95px;">
                                         <option value="seconds" <?= ($stepData['delay_unit'] ?? 'seconds') === 'seconds' ? 'selected' : '' ?>>Seconds</option>
                                         <option value="minutes" <?= ($stepData['delay_unit'] ?? '') === 'minutes' ? 'selected' : '' ?>>Minutes</option>
                                         <option value="hours" <?= ($stepData['delay_unit'] ?? '') === 'hours' ? 'selected' : '' ?>>Hours</option>
                                         <option value="days" <?= ($stepData['delay_unit'] ?? '') === 'days' ? 'selected' : '' ?>>Days</option>
                                     </select>
+                                    <button type="button" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 py-1 px-2" onclick="clearStepMessage(<?= $step ?>)" title="Delete / Clear message for Step #<?= $step ?>">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                        <span class="small">Delete Message</span>
+                                    </button>
                                 </div>
                             </div>
                             <div class="card-body p-3">
@@ -426,6 +430,19 @@ function toggleScheduleMode(mode) {
         customSection.classList.remove('d-none');
         cardCustom.classList.add('border-primary', 'bg-primary-subtle');
         cardInstant.classList.remove('border-primary', 'bg-primary-subtle');
+    }
+}
+
+function clearStepMessage(step) {
+    if (confirm(`Are you sure you want to delete / clear the message for Step #${step}?`)) {
+        if (quillInstances[step]) {
+            quillInstances[step].setText('');
+            quillInstances[step].root.innerHTML = '';
+        }
+        const hiddenInput = document.getElementById(`hidden_message_${step}`);
+        if (hiddenInput) {
+            hiddenInput.value = '';
+        }
     }
 }
 </script>
