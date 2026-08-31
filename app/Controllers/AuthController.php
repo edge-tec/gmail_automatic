@@ -92,31 +92,18 @@ class AuthController {
         ]);
 
         // 1. Dispatch Welcome Email
-        EmailJob::dispatchTemplate('welcome', $user->email, [
-            'name' => $user->name,
-            'email' => $user->email,
-        ], "welcome:{$user->id}", $user->id, $user->name);
+        EmailNotificationService::notifyAccountCreated($user);
 
         // 2. Dispatch Email Verification Email
         $verifyUrl = url('/verify-email?token=' . $verificationToken);
-        EmailJob::dispatchTemplate('email_verification', $user->email, [
-            'name' => $user->name,
-            'verification_url' => $verifyUrl,
-        ], "verify:{$user->id}", $user->id, $user->name);
+        EmailNotificationService::notifyEmailVerification($user, $verifyUrl);
 
         // 3. Auto-start Free Trial if eligible
         if ($startTrial && $user->canStartTrial()) {
             $trialDays = (int)SystemSetting::get('trial_duration_days', '14');
             $trialLimit = (int)SystemSetting::get('trial_gmail_limit', '5');
             $user->startTrial($trialDays, $trialLimit);
-
-            EmailJob::dispatchTemplate('trial_started', $user->email, [
-                'name' => $user->name,
-                'trial_days' => $trialDays,
-                'gmail_limit' => $trialLimit,
-                'start_date' => date('d M Y'),
-                'expiry_date' => date('d M Y', strtotime("+{$trialDays} days")),
-            ], "trial_started:{$user->id}", $user->id, $user->name);
+            EmailNotificationService::notifyTrialStarted($user, $trialDays, $trialLimit);
         }
 
         logger("New user registration: [{$user->name}] ({$user->email}) registered on the platform.", 'success', $user->id);

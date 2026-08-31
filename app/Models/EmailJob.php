@@ -110,6 +110,34 @@ class EmailJob {
         return array_map([self::class, 'fromRow'], $rows);
     }
 
+    public static function all(int $limit = 100, ?string $status = null): array {
+        if ($status && in_array($status, ['pending', 'processing', 'sent', 'failed', 'cancelled'])) {
+            $rows = Database::query("SELECT * FROM email_jobs WHERE status = :status ORDER BY created_at DESC LIMIT {$limit}", ['status' => $status]);
+        } else {
+            $rows = Database::query("SELECT * FROM email_jobs ORDER BY created_at DESC LIMIT {$limit}");
+        }
+        return array_map([self::class, 'fromRow'], $rows);
+    }
+
+    public function getUser(): ?User {
+        return $this->user_id ? User::find($this->user_id) : null;
+    }
+
+    public function resend(): bool {
+        return $this->update([
+            'status' => 'pending',
+            'attempts' => 0,
+            'scheduled_at' => date('Y-m-d H:i:s'),
+            'last_error' => null,
+        ]);
+    }
+
+    public function cancel(): bool {
+        return $this->update([
+            'status' => 'cancelled',
+        ]);
+    }
+
     public function update(array $data): bool {
         $fields = [];
         $params = ['id' => $this->id];

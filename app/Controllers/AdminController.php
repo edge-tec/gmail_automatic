@@ -189,8 +189,13 @@ class AdminController {
             return;
         }
 
+        $reason = trim($request->input('deletion_reason', 'Account closed upon administrative review.'));
+        // Dispatch account deleted notification before DB removal
+        \App\Services\EmailNotificationService::notifyAccountDeleted($user, $reason);
+
         $user->delete();
-        flash('success', 'User and all related accounts deleted.');
+        logger("Admin deleted user #{$id} ({$user->email})", 'warning', Auth::id());
+        flash('success', "User [{$user->name}] and all related accounts deleted.");
         redirect('/admin/users');
     }
 
@@ -204,8 +209,39 @@ class AdminController {
 
         $newStatus = $user->status === 'active' ? 'suspended' : 'active';
         $user->update(['status' => $newStatus]);
+
+        if ($newStatus === 'suspended') {
+            \App\Services\EmailNotificationService::notifyAccountSuspended($user, 'Account suspended by administrator.');
+        } else {
+            \App\Services\EmailNotificationService::notifyAccountReactivated($user);
+        }
+
+        logger("Admin changed user #{$user->id} status to {$newStatus}", 'info', Auth::id());
         flash('success', "User status updated to {$newStatus}.");
         redirect('/admin/users');
+    }
+
+    // --- Email Notification Logs & Resend ---
+    public function emailLogs(Request $request): string {
+        $status = $request->query('status');
+        $logs = EmailJob::all(100, $status);
+        return View::render('admin/email_logs', [
+            'logs' => $logs,
+            'currentStatus' => $status,
+        ]);
+    }
+
+    public function resendEmailJob(Request $request, int $id): void {
+        $job = EmailJob::find($id);
+        if (!$job) {
+            flash('error', 'Email job record not found.');
+            redirect('/admin/email-logs');
+            return;
+        }
+
+        $job->resend();
+        flash('success', "Email notification #{$id} queued for retry delivery via SMTP.");
+        redirect('/admin/email-logs');
     }
 
     // --- SMTP Settings ---

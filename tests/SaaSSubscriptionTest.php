@@ -206,4 +206,58 @@ class SaaSSubscriptionTest extends TestCase {
         $freshUser = User::find($user->id);
         $this->assertFalse($freshUser->hasActiveSubscription());
     }
+
+    public function testEmailNotificationServiceMatrix(): void {
+        $email = 'matrix_' . uniqid() . '@test.com';
+        $user = User::create([
+            'name' => 'Matrix User',
+            'email' => $email,
+            'password' => password_hash('Pass@123', PASSWORD_BCRYPT),
+        ]);
+
+        $proPlan = Plan::findBySlug('professional');
+
+        // 1. Account Created
+        $j1 = \App\Services\EmailNotificationService::notifyAccountCreated($user);
+        $this->assertNotNull($j1);
+        $this->assertEquals('welcome', $j1->template_slug);
+
+        // 2. Email Verification
+        $j2 = \App\Services\EmailNotificationService::notifyEmailVerification($user, 'https://2xbets.net/verify?token=123');
+        $this->assertNotNull($j2);
+        $this->assertEquals('email_verification', $j2->template_slug);
+
+        // 3. Payment Submitted
+        $payment = Payment::create([
+            'user_id' => $user->id,
+            'plan_id' => $proPlan->id,
+            'gateway' => 'bkash',
+            'amount' => 100.00,
+            'status' => 'pending',
+            'transaction_id' => 'BK' . uniqid(),
+        ]);
+        \App\Services\EmailNotificationService::notifyPaymentSubmitted($payment);
+        $j3 = EmailJob::findByEventKey("payment_submitted:{$payment->id}");
+        $this->assertNotNull($j3);
+        $this->assertEquals('payment_submitted', $j3->template_slug);
+
+        // 4. Account Suspended & Reactivated
+        $j4 = \App\Services\EmailNotificationService::notifyAccountSuspended($user, 'Test reason');
+        $this->assertNotNull($j4);
+        $this->assertEquals('account_suspended', $j4->template_slug);
+
+        $j5 = \App\Services\EmailNotificationService::notifyAccountReactivated($user);
+        $this->assertNotNull($j5);
+        $this->assertEquals('account_reactivated', $j5->template_slug);
+
+        // 5. Account Deleted
+        $j6 = \App\Services\EmailNotificationService::notifyAccountDeleted($user, 'User requested account closure');
+        $this->assertNotNull($j6);
+        $this->assertEquals('account_deleted', $j6->template_slug);
+
+        // 6. Password Reset
+        $j7 = \App\Services\EmailNotificationService::notifyPasswordReset($user, 'https://2xbets.net/reset?token=xyz');
+        $this->assertNotNull($j7);
+        $this->assertEquals('password_reset', $j7->template_slug);
+    }
 }

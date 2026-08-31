@@ -114,6 +114,12 @@
                     </a>
                 </li>
                 <li>
+                    <a href="<?= url('/admin/email-logs') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/email-logs') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-clock-rotate-left text-info"></i>
+                        <span>Email Logs</span>
+                    </a>
+                </li>
+                <li>
                     <a href="<?= url('/admin/gateways') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/gateways') ? 'active' : '' ?>">
                         <i class="fa-solid fa-credit-card text-success"></i>
                         <span>Payment Gateways</span>

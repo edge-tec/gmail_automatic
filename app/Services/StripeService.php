@@ -174,17 +174,7 @@ class StripeService {
         logger("Activated {$plan->name} subscription for {$user->email} (Session: {$sessionId})", 'info', $user->id);
 
         // 3. Dispatch Purchase Confirmation Email
-        $eventKey = 'purchase:' . ($eventId ?? $sessionId);
-        EmailJob::dispatchTemplate('purchase_confirmation', $user->email, [
-            'name' => $user->name,
-            'plan_name' => $plan->name,
-            'plan_price' => number_format($plan->price, 2),
-            'billing_period' => $plan->billing_period,
-            'gmail_limit' => $plan->gmail_limit,
-            'start_date' => date('d M Y'),
-            'renewal_date' => date('d M Y', strtotime('+1 month')),
-            'transaction_id' => $paymentIntent ?? $sessionId,
-        ], $eventKey, $user->id, $user->name);
+        EmailNotificationService::notifyPaymentApproved($payment);
 
         return ['status' => 'success', 'user_id' => $user->id, 'plan' => $plan->name];
     }
@@ -219,6 +209,8 @@ class StripeService {
             $user->update([
                 'subscription_status' => 'cancelled',
             ]);
+            $plan = $user->plan_id ? Plan::find($user->plan_id) : null;
+            EmailNotificationService::notifySubscriptionCancelled($user, $plan);
             logger("Subscription cancelled for {$user->email}", 'warning', $user->id);
         }
 

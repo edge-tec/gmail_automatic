@@ -132,17 +132,8 @@ class Payment {
 
             logger("Payment #{$this->id} approved by admin. Activated {$plan->name} plan for user {$user->email}", 'info', $adminId, null);
 
-            // Dispatch purchase confirmation email
-            $eventKey = "purchase_approved:{$this->id}";
-            EmailJob::dispatchTemplate('purchase_confirmation', $user->email, [
-                'name' => $user->name,
-                'plan_name' => $plan->name,
-                'plan_price' => number_format($this->amount, 2),
-                'gmail_limit' => $plan->gmail_limit,
-                'transaction_id' => $this->transaction_id ?? "PAY-{$this->id}",
-                'start_date' => date('d M Y'),
-                'renewal_date' => date('d M Y', strtotime('+1 month')),
-            ], $eventKey, $user->id, $user->name);
+            // Dispatch payment approved notification
+            \App\Services\EmailNotificationService::notifyPaymentApproved($this);
         }
 
         return true;
@@ -152,10 +143,16 @@ class Payment {
      * Reject pending manual payment
      */
     public function reject(string $reason = 'Payment verification rejected'): bool {
-        return $this->update([
+        $ok = $this->update([
             'status' => 'rejected',
             'admin_notes' => $reason,
         ]);
+
+        if ($ok) {
+            \App\Services\EmailNotificationService::notifyPaymentRejected($this, $reason);
+        }
+
+        return $ok;
     }
 
     public function getPlan(): ?Plan {

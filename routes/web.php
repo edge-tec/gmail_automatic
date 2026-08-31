@@ -101,6 +101,8 @@ $router->get('/admin/gateways', 'AdminController@gateways', [AdminMiddleware::cl
 $router->post('/admin/gateways', 'AdminController@updateGateways', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/email-templates', 'AdminController@emailTemplates', [AdminMiddleware::class]);
 $router->post('/admin/email-templates/{id}/update', 'AdminController@updateEmailTemplate', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->get('/admin/email-logs', 'AdminController@emailLogs', [AdminMiddleware::class]);
+$router->post('/admin/email-logs/{id}/resend', 'AdminController@resendEmailJob', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/payments', 'AdminController@payments', [AdminMiddleware::class]);
 $router->post('/admin/payments/{id}/approve', 'AdminController@approvePayment', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/payments/{id}/reject', 'AdminController@rejectPayment', [AdminMiddleware::class, CSRFMiddleware::class]);

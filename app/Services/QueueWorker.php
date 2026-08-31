@@ -20,8 +20,8 @@ class QueueWorker {
         // 1. Process asynchronous email notification jobs (SMTP)
         $this->processEmailJobs($batchSize);
 
-        // 2. Check expiring trials and send reminders
-        $this->checkExpiringTrials();
+        // 2. Check expiring subscriptions and trials and send reminders
+        $this->checkExpiringSubscriptionsAndTrials();
 
         // 3. Process scheduled Gmail automation jobs
         while (!$this->stopRequested) {
@@ -56,41 +56,11 @@ class QueueWorker {
         }
     }
 
-    public function checkExpiringTrials(): void {
+    public function checkExpiringSubscriptionsAndTrials(): void {
         try {
-            $activeTrials = Database::query("SELECT * FROM users WHERE trial_status = 'active' AND trial_ends_at IS NOT NULL");
-            $now = time();
-
-            foreach ($activeTrials as $uRow) {
-                $user = \App\Models\User::fromRow($uRow);
-                $endsAt = strtotime($user->trial_ends_at);
-                $diffSeconds = $endsAt - $now;
-                $daysLeft = (int)ceil($diffSeconds / 86400);
-
-                if ($diffSeconds <= 0) {
-                    $user->update([
-                        'trial_status' => 'expired',
-                        'subscription_status' => 'expired',
-                    ]);
-                    logger("Free trial expired for {$user->email}", 'info', $user->id);
-
-                    $eventKey = "trial_expired:{$user->id}";
-                    \App\Models\EmailJob::dispatchTemplate('trial_expired', $user->email, [
-                        'name' => $user->name,
-                        'expiry_date' => date('d M Y', $endsAt),
-                    ], $eventKey, $user->id, $user->name);
-
-                } elseif ($daysLeft <= 3 && $daysLeft > 0) {
-                    $eventKey = "trial_expiring:{$user->id}:{$daysLeft}d";
-                    \App\Models\EmailJob::dispatchTemplate('trial_expiring', $user->email, [
-                        'name' => $user->name,
-                        'days_left' => $daysLeft,
-                        'expiry_date' => date('d M Y', $endsAt),
-                    ], $eventKey, $user->id, $user->name);
-                }
-            }
+            EmailNotificationService::checkExpiringAndExpiredSubscriptions();
         } catch (\Throwable $e) {
-            // Silently ignore if table not initialized
+            logger("Error in checkExpiringSubscriptionsAndTrials: " . $e->getMessage(), 'error');
         }
     }
 

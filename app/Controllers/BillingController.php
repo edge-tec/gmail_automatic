@@ -53,17 +53,7 @@ class BillingController {
 
         if ($ok) {
             flash('success', "Your {$trialDays}-day free trial has been activated! You can connect up to {$trialLimit} Gmail accounts.");
-            
-            // Dispatch Free Trial Started Email Notification
-            $eventKey = "trial_started:{$user->id}";
-            EmailJob::dispatchTemplate('trial_started', $user->email, [
-                'name' => $user->name,
-                'trial_days' => $trialDays,
-                'gmail_limit' => $trialLimit,
-                'start_date' => date('d M Y'),
-                'expiry_date' => date('d M Y', strtotime("+{$trialDays} days")),
-            ], $eventKey, $user->id, $user->name);
-
+            EmailNotificationService::notifyTrialStarted($user, $trialDays, $trialLimit);
             logger("User {$user->email} started {$trialDays}-day free trial", 'info', $user->id);
         } else {
             flash('error', 'Unable to start trial. Please contact support.');
@@ -88,29 +78,28 @@ class BillingController {
         $stripeEnabled = (bool)(int)SystemSetting::get('stripe_enabled', '1');
         $stripePubKey = SystemSetting::get('stripe_publishable_key', '');
 
-        // bKash Config
+        // bKash
         $bkashEnabled = (bool)(int)SystemSetting::get('bkash_enabled', '1');
         $bkashType = SystemSetting::get('bkash_type', 'manual_number');
         $bkashNumber = SystemSetting::get('bkash_number', '01611195794');
         $bkashAccType = SystemSetting::get('bkash_account_type', 'Personal');
         $bkashRate = (float)SystemSetting::get('bkash_exchange_rate', '120');
-        $bkashInstructions = SystemSetting::get('bkash_instructions', 'Send Money to bKash Personal Number: 01611195794. Enter your Sender Phone Number & TrxID below.');
+        $bkashInstructions = SystemSetting::get('bkash_instructions', 'Send Money to bKash Personal Number: 01611195794. Enter your Sender Phone Number & TrxID below to submit verification.');
         $bkashAmountBdt = round($plan->price * $bkashRate, 2);
 
-        // Nagad Config
+        // Nagad
         $nagadEnabled = (bool)(int)SystemSetting::get('nagad_enabled', '1');
         $nagadType = SystemSetting::get('nagad_type', 'manual_number');
         $nagadNumber = SystemSetting::get('nagad_number', '01611195794');
         $nagadAccType = SystemSetting::get('nagad_account_type', 'Personal');
         $nagadRate = (float)SystemSetting::get('nagad_exchange_rate', '120');
-        $nagadInstructions = SystemSetting::get('nagad_instructions', 'Send Money to Nagad Personal Number: 01611195794. Enter your Sender Phone Number & TrxID below.');
+        $nagadInstructions = SystemSetting::get('nagad_instructions', 'Send Money to Nagad Personal Number: 01611195794. Enter your Sender Phone Number & TrxID below to submit verification.');
         $nagadAmountBdt = round($plan->price * $nagadRate, 2);
 
         return View::render('billing/checkout', [
-            'user' => $user,
             'plan' => $plan,
             'stripeEnabled' => $stripeEnabled,
-            'stripePubKey' => $stripePubKey,
+            'stripePublishableKey' => $stripePubKey,
             'bkash' => [
                 'enabled' => $bkashEnabled,
                 'type' => $bkashType,
@@ -207,6 +196,9 @@ class BillingController {
             'admin_notes' => "bKash Manual Submission by {$user->email}. Sender: {$senderNumber}, TrxID: {$trxId}",
         ]);
 
+        // Dispatch Payment Submitted Notification (User + Admin)
+        EmailNotificationService::notifyPaymentSubmitted($payment);
+
         logger("User {$user->email} submitted bKash payment for plan {$plan->name}. TrxID: {$trxId}", 'info', $user->id);
         flash('success', "Your bKash payment verification for {$plan->name} plan ({$bdtAmount} BDT) has been submitted! Admin will verify your Transaction ID ({$trxId}) and activate your plan.");
         redirect('/billing');
@@ -263,6 +255,9 @@ class BillingController {
             'status' => 'pending',
             'admin_notes' => "Nagad Manual Submission by {$user->email}. Sender: {$senderNumber}, TrxID: {$trxId}",
         ]);
+
+        // Dispatch Payment Submitted Notification (User + Admin)
+        EmailNotificationService::notifyPaymentSubmitted($payment);
 
         logger("User {$user->email} submitted Nagad payment for plan {$plan->name}. TrxID: {$trxId}", 'info', $user->id);
         flash('success', "Your Nagad payment verification for {$plan->name} plan ({$bdtAmount} BDT) has been submitted! Admin will verify your Transaction ID ({$trxId}) and activate your plan.");
