@@ -60,6 +60,10 @@ $router->post('/threads/clear-all', 'ThreadController@clearAll', [AuthMiddleware
 $router->post('/threads/{id}/delete', 'ThreadController@delete', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/threads/{id}/toggle-automation', 'ThreadController@toggleAutomation', [AuthMiddleware::class, CSRFMiddleware::class]);
 
+// Activity & Automation Logs
+$router->get('/logs', 'LogController@index', [AuthMiddleware::class]);
+$router->post('/logs/clear', 'LogController@clear', [AuthMiddleware::class, CSRFMiddleware::class]);
+
 // Admin Panel Routes
 $router->get('/admin', 'AdminController@index', [AdminMiddleware::class]);
 $router->get('/admin/users', 'AdminController@users', [AdminMiddleware::class]);

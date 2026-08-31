@@ -55,6 +55,12 @@
                         <span>Conversations</span>
                     </a>
                 </li>
+                <li>
+                    <a href="<?= url('/logs') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/logs') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-list-check"></i>
+                        <span>Activity Logs</span>
+                    </a>
+                </li>
 
                 <?php if (auth_user() && auth_user()->role === 'admin'): ?>
                 <hr class="my-3">

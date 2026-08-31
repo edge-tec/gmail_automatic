@@ -41,19 +41,58 @@ class ActivityLog {
         }
     }
 
-    public static function getLatest(int $limit = 50, ?int $userId = null): array {
+    public static function getLatest(int $limit = 50, ?int $userId = null, ?string $filterType = null, ?int $accountId = null): array {
         $sql = "SELECT a.*, g.gmail_email, u.name as user_name 
                 FROM activity_logs a 
                 LEFT JOIN gmail_accounts g ON a.gmail_account_id = g.id
-                LEFT JOIN users u ON a.user_id = u.id ";
+                LEFT JOIN users u ON a.user_id = u.id 
+                WHERE 1=1 ";
         $params = [];
 
         if ($userId !== null) {
-            $sql .= "WHERE a.user_id = :uid ";
+            $sql .= "AND (a.user_id = :uid OR g.user_id = :uid2) ";
             $params['uid'] = $userId;
+            $params['uid2'] = $userId;
+        }
+
+        if ($accountId !== null) {
+            $sql .= "AND a.gmail_account_id = :acc ";
+            $params['acc'] = $accountId;
+        }
+
+        if ($filterType) {
+            if ($filterType === 'reply') {
+                $sql .= "AND (a.message LIKE '%reply%' OR a.message LIKE '%Auto-Reply%') ";
+            } elseif ($filterType === 'followup') {
+                $sql .= "AND (a.message LIKE '%followup%' OR a.message LIKE '%Follow-up%') ";
+            } elseif ($filterType === 'error') {
+                $sql .= "AND a.log_type = 'error' ";
+            } elseif ($filterType === 'success') {
+                $sql .= "AND a.log_type = 'success' ";
+            }
         }
 
         $sql .= "ORDER BY a.id DESC LIMIT {$limit}";
         return Database::query($sql, $params);
+    }
+
+    public static function deleteByUserId(int $userId, ?int $accountId = null): int {
+        if ($accountId) {
+            return Database::execute("DELETE FROM activity_logs WHERE (user_id = :uid OR gmail_account_id = :acc)", [
+                'uid' => $userId,
+                'acc' => $accountId
+            ]);
+        }
+
+        // Get user's account IDs
+        $accounts = Database::query("SELECT id FROM gmail_accounts WHERE user_id = :uid", ['uid' => $userId]);
+        $accIds = array_column($accounts, 'id');
+
+        if (!empty($accIds)) {
+            $placeholders = implode(',', array_fill(0, count($accIds), '?'));
+            return Database::execute("DELETE FROM activity_logs WHERE user_id = ? OR gmail_account_id IN ($placeholders)", array_merge([$userId], $accIds));
+        }
+
+        return Database::execute("DELETE FROM activity_logs WHERE user_id = :uid", ['uid' => $userId]);
     }
 }
