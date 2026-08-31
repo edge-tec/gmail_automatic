@@ -39,7 +39,7 @@ class AutomationSetting {
         $sql = "INSERT INTO automation_settings 
                 (gmail_account_id, auto_reply_enabled, reply_message, max_reply_per_thread, daily_reply_limit, reply_delay, followup_enabled, daily_followup_limit, timezone, working_days, working_start, working_end, created_at)
                 VALUES 
-                (:acc, 1, :msg, 3, 100, 0, 0, 100, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', {$now})";
+                (:acc, 0, :msg, 3, 100, 0, 0, 100, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', {$now})";
 
         Database::execute($sql, [
             'acc' => $accountId,

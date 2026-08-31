@@ -89,6 +89,9 @@ class AutomationTest extends TestCase {
             'token_expires_at' => date('Y-m-d H:i:s', time() + 3600),
         ]);
 
+        $settings = $account->getSettings() ?? AutomationSetting::createDefault($account->id);
+        $settings->update(['auto_reply_enabled' => 1]);
+
         $engine = new AutomationEngine($account);
 
         $msgId = 'msg_' . uniqid();
