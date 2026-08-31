@@ -95,6 +95,18 @@ $replySteps = $settings->getReplyStepsData();
                         </div>
                     </div>
 
+                    <!-- Header with Delete All Messages button -->
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
+                        <div>
+                            <span class="fw-bold text-dark"><i class="fa-solid fa-list-ol text-primary me-1"></i> Multi-Step Reply Sequence</span>
+                            <span class="small text-muted ms-2">(Empty/deleted steps will not send any email)</span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 py-1 px-2" onclick="clearAllStepMessages()" title="Delete and clear all auto-reply messages">
+                            <i class="fa-solid fa-trash-can"></i>
+                            <span>Delete All Messages</span>
+                        </button>
+                    </div>
+
                     <!-- Sequential Reply Steps (1st, 2nd, 3rd, 4th...) -->
                     <div id="replyStepsContainer">
                         <?php 
@@ -442,6 +454,21 @@ function clearStepMessage(step) {
         const hiddenInput = document.getElementById(`hidden_message_${step}`);
         if (hiddenInput) {
             hiddenInput.value = '';
+        }
+    }
+}
+
+function clearAllStepMessages() {
+    if (confirm('Are you sure you want to delete and clear ALL auto-reply messages (including 1st Auto Reply)?')) {
+        for (const step in quillInstances) {
+            if (quillInstances[step]) {
+                quillInstances[step].setText('');
+                quillInstances[step].root.innerHTML = '';
+            }
+            const hiddenInput = document.getElementById(`hidden_message_${step}`);
+            if (hiddenInput) {
+                hiddenInput.value = '';
+            }
         }
     }
 }

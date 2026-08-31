@@ -17,7 +17,8 @@ class DatabaseSanitizer {
                  SET reply_message = NULL 
                  WHERE reply_message LIKE '%Automated Support%' 
                     OR reply_message LIKE '%Thank you for reaching out%'
-                    OR reply_message LIKE '%received your message%'"
+                    OR reply_message LIKE '%received your message%'
+                    OR reply_message = 'Where are you located?'"
             );
 
             // 2. Cancel any pending queue jobs containing old boilerplate text

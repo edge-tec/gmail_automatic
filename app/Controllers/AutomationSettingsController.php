@@ -80,7 +80,8 @@ class AutomationSettingsController {
                 $stepNum = (int)$step;
                 if (is_array($stepData)) {
                     $msg = trim($stepData['message'] ?? '');
-                    if (!empty($msg)) {
+                    $textOnly = trim(strip_tags($msg));
+                    if (!empty($textOnly)) {
                         $cleanSteps[$stepNum] = [
                             'message' => $msg,
                             'delay_value' => max(0, (int)($stepData['delay_value'] ?? 0)),
@@ -89,13 +90,6 @@ class AutomationSettingsController {
                     }
                 }
             }
-            if (empty($cleanSteps)) {
-                $cleanSteps[1] = [
-                    'message' => 'Where are you located?',
-                    'delay_value' => 0,
-                    'delay_unit' => 'seconds'
-                ];
-            }
 
             $cleanSteps['_blacklist'] = [
                 'emails' => trim($request->input('blacklist_emails', '')),
@@ -103,27 +97,27 @@ class AutomationSettingsController {
                 'keywords' => trim($request->input('blacklist_keywords', '')),
             ];
 
-            $replyMessage = json_encode($cleanSteps, JSON_UNESCAPED_UNICODE);
-            $stepsCount = count(array_filter(array_keys($cleanSteps), fn($k) => $k !== '_blacklist'));
+            $stepsOnly = array_filter(array_keys($cleanSteps), fn($k) => $k !== '_blacklist');
+            if (empty($stepsOnly) && empty($cleanSteps['_blacklist']['emails']) && empty($cleanSteps['_blacklist']['domains']) && empty($cleanSteps['_blacklist']['keywords'])) {
+                $replyMessage = null;
+            } else {
+                $replyMessage = json_encode($cleanSteps, JSON_UNESCAPED_UNICODE);
+            }
+
+            $stepsCount = count($stepsOnly);
             logger("Updated auto-reply message sequence ({$stepsCount} steps configured) successfully", 'info', $account->user_id, $account->id);
         } elseif (is_array($replyMessagesInput)) {
             $cleanMessages = [];
             foreach ($replyMessagesInput as $step => $msg) {
                 $stepNum = (int)$step;
-                if (!empty(trim($msg))) {
+                $textOnly = trim(strip_tags($msg));
+                if (!empty($textOnly)) {
                     $cleanMessages[$stepNum] = [
                         'message' => trim($msg),
                         'delay_value' => 0,
                         'delay_unit' => 'seconds'
                     ];
                 }
-            }
-            if (empty($cleanMessages)) {
-                $cleanMessages[1] = [
-                    'message' => 'Where are you located?',
-                    'delay_value' => 0,
-                    'delay_unit' => 'seconds'
-                ];
             }
 
             $cleanMessages['_blacklist'] = [
@@ -132,9 +126,15 @@ class AutomationSettingsController {
                 'keywords' => trim($request->input('blacklist_keywords', '')),
             ];
 
-            $replyMessage = json_encode($cleanMessages, JSON_UNESCAPED_UNICODE);
+            $stepsOnly = array_filter(array_keys($cleanMessages), fn($k) => $k !== '_blacklist');
+            if (empty($stepsOnly) && empty($cleanMessages['_blacklist']['emails']) && empty($cleanMessages['_blacklist']['domains']) && empty($cleanMessages['_blacklist']['keywords'])) {
+                $replyMessage = null;
+            } else {
+                $replyMessage = json_encode($cleanMessages, JSON_UNESCAPED_UNICODE);
+            }
         } else {
-            $replyMessage = trim($request->input('reply_message', ''));
+            $rawMsg = trim($request->input('reply_message', ''));
+            $replyMessage = !empty(trim(strip_tags($rawMsg))) ? $rawMsg : null;
         }
 
         $autoReplyEnabled = (bool)$request->input('auto_reply_enabled', 0);
