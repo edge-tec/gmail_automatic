@@ -90,13 +90,12 @@ class ScheduledJob {
     }
 
     public static function getReadyJobs(int $limit = 20): array {
-        $driver = config('database.default', 'mysql');
-        $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
+        $now = date('Y-m-d H:i:s');
 
         $sql = "SELECT * FROM scheduled_jobs 
-                WHERE status = 'pending' AND scheduled_at <= {$now} 
+                WHERE status = 'pending' AND scheduled_at <= :now 
                 ORDER BY scheduled_at ASC LIMIT {$limit}";
-        $rows = Database::query($sql);
+        $rows = Database::query($sql, ['now' => $now]);
         return array_map([self::class, 'fromRow'], $rows);
     }
 

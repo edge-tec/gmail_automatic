@@ -1,7 +1,10 @@
-<div class="d-flex justify-content-between align-items-center mb-4">
+<?php
+$isInstant = ($settings->working_start === '00:00' && $settings->working_end === '23:59' && (int)$settings->reply_delay === 0 && count(explode(',', $settings->working_days)) >= 7);
+?>
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
     <div>
         <h4 class="fw-bold mb-1">Auto Reply Settings</h4>
-        <p class="text-muted small mb-0">Configure instant reply messages, delay intervals, daily caps, and schedule constraints.</p>
+        <p class="text-muted small mb-0">Configure instant reply messages, 24/7 sending, delay intervals, daily caps, and schedule constraints.</p>
     </div>
     <!-- Account Selector Dropdown -->
     <div class="d-flex align-items-center gap-2">
@@ -22,9 +25,9 @@
     <div class="row g-4">
         <!-- Main Message Card -->
         <div class="col-12 col-lg-8">
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span class="d-flex align-items-center gap-2">
+            <div class="card mb-4 shadow-sm border-0">
+                <div class="card-header d-flex justify-content-between align-items-center bg-transparent py-3">
+                    <span class="d-flex align-items-center gap-2 fw-semibold">
                         <i class="fa-solid fa-envelope-open-text text-primary"></i>
                         <span>Default Auto Reply Message</span>
                     </span>
@@ -57,45 +60,78 @@
             </div>
 
             <!-- Working Hours & Schedule -->
-            <div class="card">
-                <div class="card-header">
-                    <i class="fa-solid fa-business-time me-2 text-primary"></i> Working Schedule & Timezone
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-transparent py-3">
+                    <i class="fa-solid fa-business-time me-2 text-primary"></i> <strong>Sending Schedule & Mode</strong>
                 </div>
                 <div class="card-body">
-                    <div class="row g-3 mb-3">
-                        <div class="col-12 col-md-6">
-                            <label class="form-label small fw-semibold">Account Timezone</label>
-                            <select name="timezone" class="form-select">
-                                <?php foreach ($timezones as $tzKey => $tzLabel): ?>
-                                    <option value="<?= $tzKey ?>" <?= $settings->timezone === $tzKey ? 'selected' : '' ?>>
-                                        <?= $tzLabel ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <label class="form-label small fw-semibold">Start Time</label>
-                            <input type="time" name="working_start" class="form-control" value="<?= e($settings->working_start) ?>">
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <label class="form-label small fw-semibold">End Time</label>
-                            <input type="time" name="working_end" class="form-control" value="<?= e($settings->working_end) ?>">
+                    <!-- Schedule Mode Radio Cards -->
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted mb-2 text-uppercase">Choose Schedule Mode:</label>
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="card p-3 h-100 border <?= $isInstant ? 'border-primary bg-primary-subtle' : 'border' ?>" id="cardModeInstant" style="cursor: pointer;">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <input class="form-check-input mt-1" type="radio" name="schedule_mode" id="mode_instant" value="instant" <?= $isInstant ? 'checked' : '' ?> onchange="toggleScheduleMode(this.value)">
+                                        <div>
+                                            <div class="fw-bold text-dark"><i class="fa-solid fa-bolt text-warning me-1"></i> Instant 24/7 (Anytime)</div>
+                                            <div class="small text-muted mt-1">Send auto-replies instantly 24/7 anytime an email is received. No working hour or period restrictions.</div>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="card p-3 h-100 border <?= !$isInstant ? 'border-primary bg-primary-subtle' : 'border' ?>" id="cardModeCustom" style="cursor: pointer;">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <input class="form-check-input mt-1" type="radio" name="schedule_mode" id="mode_custom" value="custom" <?= !$isInstant ? 'checked' : '' ?> onchange="toggleScheduleMode(this.value)">
+                                        <div>
+                                            <div class="fw-bold text-dark"><i class="fa-solid fa-clock text-primary me-1"></i> Custom Business Hours</div>
+                                            <div class="small text-muted mt-1">Only send auto-replies during specific working hours and selected active days.</div>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
-                    <div>
-                        <label class="form-label small fw-semibold mb-2">Active Working Days</label>
-                        <?php 
-                        $activeDays = array_map('trim', explode(',', $settings->working_days));
-                        $allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-                        ?>
-                        <div class="d-flex flex-wrap gap-3">
-                            <?php foreach ($allDays as $day): ?>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="working_days[]" value="<?= $day ?>" id="day_<?= $day ?>" <?= in_array($day, $activeDays) ? 'checked' : '' ?>>
-                                <label class="form-check-label small" for="day_<?= $day ?>"><?= $day ?></label>
+                    <!-- Custom Hours Form (Collapsible/Hideable) -->
+                    <div id="customScheduleSection" class="<?= $isInstant ? 'd-none' : '' ?>">
+                        <hr class="my-3">
+                        <div class="row g-3 mb-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small fw-semibold">Account Timezone</label>
+                                <select name="timezone" class="form-select">
+                                    <?php foreach ($timezones as $tzKey => $tzLabel): ?>
+                                        <option value="<?= $tzKey ?>" <?= $settings->timezone === $tzKey ? 'selected' : '' ?>>
+                                            <?= $tzLabel ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
-                            <?php endforeach; ?>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small fw-semibold">Start Time</label>
+                                <input type="time" name="working_start" id="working_start" class="form-control" value="<?= e($settings->working_start) ?>">
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small fw-semibold">End Time</label>
+                                <input type="time" name="working_end" id="working_end" class="form-control" value="<?= e($settings->working_end) ?>">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="form-label small fw-semibold mb-2">Active Working Days</label>
+                            <?php 
+                            $activeDays = array_map('trim', explode(',', $settings->working_days));
+                            $allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                            ?>
+                            <div class="d-flex flex-wrap gap-3">
+                                <?php foreach ($allDays as $day): ?>
+                                <div class="form-check">
+                                    <input class="form-check-input day-checkbox" type="checkbox" name="working_days[]" value="<?= $day ?>" id="day_<?= $day ?>" <?= in_array($day, $activeDays) ? 'checked' : '' ?>>
+                                    <label class="form-check-label small" for="day_<?= $day ?>"><?= $day ?></label>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -104,11 +140,17 @@
 
         <!-- Limits & Delays Sidebar -->
         <div class="col-12 col-lg-4">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fa-solid fa-shield-halved me-2 text-primary"></i> Limits & Safe Sending
+            <div class="card mb-4 shadow-sm border-0">
+                <div class="card-header bg-transparent py-3">
+                    <i class="fa-solid fa-shield-halved me-2 text-primary"></i> <strong>Limits & Delays</strong>
                 </div>
                 <div class="card-body">
+                    <div class="mb-3" id="replyDelayGroup" class="<?= $isInstant ? 'd-none' : '' ?>">
+                        <label class="form-label small fw-semibold">Reply Delay (in seconds)</label>
+                        <input type="number" name="reply_delay" id="reply_delay" class="form-control" min="0" max="86400" value="<?= $settings->reply_delay ?>">
+                        <div class="form-text small">Set <strong>0</strong> for instant sending without delay.</div>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Per-Thread Reply Limit</label>
                         <input type="number" name="max_reply_per_thread" class="form-control" min="1" max="50" value="<?= $settings->max_reply_per_thread ?>">
@@ -119,12 +161,6 @@
                         <label class="form-label small fw-semibold">Daily Reply Limit</label>
                         <input type="number" name="daily_reply_limit" class="form-control" min="1" max="1000" value="<?= $settings->daily_reply_limit ?>">
                         <div class="form-text small">Maximum automated replies per day from this account.</div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Reply Delay (in seconds)</label>
-                        <input type="number" name="reply_delay" class="form-control" min="0" max="86400" value="<?= $settings->reply_delay ?>">
-                        <div class="form-text small">Set 0 for instant reply, or e.g. 120 for 2 minutes delay.</div>
                     </div>
 
                     <hr class="my-3">
@@ -146,11 +182,32 @@
                 </div>
             </div>
 
-            <div class="card p-3 bg-light">
-                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
-                    <i class="fa-solid fa-floppy-disk me-1"></i> Save Settings
+            <div class="card p-3 bg-light border-0 shadow-sm">
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold d-flex align-items-center justify-content-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>Save Settings</span>
                 </button>
             </div>
         </div>
     </div>
 </form>
+
+<script>
+function toggleScheduleMode(mode) {
+    const customSection = document.getElementById('customScheduleSection');
+    const delayInput = document.getElementById('reply_delay');
+    const cardInstant = document.getElementById('cardModeInstant');
+    const cardCustom = document.getElementById('cardModeCustom');
+
+    if (mode === 'instant') {
+        customSection.classList.add('d-none');
+        if (delayInput) delayInput.value = '0';
+        cardInstant.classList.add('border-primary', 'bg-primary-subtle');
+        cardCustom.classList.remove('border-primary', 'bg-primary-subtle');
+    } else {
+        customSection.classList.remove('d-none');
+        cardCustom.classList.add('border-primary', 'bg-primary-subtle');
+        cardInstant.classList.remove('border-primary', 'bg-primary-subtle');
+    }
+}
+</script>

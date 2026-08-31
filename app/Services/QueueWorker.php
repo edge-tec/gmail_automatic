@@ -40,13 +40,11 @@ class QueueWorker {
 
     public function processJob(ScheduledJob $job): bool {
         // Attempt status lock to prevent concurrent worker race conditions
-        $driver = config('database.default', 'mysql');
-        $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
-
+        $now = date('Y-m-d H:i:s');
         $locked = Database::execute(
-            "UPDATE scheduled_jobs SET status = 'processing', attempts = attempts + 1, updated_at = {$now} 
+            "UPDATE scheduled_jobs SET status = 'processing', attempts = attempts + 1, updated_at = :now 
              WHERE id = :id AND status = 'pending'",
-            ['id' => $job->id]
+            ['id' => $job->id, 'now' => $now]
         );
 
         if (!$locked) {

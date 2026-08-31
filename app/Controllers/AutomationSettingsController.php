@@ -74,16 +74,21 @@ class AutomationSettingsController {
         $replyMessage = trim($request->input('reply_message', ''));
         $maxReplyPerThread = max(1, (int)$request->input('max_reply_per_thread', 3));
         $dailyReplyLimit = max(1, (int)$request->input('daily_reply_limit', 100));
-        $replyDelay = max(0, (int)$request->input('reply_delay', 0));
-        
-        $followupEnabled = (bool)$request->input('followup_enabled', 0);
-        $dailyFollowupLimit = max(1, (int)$request->input('daily_followup_limit', 100));
-
+        $scheduleMode = $request->input('schedule_mode', 'instant');
         $timezone = $request->input('timezone', 'Asia/Dhaka');
-        $workingDays = $request->input('working_days', []);
-        $workingDaysStr = is_array($workingDays) ? implode(',', $workingDays) : 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday';
-        $workingStart = $request->input('working_start', '00:00');
-        $workingEnd = $request->input('working_end', '23:59');
+
+        if ($scheduleMode === 'instant') {
+            $workingStart = '00:00';
+            $workingEnd = '23:59';
+            $workingDaysStr = 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday';
+            $replyDelay = 0;
+        } else {
+            $workingDays = $request->input('working_days', []);
+            $workingDaysStr = is_array($workingDays) && !empty($workingDays) ? implode(',', $workingDays) : 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday';
+            $workingStart = $request->input('working_start', '00:00');
+            $workingEnd = $request->input('working_end', '23:59');
+            $replyDelay = max(0, (int)$request->input('reply_delay', 0));
+        }
 
         $settings->update([
             'auto_reply_enabled' => $autoReplyEnabled ? 1 : 0,
