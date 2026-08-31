@@ -101,12 +101,19 @@ class AutomationEngine {
             return ['status' => 'skipped', 'reason' => $blacklistDecision['reason']];
         }
 
-        // 7. Check Account Auto Reply Settings
+        // 7. Anti-Spam / Multi-Recipient & Bulk Header Checks (Skip if multiple To, CC, BCC, or bulk spam)
+        $spamCheck = $this->checkSpamAndMultiRecipients($msgData);
+        if ($spamCheck['is_spam']) {
+            logger("Skipped spam/bulk incoming email from {$senderEmail}: {$spamCheck['reason']}", 'warning', $this->account->user_id, $this->account->id);
+            return ['status' => 'skipped', 'reason' => $spamCheck['reason']];
+        }
+
+        // 8. Check Account Auto Reply Settings
         if (!$this->settings || !$this->settings->auto_reply_enabled) {
             return ['status' => 'skipped', 'reason' => 'Auto reply disabled for account'];
         }
 
-        // 8. Check Custom Automation Rules (sender/subject/body filters)
+        // 9. Check Custom Automation Rules (sender/subject/body filters)
         $ruleDecision = $this->evaluateRules($senderEmail, $subject, $body);
         if ($ruleDecision['action'] === 'skip') {
             $reason = $ruleDecision['reason'] ?? 'Skipped by custom automation rule';
@@ -322,6 +329,83 @@ class AutomationEngine {
         }
 
         return ['action' => 'pass'];
+    }
+
+    /**
+     * Check if incoming message is a mass blast, spam, or contains multiple recipients (To / CC / BCC)
+     */
+    private function checkSpamAndMultiRecipients(array $msgData): array {
+        $toHeader = $msgData['to'] ?? '';
+        $ccHeader = $msgData['cc'] ?? '';
+        $bccHeader = $msgData['bcc'] ?? '';
+        $autoSubmitted = strtolower(trim($msgData['auto_submitted'] ?? ''));
+        $precedence = strtolower(trim($msgData['precedence'] ?? ''));
+        $subject = strtolower(trim($msgData['subject'] ?? ''));
+
+        // 1. Multiple recipients in To header
+        $toCount = $this->extractEmailCount($toHeader);
+        if ($toCount > 1) {
+            return [
+                'is_spam' => true,
+                'reason' => "Mass/Spam email skipped: Multiple recipients ({$toCount}) in 'To' header"
+            ];
+        }
+
+        // 2. Check for CC / BCC recipients (bulk email)
+        $ccCount = $this->extractEmailCount($ccHeader);
+        if ($ccCount > 0) {
+            return [
+                'is_spam' => true,
+                'reason' => "Mass/Spam email skipped: 'CC' recipients ({$ccCount}) detected"
+            ];
+        }
+
+        $bccCount = $this->extractEmailCount($bccHeader);
+        if ($bccCount > 0) {
+            return [
+                'is_spam' => true,
+                'reason' => "Mass/Spam email skipped: 'BCC' recipients ({$bccCount}) detected"
+            ];
+        }
+
+        // 3. Automated / Bulk / System Headers
+        if (in_array($autoSubmitted, ['auto-generated', 'auto-replied', 'auto-notified'])) {
+            return [
+                'is_spam' => true,
+                'reason' => "System/Bot email skipped: Auto-Submitted header ({$autoSubmitted})"
+            ];
+        }
+
+        if (in_array($precedence, ['bulk', 'junk', 'list'])) {
+            return [
+                'is_spam' => true,
+                'reason' => "Mass mailing skipped: Precedence header ({$precedence})"
+            ];
+        }
+
+        // 4. Delivery status / Mailer-daemon failure notices
+        $deliveryKeywords = ['delivery status notification', 'undelivered mail', 'mail delivery failed', 'failure notice', 'returned mail:'];
+        foreach ($deliveryKeywords as $kw) {
+            if (str_contains($subject, $kw)) {
+                return [
+                    'is_spam' => true,
+                    'reason' => "Delivery failure notice skipped: subject contains '{$kw}'"
+                ];
+            }
+        }
+
+        return ['is_spam' => false, 'reason' => ''];
+    }
+
+    private function extractEmailCount(string $headerValue): int {
+        if (empty(trim($headerValue))) {
+            return 0;
+        }
+        preg_match_all('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', $headerValue, $matches);
+        if (empty($matches[0])) {
+            return 0;
+        }
+        return count(array_unique(array_map('strtolower', $matches[0])));
     }
 
     /**

@@ -298,5 +298,52 @@ class AutomationTest extends TestCase {
         ]);
         $this->assertEquals('skipped', $resRuleSkip['status']);
         $this->assertStringContainsString('filter rule', $resRuleSkip['reason']);
+
+        // 7. Test Anti-Spam (Multiple recipients in To header)
+        $resMultiTo = $engine->processIncomingMessage([
+            'message_id' => 'msg_spam_1',
+            'thread_id' => 'th_spam_1',
+            'sender_email' => 'blast@spammer.com',
+            'sender_name' => 'Blast Spammer',
+            'to' => 'victim1@test.com, victim2@test.com, ' . $account->gmail_email,
+            'subject' => 'Huge discounts',
+            'snippet' => 'Buy now',
+            'body' => 'Buy now',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $resMultiTo['status']);
+        $this->assertStringContainsString('Multiple recipients', $resMultiTo['reason']);
+
+        // 8. Test Anti-Spam (CC recipients detected)
+        $resCc = $engine->processIncomingMessage([
+            'message_id' => 'msg_spam_2',
+            'thread_id' => 'th_spam_2',
+            'sender_email' => 'blast2@spammer.com',
+            'sender_name' => 'Blast Spammer 2',
+            'to' => $account->gmail_email,
+            'cc' => 'other1@test.com, other2@test.com',
+            'subject' => 'Special promotion',
+            'snippet' => 'Details',
+            'body' => 'Details',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $resCc['status']);
+        $this->assertStringContainsString('CC', $resCc['reason']);
+
+        // 9. Test Anti-Spam (BCC recipients detected)
+        $resBcc = $engine->processIncomingMessage([
+            'message_id' => 'msg_spam_3',
+            'thread_id' => 'th_spam_3',
+            'sender_email' => 'blast3@spammer.com',
+            'sender_name' => 'Blast Spammer 3',
+            'to' => $account->gmail_email,
+            'bcc' => 'hidden_lead@test.com',
+            'subject' => 'Secret deal',
+            'snippet' => 'Details',
+            'body' => 'Details',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $resBcc['status']);
+        $this->assertStringContainsString('BCC', $resBcc['reason']);
     }
 }
