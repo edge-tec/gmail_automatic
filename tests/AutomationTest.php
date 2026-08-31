@@ -126,7 +126,7 @@ class AutomationTest extends TestCase {
         $this->assertCount(1, $pending);
         $this->assertEquals('auto_reply', $pending[0]->job_type);
 
-        // Test Recipient Reply Detection: Contact sends follow-up email
+        // Test Multi-Step Sequential Reply: Contact sends follow-up email in same thread
         $replyMsgId = 'msg_reply_' . uniqid();
         $replyMsgData = [
             'message_id' => $replyMsgId,
@@ -141,18 +141,29 @@ class AutomationTest extends TestCase {
             'references' => '<msg-header-1@mail.gmail.com>',
         ];
 
-        // Simulate that 1 automated reply had been sent
+        // Simulate that 1 automated reply had already been sent
         $thread->update(['reply_count' => 1]);
 
         $replyResult = $engine->processIncomingMessage($replyMsgData);
-        $this->assertEquals('replied_detected', $replyResult['status']);
+        $this->assertEquals('scheduled', $replyResult['status']);
+        $this->assertEquals(2, $replyResult['reply_step']);
 
-        // Check thread status transitioned to 'replied'
+        // Check thread status remains active for next conversation
         $updatedThread = EmailThread::find($thread->id);
-        $this->assertEquals('replied', $updatedThread->automation_status);
+        $this->assertEquals('active', $updatedThread->automation_status);
 
-        // Check that pending jobs were cancelled
-        $cancelledJobs = ScheduledJob::findPendingByThreadId($thread->id);
-        $this->assertCount(0, $cancelledJobs);
+        // When per-thread limit is reached (e.g., 3 replies)
+        $thread->update(['reply_count' => 3]);
+        $limitResult = $engine->processIncomingMessage([
+            'message_id' => 'msg_reply_3_' . uniqid(),
+            'thread_id' => $threadId,
+            'sender_email' => 'customer@client.com',
+            'sender_name' => 'John Customer',
+            'subject' => 'Re: Still need info',
+            'snippet' => 'One more thing',
+            'body' => 'One more thing',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('limit_reached', $limitResult['status']);
     }
 }

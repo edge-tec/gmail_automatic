@@ -74,15 +74,13 @@ class AutomationEngine {
             'last_processed_message_id' => $msgId,
         ]);
 
-        // 4. Critical Requirement #8: If recipient replied, cancel pending follow-up jobs!
+        // 4. If recipient replied, cancel any pending unanswered follow-up sequences
         if ($thread->reply_count > 0 || $thread->followup_count > 0) {
+            ScheduledJob::cancelPendingJobsForThread($thread->id, 'Recipient replied to email');
             $thread->update([
-                'automation_status' => 'replied',
                 'next_followup_at' => null,
             ]);
-            ScheduledJob::cancelPendingJobsForThread($thread->id, 'Recipient replied to email');
-            logger("Recipient replied in thread {$threadId}. Cancelled all pending follow-ups.", 'info', $this->account->user_id, $this->account->id);
-            return ['status' => 'replied_detected', 'thread_id' => $thread->id];
+            logger("Recipient replied in thread {$threadId}. Preparing next reply step.", 'info', $this->account->user_id, $this->account->id);
         }
 
         // Check if thread automation is stopped manually
@@ -107,8 +105,10 @@ class AutomationEngine {
         }
 
         // 8. Check Per-Thread Reply Limit
+        $nextReplyStep = $thread->reply_count + 1;
         if ($thread->reply_count >= $this->settings->max_reply_per_thread) {
-            return ['status' => 'limit_reached', 'reason' => 'Max reply per thread reached'];
+            $thread->update(['automation_status' => 'completed']);
+            return ['status' => 'limit_reached', 'reason' => "Max reply per thread reached ({$this->settings->max_reply_per_thread})"];
         }
 
         // 9. Check Daily Reply Limit
@@ -120,8 +120,8 @@ class AutomationEngine {
             $scheduledAt = $this->calculateNextAllowedSendTime(false, $this->settings->reply_delay);
         }
 
-        // 10. Prepare Reply Message with Template Variables
-        $templateMessage = $ruleDecision['custom_message'] ?? $this->settings->reply_message;
+        // 10. Prepare Reply Message for Step #$nextReplyStep with Template Variables
+        $templateMessage = $ruleDecision['custom_message'] ?? $this->settings->getReplyMessageForStep($nextReplyStep);
         $renderedMessage = $this->renderVariables($templateMessage, [
             'sender_email' => $senderEmail,
             'sender_name' => $senderName,
@@ -129,7 +129,7 @@ class AutomationEngine {
             'date' => $date,
         ]);
 
-        // 11. Schedule the Auto Reply Job
+        // 11. Schedule the Auto Reply Job (Step #$nextReplyStep)
         $job = ScheduledJob::create([
             'gmail_account_id' => $this->account->id,
             'thread_id' => $thread->id,
@@ -142,17 +142,21 @@ class AutomationEngine {
                 'in_reply_to' => $msgData['message_id_header'] ?? null,
                 'references' => $msgData['references'] ?? null,
                 'gmail_message_id' => $msgId,
+                'reply_step' => $nextReplyStep,
             ],
             'scheduled_at' => $scheduledAt,
             'status' => 'pending',
             'max_attempts' => 3,
         ]);
 
-        logger("Scheduled auto-reply for thread {$threadId} to {$senderEmail} at {$scheduledAt}", 'info', $this->account->user_id, $this->account->id);
+        $thread->update(['automation_status' => 'active']);
+
+        logger("Scheduled Auto-Reply Step #{$nextReplyStep} for thread {$threadId} to {$senderEmail} at {$scheduledAt}", 'info', $this->account->user_id, $this->account->id);
 
         return [
             'status' => 'scheduled',
             'job_id' => $job->id,
+            'reply_step' => $nextReplyStep,
             'scheduled_at' => $scheduledAt,
         ];
     }

@@ -93,20 +93,31 @@
                 <?php if (empty($messages)): ?>
                 <div class="text-center p-4 text-muted">No messages loaded for this thread.</div>
                 <?php else: ?>
-                    <?php foreach ($messages as $msg): ?>
-                    <div class="message-bubble <?= $msg->direction === 'incoming' ? 'message-incoming' : 'message-outgoing' ?>">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
+                    <?php 
+                    $replyNumber = 0;
+                    foreach ($messages as $msg): 
+                        if ($msg->direction === 'outgoing') {
+                            $replyNumber++;
+                        }
+                    ?>
+                    <div class="message-bubble mb-3 p-3 rounded <?= $msg->direction === 'incoming' ? 'bg-light border' : 'bg-primary-subtle border border-primary-subtle' ?>">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                             <div>
-                                <span class="fw-bold <?= $msg->direction === 'incoming' ? 'text-dark' : 'text-primary' ?>">
-                                    <?= $msg->direction === 'incoming' ? '<i class="fa-solid fa-arrow-down-left text-success me-1"></i> From: ' . e($msg->sender) : '<i class="fa-solid fa-robot text-primary me-1"></i> Sent (Automated): ' . e($msg->sender) ?>
-                                </span>
+                                <?php if ($msg->direction === 'incoming'): ?>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle me-1"><i class="fa-solid fa-arrow-down-left me-1"></i> Received</span>
+                                    <span class="fw-bold text-dark"><?= e($msg->sender) ?></span>
+                                <?php else: ?>
+                                    <span class="badge bg-primary text-white me-1"><i class="fa-solid fa-robot me-1"></i> Auto Reply #<?= $replyNumber ?></span>
+                                    <span class="fw-bold text-primary"><?= e($msg->sender) ?> &rarr; <?= e($msg->recipient) ?></span>
+                                <?php endif; ?>
                             </div>
-                            <div class="small text-muted font-monospace">
-                                <?= date('M d, Y H:i', strtotime($msg->received_at ?? $msg->sent_at ?? $msg->created_at)) ?>
+                            <div class="small text-muted font-monospace d-flex align-items-center gap-1">
+                                <i class="fa-regular fa-clock text-secondary"></i>
+                                <span><?= date('M d, Y - h:i:s A', strtotime($msg->received_at ?? $msg->sent_at ?? $msg->created_at)) ?></span>
                             </div>
                         </div>
 
-                        <div class="small text-pre-wrap" style="white-space: pre-wrap;"><?= e($msg->message_body ?: $msg->snippet) ?></div>
+                        <div class="small text-pre-wrap mt-2 p-2 bg-white rounded border" style="white-space: pre-wrap; font-family: inherit; font-size: 0.92rem; line-height: 1.5;"><?= e($msg->message_body ?: $msg->snippet) ?></div>
                     </div>
                     <?php endforeach; ?>
                 <?php endif; ?>

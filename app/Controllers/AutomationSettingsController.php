@@ -70,8 +70,23 @@ class AutomationSettingsController {
             $settings = AutomationSetting::createDefault($account->id);
         }
 
-        $autoReplyEnabled = (bool)$request->input('auto_reply_enabled', 0);
-        $replyMessage = trim($request->input('reply_message', ''));
+        $replyMessagesInput = $request->input('reply_messages');
+        if (is_array($replyMessagesInput)) {
+            $cleanMessages = [];
+            foreach ($replyMessagesInput as $step => $msg) {
+                $stepNum = (int)$step;
+                if (!empty(trim($msg))) {
+                    $cleanMessages[$stepNum] = trim($msg);
+                }
+            }
+            if (empty($cleanMessages)) {
+                $cleanMessages[1] = "Hello {{first_name}},\n\nThank you for reaching out! We have received your message regarding \"{{subject}}\" and our team will get back to you shortly.\n\nBest regards,\nAutomated Support";
+            }
+            $replyMessage = json_encode($cleanMessages, JSON_UNESCAPED_UNICODE);
+        } else {
+            $replyMessage = trim($request->input('reply_message', ''));
+        }
+
         $maxReplyPerThread = max(1, (int)$request->input('max_reply_per_thread', 3));
         $dailyReplyLimit = max(1, (int)$request->input('daily_reply_limit', 100));
         $scheduleMode = $request->input('schedule_mode', 'instant');

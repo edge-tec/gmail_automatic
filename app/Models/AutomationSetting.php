@@ -63,6 +63,37 @@ class AutomationSetting {
         return Database::execute($sql, $params);
     }
 
+    public function getReplyMessages(): array {
+        if (!$this->reply_message) {
+            return [
+                1 => "Hello {{first_name}},\n\nThank you for reaching out! We have received your message regarding \"{{subject}}\" and our team will get back to you shortly.\n\nBest regards,\nAutomated Support"
+            ];
+        }
+
+        $decoded = json_decode($this->reply_message, true);
+        if (is_array($decoded) && !empty($decoded)) {
+            return $decoded;
+        }
+
+        return [
+            1 => $this->reply_message
+        ];
+    }
+
+    public function getReplyMessageForStep(int $step): string {
+        $messages = $this->getReplyMessages();
+        if (isset($messages[$step]) && !empty(trim($messages[$step]))) {
+            return $messages[$step];
+        }
+
+        // If step not defined, use the last defined step or step 1
+        if (isset($messages[1])) {
+            return $messages[1];
+        }
+
+        return reset($messages) ?: "Hello {{first_name}},\n\nThank you for your reply! Our team will get back to you shortly.";
+    }
+
     public static function fromRow(array $row): self {
         $setting = new self();
         $setting->id = (int)$row['id'];
