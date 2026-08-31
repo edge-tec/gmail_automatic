@@ -119,10 +119,23 @@
                         <span>Payment Gateways</span>
                     </a>
                 </li>
+                <?php 
+                    $pendingBadgeCount = 0;
+                    if (auth_user() && auth_user()->role === 'admin') {
+                        try {
+                            $pendingBadgeCount = (int)(\App\Core\Database::first("SELECT COUNT(*) as c FROM payments WHERE status = 'pending'")['c'] ?? 0);
+                        } catch (\Throwable $t) {}
+                    }
+                ?>
                 <li>
-                    <a href="<?= url('/admin/payments') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/payments') ? 'active' : '' ?>">
-                        <i class="fa-solid fa-receipt text-primary"></i>
-                        <span>Payments &amp; Invoices</span>
+                    <a href="<?= url('/admin/payments') ?>" class="nav-link d-flex align-items-center justify-content-between <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/payments') ? 'active' : '' ?>">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-receipt text-primary"></i>
+                            <span>Payments &amp; Invoices</span>
+                        </div>
+                        <?php if ($pendingBadgeCount > 0): ?>
+                            <span class="badge bg-danger rounded-pill"><?= $pendingBadgeCount ?></span>
+                        <?php endif; ?>
                     </a>
                 </li>
                 <li>
@@ -172,6 +185,12 @@
                     <h5 class="mb-0 fw-bold"><?= \App\Core\View::yield('title', 'Gmail Automation') ?></h5>
                 </div>
                 <div class="d-flex align-items-center gap-3">
+                    <?php if ($pendingBadgeCount > 0): ?>
+                    <a href="<?= url('/admin/payments') ?>" class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1 shadow-sm">
+                        <i class="fa-solid fa-bell text-danger"></i>
+                        <span class="fw-bold"><?= $pendingBadgeCount ?> Pending Payment<?= $pendingBadgeCount > 1 ? 's' : '' ?></span>
+                    </a>
+                    <?php endif; ?>
                     <span class="badge bg-light text-dark border"><i class="fa-solid fa-clock me-1 text-primary"></i> <?= date('d M Y, H:i') ?></span>
                     <a href="<?= url('/accounts/connect') ?>" class="btn btn-sm btn-primary">
                         <i class="fa-brands fa-google me-1"></i> Connect Gmail

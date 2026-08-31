@@ -1,96 +1,210 @@
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
     <div>
-        <h4 class="fw-bold mb-1">System Administration</h4>
-        <p class="text-muted small mb-0">Monitor system-wide Gmail automations, total accounts, queue health, and activity logs.</p>
+        <h4 class="fw-bold mb-1">System Administration &amp; Notifications</h4>
+        <p class="text-muted small mb-0">Monitor new user registrations, verify incoming payments, track Gmail automations, and manage queue health.</p>
     </div>
-    <!-- Global Automation Toggle -->
-    <form action="<?= url('/admin/toggle-global') ?>" method="POST">
-        <?= csrf_field() ?>
-        <?php if ($globalAutomation === '1'): ?>
-            <button type="submit" class="btn btn-danger" onclick="return confirm('Disable automation for ALL accounts system-wide?')">
-                <i class="fa-solid fa-power-off me-1"></i> Disable Global Automation
-            </button>
-        <?php else: ?>
-            <button type="submit" class="btn btn-success">
-                <i class="fa-solid fa-play me-1"></i> Enable Global Automation
-            </button>
-        <?php endif; ?>
-    </form>
+    <div class="d-flex align-items-center gap-2">
+        <a href="<?= url('/admin/gateways') ?>" class="btn btn-outline-primary btn-sm">
+            <i class="fa-solid fa-credit-card me-1"></i> Gateways
+        </a>
+        <!-- Global Automation Toggle -->
+        <form action="<?= url('/admin/toggle-global') ?>" method="POST">
+            <?= csrf_field() ?>
+            <?php if ($globalAutomation === '1'): ?>
+                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Disable automation for ALL accounts system-wide?')">
+                    <i class="fa-solid fa-power-off me-1"></i> Disable Global
+                </button>
+            <?php else: ?>
+                <button type="submit" class="btn btn-sm btn-success">
+                    <i class="fa-solid fa-play me-1"></i> Enable Global
+                </button>
+            <?php endif; ?>
+        </form>
+    </div>
 </div>
 
-<!-- Admin Stat Cards -->
+<!-- Real-Time Notification Banners -->
+<?php if ($pendingPaymentsCount > 0): ?>
+<div class="alert alert-warning border-warning d-flex justify-content-between align-items-center shadow-sm p-3 mb-4 rounded-3 flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <div class="p-2 rounded-circle bg-warning text-dark fs-4">
+            <i class="fa-solid fa-bell"></i>
+        </div>
+        <div>
+            <h6 class="fw-bold mb-0 text-dark">
+                <?= $pendingPaymentsCount ?> Pending Payment Submission(s) Waiting for Verification!
+            </h6>
+            <div class="small text-muted">Users have submitted bKash/Nagad payments. Please verify TrxIDs and approve subscriptions.</div>
+        </div>
+    </div>
+    <a href="<?= url('/admin/payments') ?>" class="btn btn-warning fw-bold text-dark px-3 py-2">
+        <i class="fa-solid fa-list-check me-1"></i> Review &amp; Approve (<?= $pendingPaymentsCount ?>)
+    </a>
+</div>
+<?php endif; ?>
+
+<!-- Stat Cards -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="text-muted small fw-semibold">Total Registered Users</div>
+        <div class="stat-card p-3 bg-white rounded-3 border shadow-sm h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted small fw-semibold">Total Users</span>
+                <span class="badge bg-primary bg-opacity-10 text-primary">+<?= $newUsersTodayCount ?> Today</span>
+            </div>
             <div class="fs-3 fw-bold mt-1 text-primary"><?= $totalUsers ?></div>
+            <div class="small text-muted"><?= $activeSubscriptions ?> Active Subscribers</div>
         </div>
     </div>
+
     <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="text-muted small fw-semibold">Connected Gmail Accounts</div>
-            <div class="fs-3 fw-bold mt-1 text-success"><?= $activeAccounts ?> <span class="text-muted fs-6 fw-normal">/ <?= $totalAccounts ?></span></div>
+        <div class="stat-card p-3 bg-white rounded-3 border shadow-sm h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted small fw-semibold">Pending Payments</span>
+                <?php if ($pendingPaymentsCount > 0): ?>
+                <span class="badge bg-danger">Action Required</span>
+                <?php else: ?>
+                <span class="badge bg-success bg-opacity-10 text-success">Up to date</span>
+                <?php endif; ?>
+            </div>
+            <div class="fs-3 fw-bold mt-1 text-warning"><?= $pendingPaymentsCount ?></div>
+            <div class="small text-muted"><a href="<?= url('/admin/payments') ?>" class="text-decoration-none">View All Payments &rarr;</a></div>
         </div>
     </div>
+
     <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="text-muted small fw-semibold">Total Replies Sent</div>
-            <div class="fs-3 fw-bold mt-1 text-info"><?= $totalReplies ?></div>
+        <div class="stat-card p-3 bg-white rounded-3 border shadow-sm h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted small fw-semibold">Active Free Trials</span>
+                <i class="fa-solid fa-gift text-info"></i>
+            </div>
+            <div class="fs-3 fw-bold mt-1 text-info"><?= $activeTrials ?></div>
+            <div class="small text-muted"><?= $activeAccounts ?> Active Gmails Connected</div>
         </div>
     </div>
+
     <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="text-muted small fw-semibold">Total Follow-ups Sent</div>
-            <div class="fs-3 fw-bold mt-1 text-dark"><?= $totalFollowups ?></div>
+        <div class="stat-card p-3 bg-white rounded-3 border shadow-sm h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted small fw-semibold">Total Paid Revenue</span>
+                <i class="fa-solid fa-dollar-sign text-success"></i>
+            </div>
+            <div class="fs-3 fw-bold mt-1 text-success">$<?= number_format($totalRevenue, 2) ?></div>
+            <div class="small text-muted"><?= $totalReplies + $totalFollowups ?> Total Sent Emails</div>
         </div>
     </div>
 </div>
 
-<div class="row g-4 mb-4">
-    <!-- Queue & Cron Health -->
-    <div class="col-12 col-lg-5">
-        <div class="card h-100">
-            <div class="card-header">
-                <i class="fa-solid fa-server me-2 text-primary"></i> System Health & Background Status
-            </div>
-            <div class="card-body">
-                <ul class="list-group list-group-flush mb-3">
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                        <span>Global Automation Status</span>
-                        <?php if ($globalAutomation === '1'): ?>
-                            <span class="badge bg-success-subtle text-success border border-success-subtle">ONLINE (Active)</span>
-                        <?php else: ?>
-                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">PAUSED (Global Off)</span>
-                        <?php endif; ?>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                        <span>Cron Poller Last Executed</span>
-                        <span class="font-monospace small fw-semibold text-muted"><?= e($cronLastRun) ?></span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                        <span>Pending Queue Jobs</span>
-                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><?= $pendingJobs ?></span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                        <span>Failed Jobs</span>
-                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle"><?= $failedJobs ?></span>
-                    </li>
-                </ul>
+<!-- Pending Payment Action Table (If any) -->
+<?php if (!empty($pendingPayments)): ?>
+<div class="card shadow-sm border-0 mb-4 border-start border-warning border-4">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold mb-0 text-dark">
+            <i class="fa-solid fa-circle-exclamation text-warning me-2"></i> Pending Payments Awaiting Approval
+        </h6>
+        <a href="<?= url('/admin/payments') ?>" class="btn btn-sm btn-outline-primary">Manage All Payments</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light small">
+                <tr>
+                    <th>User</th>
+                    <th>Gateway</th>
+                    <th>Sender Number</th>
+                    <th>Transaction ID (TrxID)</th>
+                    <th>Plan &amp; Amount</th>
+                    <th>Submitted At</th>
+                    <th class="text-end">Quick Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($pendingPayments as $pPay): ?>
+                <tr>
+                    <td>
+                        <div class="fw-semibold text-dark"><?= e($pPay->getUser()->name ?? 'User #' . $pPay->user_id) ?></div>
+                        <div class="small text-muted"><?= e($pPay->getUser()->email ?? '') ?></div>
+                    </td>
+                    <td>
+                        <span class="badge <?= $pPay->gateway === 'bkash' ? 'bg-danger' : ($pPay->gateway === 'nagad' ? 'bg-warning text-dark' : 'bg-primary') ?>">
+                            <?= strtoupper($pPay->gateway) ?>
+                        </span>
+                    </td>
+                    <td class="font-monospace fw-semibold"><?= e($pPay->sender_number ?? 'N/A') ?></td>
+                    <td class="font-monospace fw-bold text-primary"><?= e($pPay->transaction_id ?? 'N/A') ?></td>
+                    <td>
+                        <div class="fw-bold"><?= $pPay->getPlan() ? e($pPay->getPlan()->name) : 'Subscription' ?></div>
+                        <div class="small text-muted">$<?= number_format($pPay->amount, 2) ?> USD <?php if ($pPay->amount_bdt): ?>(৳ <?= number_format($pPay->amount_bdt, 2) ?>)<?php endif; ?></div>
+                    </td>
+                    <td class="small text-muted"><?= date('d M Y, H:i', strtotime($pPay->created_at)) ?></td>
+                    <td class="text-end">
+                        <div class="d-inline-flex gap-1">
+                            <form action="<?= url('/admin/payments/' . $pPay->id . '/approve') ?>" method="POST" class="d-inline">
+                                <?= csrf_field() ?>
+                                <button type="submit" class="btn btn-sm btn-success fw-bold" onclick="return confirm('Approve TrxID <?= e($pPay->transaction_id) ?> and activate subscription?');">
+                                    <i class="fa-solid fa-check me-1"></i> Approve
+                                </button>
+                            </form>
+                            <form action="<?= url('/admin/payments/' . $pPay->id . '/reject') ?>" method="POST" class="d-inline">
+                                <?= csrf_field() ?>
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Reject TrxID <?= e($pPay->transaction_id) ?>?');">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
 
-                <div class="alert alert-info py-2 px-3 small">
-                    <i class="fa-solid fa-circle-info me-1"></i>
-                    Cron should run every minute via aaPanel cron: <code>* * * * * php /www/wwwroot/your-domain/cron.php</code>
+<div class="row g-4 mb-4">
+    <!-- Recent User Registrations -->
+    <div class="col-12 col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0"><i class="fa-solid fa-user-plus text-primary me-2"></i> Recent Registrations</h6>
+                <a href="<?= url('/admin/users') ?>" class="btn btn-sm btn-outline-primary">View All Users</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" style="font-size: 0.88rem;">
+                        <tbody>
+                            <?php foreach ($recentRegistrations as $rUser): ?>
+                            <tr>
+                                <td style="width: 40px;">
+                                    <div class="rounded-circle bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                        <?= strtoupper(substr($rUser['name'], 0, 1)) ?>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold text-dark"><?= e($rUser['name']) ?></div>
+                                    <div class="small text-muted"><?= e($rUser['email']) ?></div>
+                                </td>
+                                <td>
+                                    <span class="badge <?= $rUser['subscription_status'] === 'active' ? 'bg-success' : ($rUser['trial_status'] === 'active' ? 'bg-info' : 'bg-light text-dark border') ?>">
+                                        <?= ucfirst($rUser['plan_type']) ?> (<?= ucfirst($rUser['subscription_status']) ?>)
+                                    </span>
+                                </td>
+                                <td class="text-end small text-muted font-monospace">
+                                    <?= date('d M, H:i', strtotime($rUser['created_at'])) ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Recent System Logs -->
-    <div class="col-12 col-lg-7">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="fa-solid fa-list-check me-2 text-primary"></i> Recent Audit Logs</span>
-                <a href="<?= url('/admin/logs') ?>" class="btn btn-sm btn-outline-primary">View All Logs</a>
+    <!-- Recent Audit Logs -->
+    <div class="col-12 col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0"><i class="fa-solid fa-list-check text-primary me-2"></i> Live Activity &amp; Notifications</h6>
+                <a href="<?= url('/admin/logs') ?>" class="btn btn-sm btn-outline-primary">View Full Logs</a>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -110,9 +224,9 @@
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <div class="text-truncate" style="max-width: 380px;"><?= e($log['message']) ?></div>
+                                    <div class="text-truncate" style="max-width: 300px;"><?= e($log['message']) ?></div>
                                     <div class="small text-muted font-monospace" style="font-size: 0.75rem;">
-                                        <?= e($log['user_name'] ?? 'System') ?> <?= $log['gmail_email'] ? '(' . e($log['gmail_email']) . ')' : '' ?>
+                                        <?= e($log['user_name'] ?? 'System') ?>
                                     </div>
                                 </td>
                                 <td class="text-end text-muted font-monospace" style="font-size: 0.75rem;">

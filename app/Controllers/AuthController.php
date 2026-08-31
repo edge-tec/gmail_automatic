@@ -119,6 +119,8 @@ class AuthController {
             ], "trial_started:{$user->id}", $user->id, $user->name);
         }
 
+        logger("New user registration: [{$user->name}] ({$user->email}) registered on the platform.", 'success', $user->id);
+
         Auth::login($user);
         flash('success', 'Registration successful! Welcome to Gmail Automation.');
         redirect('/dashboard');

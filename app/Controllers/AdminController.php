@@ -36,6 +36,13 @@ class AdminController {
         $activeSubscriptions = (int)(Database::first("SELECT COUNT(*) as c FROM users WHERE subscription_status = 'active'")['c'] ?? 0);
         $activeTrials = (int)(Database::first("SELECT COUNT(*) as c FROM users WHERE trial_status = 'active'")['c'] ?? 0);
 
+        // Notifications & Action Items
+        $pendingPayments = Payment::getPendingManual(10);
+        $pendingPaymentsCount = count($pendingPayments);
+        
+        $recentRegistrations = Database::query("SELECT * FROM users ORDER BY created_at DESC LIMIT 5");
+        $newUsersTodayCount = (int)(Database::first("SELECT COUNT(*) as c FROM users WHERE DATE(created_at) = CURRENT_DATE")['c'] ?? 0);
+
         $recentLogs = ActivityLog::getLatest(20);
         $recentPayments = Payment::all(10);
         $globalAutomation = SystemSetting::get('global_automation_enabled', '1');
@@ -53,6 +60,10 @@ class AdminController {
             'totalRevenue' => $totalRevenue,
             'activeSubscriptions' => $activeSubscriptions,
             'activeTrials' => $activeTrials,
+            'pendingPayments' => $pendingPayments,
+            'pendingPaymentsCount' => $pendingPaymentsCount,
+            'recentRegistrations' => $recentRegistrations,
+            'newUsersTodayCount' => $newUsersTodayCount,
             'recentLogs' => $recentLogs,
             'recentPayments' => $recentPayments,
             'globalAutomation' => $globalAutomation,
