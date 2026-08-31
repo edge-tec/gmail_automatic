@@ -894,9 +894,37 @@
     </section>
 
     <!-- 11. FOOTER -->
-    <footer class="bg-dark text-light pt-5 pb-4 border-top border-secondary border-opacity-25">
+    <footer class="text-light pt-5 pb-4 border-top" style="background: #090d16; border-color: rgba(255, 255, 255, 0.08) !important;">
+        <style>
+            .footer-link {
+                color: #94a3b8 !important;
+                text-decoration: none !important;
+                font-size: 0.92rem;
+                transition: all 0.2s ease;
+                display: inline-block;
+            }
+            .footer-link:hover {
+                color: #818cf8 !important;
+                transform: translateX(4px);
+            }
+            .footer-heading {
+                color: #ffffff;
+                font-size: 0.82rem;
+                font-weight: 700;
+                letter-spacing: 1px;
+                text-transform: uppercase;
+                margin-bottom: 1.25rem;
+            }
+            .author-badge-box {
+                background: rgba(255, 255, 255, 0.04);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 12px;
+                padding: 14px 16px;
+            }
+        </style>
         <div class="container">
             <div class="row g-4 mb-5">
+                <!-- Col 1: Brand & Author Info -->
                 <div class="col-12 col-lg-4">
                     <div class="d-flex align-items-center gap-2 mb-3">
                         <div class="bg-primary text-white rounded-3 p-2 shadow-sm">
@@ -904,57 +932,109 @@
                         </div>
                         <h5 class="fw-bold mb-0 text-white">Gmail Automation</h5>
                     </div>
-                    <p class="text-muted small mb-4">
-                        Professional SaaS solution for high-volume conversational auto-replies, smart follow-up sequences, and 24/7 background queue automation.
+                    <p class="text-secondary small mb-3" style="line-height: 1.7; color: #94a3b8 !important;">
+                        Enterprise cloud infrastructure for automated conversational Gmail replies, multi-stage follow-ups, and 24/7 background queue scheduling with zero-fallback protection.
                     </p>
-                    <div class="text-secondary small">
-                        All rights &amp; design by <strong>Mizanur Rahman</strong> | <a href="tel:+8801611195794" class="text-decoration-none text-light fw-bold">+8801611195794</a>
+
+                    <!-- Trust / Security Pills -->
+                    <div class="d-flex flex-wrap gap-2 mb-4">
+                        <span class="badge bg-dark border border-secondary border-opacity-50 text-success py-2 px-3 small">
+                            <i class="fa-solid fa-shield-check me-1"></i> Google OAuth 2.0
+                        </span>
+                        <span class="badge bg-dark border border-secondary border-opacity-50 text-info py-2 px-3 small">
+                            <i class="fa-solid fa-lock me-1"></i> 256-Bit SSL
+                        </span>
+                        <span class="badge bg-dark border border-secondary border-opacity-50 text-warning py-2 px-3 small">
+                            <i class="fa-solid fa-server me-1"></i> 24/7 Queue
+                        </span>
+                    </div>
+
+                    <!-- Creator Card -->
+                    <div class="author-badge-box">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold shadow-sm" style="width: 42px; height: 42px; font-size: 1.1rem; flex-shrink: 0;">
+                                MR
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="text-white-50" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Architect &amp; Lead Developer</div>
+                                <div class="fw-bold text-white small">Mizanur Rahman</div>
+                                <div class="mt-1">
+                                    <a href="tel:+8801611195794" class="text-decoration-none small text-light me-2">
+                                        <i class="fa-solid fa-phone text-primary me-1"></i> +8801611195794
+                                    </a>
+                                    <a href="https://wa.me/8801611195794" target="_blank" class="badge bg-success bg-opacity-25 text-success text-decoration-none border border-success border-opacity-50 py-1 px-2">
+                                        <i class="fa-brands fa-whatsapp me-1"></i> WhatsApp
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
+                <!-- Col 2: Product & Automation -->
                 <div class="col-6 col-md-3 col-lg-2">
-                    <h6 class="fw-bold text-white mb-3">Product</h6>
-                    <ul class="list-unstyled small d-flex flex-column gap-2 text-muted">
-                        <li><a href="#features" class="text-decoration-none text-muted">Features</a></li>
-                        <li><a href="#pricing" class="text-decoration-none text-muted">Pricing</a></li>
-                        <li><a href="#how-it-works" class="text-decoration-none text-muted">How It Works</a></li>
-                        <li><a href="#faq" class="text-decoration-none text-muted">FAQ</a></li>
+                    <div class="footer-heading">Product</div>
+                    <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
+                        <li><a href="#features" class="footer-link">Auto Reply Engine</a></li>
+                        <li><a href="#features" class="footer-link">Multi-Step Follow-ups</a></li>
+                        <li><a href="#how-it-works" class="footer-link">How It Works</a></li>
+                        <li><a href="#pricing" class="footer-link">Pricing Plans</a></li>
+                        <li><a href="#faq" class="footer-link">FAQ &amp; Guide</a></li>
                     </ul>
                 </div>
 
+                <!-- Col 3: Account & Access -->
                 <div class="col-6 col-md-3 col-lg-2">
-                    <h6 class="fw-bold text-white mb-3">Account</h6>
-                    <ul class="list-unstyled small d-flex flex-column gap-2 text-muted">
-                        <li><a href="<?= url('/login') ?>" class="text-decoration-none text-muted">Login</a></li>
-                        <li><a href="<?= url('/register') ?>" class="text-decoration-none text-muted">Register</a></li>
-                        <li><a href="<?= url('/dashboard') ?>" class="text-decoration-none text-muted">Dashboard</a></li>
-                        <li><a href="<?= url('/billing') ?>" class="text-decoration-none text-muted">Billing</a></li>
+                    <div class="footer-heading">Account</div>
+                    <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
+                        <li><a href="<?= url('/login') ?>" class="footer-link">User Login</a></li>
+                        <li><a href="<?= url('/register') ?>" class="footer-link">Create Account</a></li>
+                        <li><a href="<?= url('/dashboard') ?>" class="footer-link">Live Dashboard</a></li>
+                        <li><a href="<?= url('/billing') ?>" class="footer-link">Billing &amp; Plans</a></li>
+                        <li><a href="<?= url('/register') ?>" class="footer-link">Start Free Trial</a></li>
                     </ul>
                 </div>
 
+                <!-- Col 4: Legal & Policy -->
                 <div class="col-6 col-md-3 col-lg-2">
-                    <h6 class="fw-bold text-white mb-3">Legal</h6>
-                    <ul class="list-unstyled small d-flex flex-column gap-2 text-muted">
-                        <li><a href="https://2xbets.net/privacy" class="text-decoration-none text-muted">Privacy Policy</a></li>
-                        <li><a href="https://2xbets.net/terms" class="text-decoration-none text-muted">Terms of Service</a></li>
+                    <div class="footer-heading">Legal &amp; Safety</div>
+                    <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
+                        <li><a href="https://2xbets.net/privacy" class="footer-link">Privacy Policy</a></li>
+                        <li><a href="https://2xbets.net/terms" class="footer-link">Terms of Service</a></li>
+                        <li><a href="https://2xbets.net/privacy" class="footer-link">Google API Disclosure</a></li>
+                        <li><a href="https://2xbets.net/terms" class="footer-link">Zero-Fallback Policy</a></li>
+                        <li><a href="https://2xbets.net/privacy" class="footer-link">Data Security</a></li>
                     </ul>
                 </div>
 
+                <!-- Col 5: Support & Contact -->
                 <div class="col-6 col-md-3 col-lg-2">
-                    <h6 class="fw-bold text-white mb-3">Support</h6>
-                    <ul class="list-unstyled small d-flex flex-column gap-2 text-muted">
-                        <li><a href="mailto:support@2xbets.net" class="text-decoration-none text-muted"><i class="fa-solid fa-envelope me-1"></i> Email Support</a></li>
-                        <li><a href="tel:+8801611195794" class="text-decoration-none text-muted"><i class="fa-solid fa-phone me-1"></i> +8801611195794</a></li>
+                    <div class="footer-heading">Support</div>
+                    <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
+                        <li><a href="mailto:support@2xbets.net" class="footer-link"><i class="fa-solid fa-envelope me-1 text-primary"></i> support@2xbets.net</a></li>
+                        <li><a href="tel:+8801611195794" class="footer-link"><i class="fa-solid fa-phone me-1 text-success"></i> +8801611195794</a></li>
+                        <li><a href="https://wa.me/8801611195794" target="_blank" class="footer-link"><i class="fa-brands fa-whatsapp me-1 text-success"></i> Direct WhatsApp</a></li>
+                        <li><span class="footer-link"><i class="fa-solid fa-circle text-success small me-1"></i> System 99.9% Uptime</span></li>
                     </ul>
                 </div>
             </div>
 
-            <div class="border-top border-secondary border-opacity-25 pt-4 text-center text-muted small d-flex flex-wrap justify-content-center align-items-center gap-2">
-                <span>&copy; <?= date('Y') ?> Gmail Automation Platform (2xbets.net). All rights reserved.</span>
-                <span>&bull;</span>
-                <a href="https://2xbets.net/privacy" class="text-decoration-none text-light fw-semibold">Privacy Policy</a>
-                <span>&bull;</span>
-                <a href="https://2xbets.net/terms" class="text-decoration-none text-light fw-semibold">Terms of Service</a>
+            <!-- Bottom Copyright & Legal Links -->
+            <div class="border-top pt-4 text-secondary small d-flex flex-column flex-md-row justify-content-between align-items-center gap-3" style="border-color: rgba(255, 255, 255, 0.08) !important;">
+                <div class="text-center text-md-start" style="color: #94a3b8;">
+                    &copy; <?= date('Y') ?> <strong class="text-white">Gmail Automation Platform</strong> (2xbets.net). All Rights Reserved.
+                    <div class="mt-1" style="color: #64748b; font-size: 0.82rem;">
+                        Designed &amp; Developed with excellence by <strong class="text-light">Mizanur Rahman</strong> | <a href="tel:+8801611195794" class="text-light text-decoration-none fw-bold">+8801611195794</a>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap justify-content-center align-items-center gap-3 small">
+                    <a href="https://2xbets.net/privacy" class="text-light text-decoration-none fw-semibold">Privacy Policy</a>
+                    <span style="color: rgba(255,255,255,0.2);">&bull;</span>
+                    <a href="https://2xbets.net/terms" class="text-light text-decoration-none fw-semibold">Terms of Service</a>
+                    <span style="color: rgba(255,255,255,0.2);">&bull;</span>
+                    <a href="mailto:support@2xbets.net" class="text-light text-decoration-none fw-semibold">Support</a>
+                </div>
             </div>
         </div>
     </footer>
