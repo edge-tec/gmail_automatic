@@ -22,10 +22,24 @@ class RuleController {
         $selectedAccount = null;
         if ($accountId) {
             $selectedAccount = GmailAccount::find($accountId);
+            if ($selectedAccount && $selectedAccount->user_id === $userId) {
+                \App\Core\Session::set('selected_account_id', $selectedAccount->id);
+            } else {
+                $selectedAccount = null;
+            }
         }
 
-        if (!$selectedAccount || $selectedAccount->user_id !== $userId) {
+        if (!$selectedAccount && \App\Core\Session::has('selected_account_id')) {
+            $sessId = (int)\App\Core\Session::get('selected_account_id');
+            $found = GmailAccount::find($sessId);
+            if ($found && $found->user_id === $userId) {
+                $selectedAccount = $found;
+            }
+        }
+
+        if (!$selectedAccount) {
             $selectedAccount = $accounts[0];
+            \App\Core\Session::set('selected_account_id', $selectedAccount->id);
         }
 
         $rules = AutomationRule::findByAccountIdAll($selectedAccount->id);
