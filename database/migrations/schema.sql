@@ -8,6 +8,22 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'user',
     status VARCHAR(50) NOT NULL DEFAULT 'active',
+    plan_id INT NULL,
+    plan_type VARCHAR(50) NOT NULL DEFAULT 'free',
+    subscription_status VARCHAR(50) NOT NULL DEFAULT 'inactive',
+    gmail_limit INT NOT NULL DEFAULT 1,
+    trial_status VARCHAR(50) NOT NULL DEFAULT 'not_started',
+    trial_started_at DATETIME NULL,
+    trial_ends_at DATETIME NULL,
+    trial_days INT NOT NULL DEFAULT 0,
+    trial_used TINYINT(1) NOT NULL DEFAULT 0,
+    subscription_started_at DATETIME NULL,
+    subscription_expires_at DATETIME NULL,
+    stripe_customer_id VARCHAR(191) NULL,
+    stripe_subscription_id VARCHAR(191) NULL,
+    email_verified_at DATETIME NULL,
+    verification_token VARCHAR(191) NULL,
+    verification_token_expires_at DATETIME NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -198,3 +214,73 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     INDEX idx_log_created (created_at),
     INDEX idx_log_acc (gmail_account_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS plans (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    slug VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    billing_period VARCHAR(20) NOT NULL DEFAULT 'monthly',
+    gmail_limit INT NOT NULL DEFAULT 100,
+    features TEXT NULL,
+    stripe_price_id VARCHAR(191) NULL,
+    is_popular TINYINT(1) NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    display_order INT NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_plan_slug (slug),
+    INDEX idx_plan_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    plan_id INT NULL,
+    stripe_session_id VARCHAR(191) NULL UNIQUE,
+    stripe_payment_intent_id VARCHAR(191) NULL,
+    stripe_invoice_id VARCHAR(191) NULL,
+    amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    currency VARCHAR(10) NOT NULL DEFAULT 'usd',
+    status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, paid, failed, cancelled, refunded
+    paid_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_payment_user (user_id),
+    INDEX idx_payment_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS email_templates (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    slug VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    subject VARCHAR(500) NOT NULL,
+    body LONGTEXT NOT NULL,
+    is_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_email_tpl_slug (slug)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS email_jobs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    recipient_email VARCHAR(255) NOT NULL,
+    recipient_name VARCHAR(255) NULL,
+    template_slug VARCHAR(100) NULL,
+    event_key VARCHAR(191) NULL UNIQUE,
+    subject VARCHAR(500) NOT NULL,
+    body LONGTEXT NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, processing, sent, failed, cancelled
+    attempts INT NOT NULL DEFAULT 0,
+    max_attempts INT NOT NULL DEFAULT 3,
+    scheduled_at DATETIME NOT NULL,
+    sent_at DATETIME NULL,
+    last_error TEXT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_email_job_status (status, scheduled_at),
+    INDEX idx_email_job_event (event_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

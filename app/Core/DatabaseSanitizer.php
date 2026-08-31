@@ -11,6 +11,40 @@ class DatabaseSanitizer {
         self::$hasRun = true;
 
         try {
+            // 0. Ensure schema migrations and seeds are up to date
+            \Database\MigrationRunner::run();
+
+            // Safe ALTER for existing users table on MySQL
+            $driver = config('database.default', 'mysql');
+            if ($driver === 'mysql') {
+                $userCols = [
+                    'plan_id' => 'INT NULL',
+                    'plan_type' => "VARCHAR(50) NOT NULL DEFAULT 'free'",
+                    'subscription_status' => "VARCHAR(50) NOT NULL DEFAULT 'inactive'",
+                    'gmail_limit' => 'INT NOT NULL DEFAULT 1',
+                    'trial_status' => "VARCHAR(50) NOT NULL DEFAULT 'not_started'",
+                    'trial_started_at' => 'DATETIME NULL',
+                    'trial_ends_at' => 'DATETIME NULL',
+                    'trial_days' => 'INT NOT NULL DEFAULT 0',
+                    'trial_used' => 'TINYINT(1) NOT NULL DEFAULT 0',
+                    'subscription_started_at' => 'DATETIME NULL',
+                    'subscription_expires_at' => 'DATETIME NULL',
+                    'stripe_customer_id' => 'VARCHAR(191) NULL',
+                    'stripe_subscription_id' => 'VARCHAR(191) NULL',
+                    'email_verified_at' => 'DATETIME NULL',
+                    'verification_token' => 'VARCHAR(191) NULL',
+                    'verification_token_expires_at' => 'DATETIME NULL',
+                ];
+
+                foreach ($userCols as $col => $type) {
+                    try {
+                        Database::execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS {$col} {$type}");
+                    } catch (\Throwable $t) {
+                        // Ignore if column already exists
+                    }
+                }
+            }
+
             // 1. Purge any legacy default boilerplate from automation_settings table
             Database::execute(
                 "UPDATE automation_settings 
@@ -31,7 +65,7 @@ class DatabaseSanitizer {
                      OR payload LIKE '%received your message%')"
             );
         } catch (\Throwable $e) {
-            // Silently ignore if tables not yet migrated
+            // Silently ignore if database error
         }
     }
 }

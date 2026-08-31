@@ -33,6 +33,16 @@ class GmailAccountController {
     }
 
     public function connect(): void {
+        $user = Auth::user();
+        $connectedCount = count(GmailAccount::findByUserId($user->id));
+        $maxAllowed = $user->getMaxGmailAccounts();
+
+        if ($connectedCount >= $maxAllowed) {
+            flash('warning', "You have reached your limit of {$maxAllowed} connected Gmail account(s) for your current plan. Please upgrade your subscription to connect more accounts.");
+            redirect('/billing');
+            return;
+        }
+
         $clientId = SystemSetting::get('google_client_id') ?: config('google.client_id', '');
         $clientSecret = SystemSetting::get('google_client_secret') ?: config('google.client_secret', '');
 

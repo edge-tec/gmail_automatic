@@ -9,33 +9,33 @@ use App\Middleware\CSRFMiddleware;
 
 /** @var \App\Core\Router $router */
 
-// Public / Guest Routes
-$router->get('/', function() {
-    if (\App\Core\Auth::check()) {
-        redirect('/dashboard');
-    } else {
-        redirect('/login');
-    }
-});
-
+// Public Landing Page & Auth Routes
+$router->get('/', 'LandingController@index');
 $router->get('/login', 'AuthController@showLogin');
 $router->post('/login', 'AuthController@login', [CSRFMiddleware::class]);
 $router->get('/register', 'AuthController@showRegister');
 $router->post('/register', 'AuthController@register', [CSRFMiddleware::class]);
+$router->get('/verify-email', 'AuthController@verifyEmail');
 $router->get('/logout', 'AuthController@logout');
 
 // Public Legal Pages
 $router->get('/privacy', 'LegalController@privacy');
 $router->get('/terms', 'LegalController@terms');
 
-// Webhook Route (Exempt from CSRF)
+// Webhook Routes (Exempt from CSRF)
 $router->post('/webhook/gmail/pubsub', 'WebhookController@handlePubSub');
+$router->post('/webhook/stripe', 'StripeWebhookController@handle');
 
 // OAuth Callback Route
 $router->get('/auth/google/callback', 'GmailAccountController@callback');
 
 // Authenticated User Routes
 $router->get('/dashboard', 'DashboardController@index', [AuthMiddleware::class]);
+
+// Billing & Subscriptions
+$router->get('/billing', 'BillingController@index', [AuthMiddleware::class]);
+$router->post('/billing/start-trial', 'BillingController@startTrial', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->get('/billing/checkout/{planId}', 'BillingController@checkout', [AuthMiddleware::class]);
 
 // Gmail Accounts
 $router->get('/accounts', 'GmailAccountController@index', [AuthMiddleware::class]);
@@ -84,6 +84,19 @@ $router->post('/admin/users/create', 'AdminController@createUser', [AdminMiddlew
 $router->post('/admin/users/{id}/update', 'AdminController@updateUser', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/users/{id}/toggle', 'AdminController@toggleUserStatus', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/users/{id}/delete', 'AdminController@deleteUser', [AdminMiddleware::class, CSRFMiddleware::class]);
+
+// Admin Subscription & Trial Controls
+$router->get('/admin/plans', 'AdminController@plans', [AdminMiddleware::class]);
+$router->post('/admin/plans/{id}/update', 'AdminController@updatePlan', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->get('/admin/trial', 'AdminController@trial', [AdminMiddleware::class]);
+$router->post('/admin/trial', 'AdminController@updateTrial', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->get('/admin/smtp', 'AdminController@smtp', [AdminMiddleware::class]);
+$router->post('/admin/smtp', 'AdminController@updateSmtp', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/smtp/test', 'AdminController@testSmtp', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->get('/admin/email-templates', 'AdminController@emailTemplates', [AdminMiddleware::class]);
+$router->post('/admin/email-templates/{id}/update', 'AdminController@updateEmailTemplate', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->get('/admin/payments', 'AdminController@payments', [AdminMiddleware::class]);
+
 $router->get('/admin/filters', 'AdminController@filters', [AdminMiddleware::class]);
 $router->post('/admin/filters', 'AdminController@updateFilters', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/settings', 'AdminController@settings', [AdminMiddleware::class]);

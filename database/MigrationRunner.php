@@ -51,6 +51,7 @@ class MigrationRunner {
         $sql = preg_replace('/INT\([0-9]+\)/i', 'INTEGER', $sql);
         $sql = preg_replace('/\bINT\b/i', 'INTEGER', $sql);
         $sql = preg_replace('/LONGTEXT/i', 'TEXT', $sql);
+        $sql = preg_replace('/DECIMAL\([0-9]+,[0-9]+\)/i', 'REAL', $sql);
         $sql = preg_replace('/\bJSON\b/i', 'TEXT', $sql);
         $sql = preg_replace('/DATETIME\s+DEFAULT\s+CURRENT_TIMESTAMP/i', 'TEXT DEFAULT CURRENT_TIMESTAMP', $sql);
         $sql = preg_replace('/DATETIME/i', 'TEXT', $sql);

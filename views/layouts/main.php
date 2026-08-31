@@ -62,6 +62,12 @@
                     </a>
                 </li>
                 <li>
+                    <a href="<?= url('/billing') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/billing') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-credit-card text-success"></i>
+                        <span>Billing &amp; Plan</span>
+                    </a>
+                </li>
+                <li>
                     <a href="<?= url('/logs') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/logs') ? 'active' : '' ?>">
                         <i class="fa-solid fa-list-check"></i>
                         <span>Activity Logs</span>
@@ -80,7 +86,37 @@
                 <li>
                     <a href="<?= url('/admin/users') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/users') ? 'active' : '' ?>">
                         <i class="fa-solid fa-users"></i>
-                        <span>Users</span>
+                        <span>Users &amp; Plans</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="<?= url('/admin/plans') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/plans') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-tags text-primary"></i>
+                        <span>Subscription Plans</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="<?= url('/admin/trial') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/trial') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-gift text-warning"></i>
+                        <span>Trial Settings</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="<?= url('/admin/smtp') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/smtp') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-server text-info"></i>
+                        <span>SMTP Settings</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="<?= url('/admin/email-templates') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/email-templates') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-envelope-open-text text-purple" style="color:#a855f7;"></i>
+                        <span>Email Templates</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="<?= url('/admin/payments') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/payments') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-receipt text-success"></i>
+                        <span>Payments &amp; Invoices</span>
                     </a>
                 </li>
                 <li>
@@ -92,7 +128,7 @@
                 <li>
                     <a href="<?= url('/admin/settings') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/settings') ? 'active' : '' ?>">
                         <i class="fa-solid fa-sliders"></i>
-                        <span>API Settings</span>
+                        <span>API &amp; Stripe Settings</span>
                     </a>
                 </li>
                 <li>

@@ -17,6 +17,13 @@ class QueueWorker {
     public function run(bool $once = false, int $batchSize = 25): void {
         echo "[" . date('Y-m-d H:i:s') . "] Gmail Automation Queue Worker started...\n";
 
+        // 1. Process asynchronous email notification jobs (SMTP)
+        $this->processEmailJobs($batchSize);
+
+        // 2. Check expiring trials and send reminders
+        $this->checkExpiringTrials();
+
+        // 3. Process scheduled Gmail automation jobs
         while (!$this->stopRequested) {
             $jobs = ScheduledJob::getReadyJobs($batchSize);
             
@@ -36,6 +43,54 @@ class QueueWorker {
             if ($once) {
                 break;
             }
+        }
+    }
+
+    public function processEmailJobs(int $limit = 25): void {
+        $jobs = \App\Models\EmailJob::getReadyJobs($limit);
+        if (!empty($jobs)) {
+            echo "[" . date('Y-m-d H:i:s') . "] Processing " . count($jobs) . " email notification job(s)...\n";
+            foreach ($jobs as $job) {
+                MailService::processEmailJob($job);
+            }
+        }
+    }
+
+    public function checkExpiringTrials(): void {
+        try {
+            $activeTrials = Database::query("SELECT * FROM users WHERE trial_status = 'active' AND trial_ends_at IS NOT NULL");
+            $now = time();
+
+            foreach ($activeTrials as $uRow) {
+                $user = \App\Models\User::fromRow($uRow);
+                $endsAt = strtotime($user->trial_ends_at);
+                $diffSeconds = $endsAt - $now;
+                $daysLeft = (int)ceil($diffSeconds / 86400);
+
+                if ($diffSeconds <= 0) {
+                    $user->update([
+                        'trial_status' => 'expired',
+                        'subscription_status' => 'expired',
+                    ]);
+                    logger("Free trial expired for {$user->email}", 'info', $user->id);
+
+                    $eventKey = "trial_expired:{$user->id}";
+                    \App\Models\EmailJob::dispatchTemplate('trial_expired', $user->email, [
+                        'name' => $user->name,
+                        'expiry_date' => date('d M Y', $endsAt),
+                    ], $eventKey, $user->id, $user->name);
+
+                } elseif ($daysLeft <= 3 && $daysLeft > 0) {
+                    $eventKey = "trial_expiring:{$user->id}:{$daysLeft}d";
+                    \App\Models\EmailJob::dispatchTemplate('trial_expiring', $user->email, [
+                        'name' => $user->name,
+                        'days_left' => $daysLeft,
+                        'expiry_date' => date('d M Y', $endsAt),
+                    ], $eventKey, $user->id, $user->name);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Silently ignore if table not initialized
         }
     }
 
