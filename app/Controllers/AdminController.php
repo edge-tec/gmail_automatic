@@ -223,6 +223,34 @@ class AdminController {
         redirect('/admin/smtp');
     }
 
+    public function testSmtpConnection(Request $request): void {
+        $host = trim($request->input('smtp_host', ''));
+        $port = trim($request->input('smtp_port', ''));
+        $username = trim($request->input('smtp_username', ''));
+        $password = $request->input('smtp_password');
+        $encryption = $request->input('smtp_encryption', 'tls');
+
+        $cfg = MailService::getConfig();
+        if (!empty($host)) {
+            $cfg['host'] = $host;
+            $cfg['port'] = (int)$port;
+            $cfg['username'] = $username;
+            if (!empty($password)) {
+                $cfg['password'] = $password;
+            }
+            $cfg['encryption'] = $encryption;
+        }
+
+        $testResult = MailService::testConnection($cfg);
+        if ($testResult['success']) {
+            flash('success', $testResult['message']);
+        } else {
+            flash('error', $testResult['message']);
+        }
+
+        redirect('/admin/smtp');
+    }
+
     public function testSmtp(Request $request): void {
         $testEmail = trim($request->input('test_email', ''));
         if (empty($testEmail) || !filter_var($testEmail, FILTER_VALIDATE_EMAIL)) {

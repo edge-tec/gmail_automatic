@@ -16,7 +16,7 @@
                 <h6 class="fw-bold mb-0"><i class="fa-solid fa-sliders text-primary me-2"></i> SMTP Configuration</h6>
             </div>
             <div class="card-body p-4">
-                <form action="<?= url('/admin/smtp') ?>" method="POST">
+                <form action="<?= url('/admin/smtp') ?>" method="POST" id="smtpSettingsForm">
                     <?= csrf_field() ?>
 
                     <div class="form-check form-switch mb-4 p-3 bg-light rounded-3">
@@ -30,32 +30,32 @@
                     <div class="row g-3 mb-3">
                         <div class="col-12 col-md-8">
                             <label class="form-label fw-semibold small">SMTP Host</label>
-                            <input type="text" name="smtp_host" class="form-control" placeholder="e.g. smtp.gmail.com or mail.yourdomain.com" value="<?= e($config['host']) ?>" required>
+                            <input type="text" name="smtp_host" id="cfg_host" class="form-control font-monospace" placeholder="e.g. mail.antiprofiles.com or smtp.gmail.com" value="<?= e($config['host']) ?>" required>
                         </div>
                         <div class="col-12 col-md-4">
                             <label class="form-label fw-semibold small">Port</label>
-                            <input type="number" name="smtp_port" class="form-control" placeholder="587 / 465 / 25" value="<?= e($config['port']) ?>" required>
+                            <input type="number" name="smtp_port" id="cfg_port" class="form-control font-monospace" placeholder="587 / 465 / 25" value="<?= e($config['port']) ?>" required>
                         </div>
                     </div>
 
                     <div class="row g-3 mb-3">
                         <div class="col-12 col-md-6">
                             <label class="form-label fw-semibold small">SMTP Username</label>
-                            <input type="text" name="smtp_username" class="form-control" placeholder="username / email" value="<?= e($config['username']) ?>">
+                            <input type="text" name="smtp_username" id="cfg_username" class="form-control font-monospace" placeholder="username / email" value="<?= e($config['username']) ?>">
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label fw-semibold small">SMTP Password</label>
-                            <input type="password" name="smtp_password" class="form-control" placeholder="•••••••• (Leave blank to keep current)">
+                            <input type="password" name="smtp_password" id="cfg_password" class="form-control font-monospace" placeholder="•••••••• (Leave blank to keep current)">
                         </div>
                     </div>
 
                     <div class="row g-3 mb-3">
                         <div class="col-12 col-md-4">
                             <label class="form-label fw-semibold small">Encryption</label>
-                            <select name="smtp_encryption" class="form-select">
-                                <option value="tls" <?= ($config['encryption'] ?? '') === 'tls' ? 'selected' : '' ?>>TLS (Recommended - 587)</option>
-                                <option value="ssl" <?= ($config['encryption'] ?? '') === 'ssl' ? 'selected' : '' ?>>SSL (465)</option>
-                                <option value="none" <?= ($config['encryption'] ?? '') === 'none' ? 'selected' : '' ?>>None (25)</option>
+                            <select name="smtp_encryption" id="cfg_encryption" class="form-select">
+                                <option value="tls" <?= ($config['encryption'] ?? '') === 'tls' ? 'selected' : '' ?>>TLS / STARTTLS (Port 587)</option>
+                                <option value="ssl" <?= ($config['encryption'] ?? '') === 'ssl' ? 'selected' : '' ?>>SSL (Port 465)</option>
+                                <option value="none" <?= ($config['encryption'] ?? '') === 'none' ? 'selected' : '' ?>>None (Port 25)</option>
                             </select>
                         </div>
                         <div class="col-12 col-md-4">
@@ -68,9 +68,11 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary fw-bold px-4 py-2 mt-2">
-                        <i class="fa-solid fa-floppy-disk me-1"></i> Save SMTP Settings
-                    </button>
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary fw-bold px-4 py-2">
+                            <i class="fa-solid fa-floppy-disk me-1"></i> Save SMTP Settings
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -80,33 +82,53 @@
     <div class="col-12 col-lg-5">
         <div class="card shadow-sm border-0 h-100">
             <div class="card-header bg-transparent py-3">
-                <h6 class="fw-bold mb-0"><i class="fa-solid fa-paper-plane text-success me-2"></i> Test SMTP Connection &amp; Delivery</h6>
+                <h6 class="fw-bold mb-0"><i class="fa-solid fa-network-wired text-success me-2"></i> Test SMTP Connection &amp; Delivery</h6>
             </div>
             <div class="card-body p-4 d-flex flex-column justify-content-between">
                 <div>
-                    <p class="text-muted small">
-                        Send a real test email to verify that your SMTP server connection, authentication credentials, port, and TLS encryption are operating without errors.
-                    </p>
+                    <!-- Action 1: Test Connection Only Button -->
+                    <div class="bg-light p-3 rounded-3 border mb-4">
+                        <h6 class="fw-bold text-dark small mb-1"><i class="fa-solid fa-bolt text-warning me-1"></i> Step 1: Test Handshake &amp; Auth</h6>
+                        <p class="text-muted small mb-3">
+                            Verifies socket connection, TLS/SSL handshake, EHLO response, and authentication credentials without sending an email.
+                        </p>
+                        <form action="<?= url('/admin/smtp/test-connection') ?>" method="POST">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn-outline-primary fw-bold w-100 py-2">
+                                <i class="fa-solid fa-plug-circle-check me-1"></i> Test Connection Only
+                            </button>
+                        </form>
+                    </div>
 
-                    <form action="<?= url('/admin/smtp/test') ?>" method="POST">
-                        <?= csrf_field() ?>
+                    <!-- Action 2: Test Connection & Send Email -->
+                    <div class="border-top pt-3">
+                        <h6 class="fw-bold text-dark small mb-1"><i class="fa-solid fa-paper-plane text-success me-1"></i> Step 2: Send Real Test Email</h6>
+                        <p class="text-muted small mb-3">
+                            Dispatches an actual test email to the recipient address to confirm end-to-end inbox delivery.
+                        </p>
 
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold small">Recipient Email for Test</label>
-                            <input type="email" name="test_email" class="form-control" placeholder="your-email@example.com" value="<?= e(auth_user()->email) ?>" required>
-                        </div>
+                        <form action="<?= url('/admin/smtp/test') ?>" method="POST">
+                            <?= csrf_field() ?>
 
-                        <button type="submit" class="btn btn-success fw-bold w-100 py-2">
-                            <i class="fa-solid fa-envelope-circle-check me-1"></i> Test Connection &amp; Send Email
-                        </button>
-                    </form>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small">Recipient Email</label>
+                                <input type="email" name="test_email" class="form-control" placeholder="your-email@example.com" value="<?= e(auth_user()->email) ?>" required>
+                            </div>
+
+                            <button type="submit" class="btn btn-success fw-bold w-100 py-2">
+                                <i class="fa-solid fa-envelope-circle-check me-1"></i> Test Connection &amp; Send Email
+                            </button>
+                        </form>
+                    </div>
                 </div>
 
                 <div class="bg-light p-3 rounded-3 border mt-4">
-                    <h6 class="fw-bold small text-dark mb-1"><i class="fa-solid fa-circle-info text-primary me-1"></i> Security Note</h6>
-                    <p class="text-muted small mb-0">
-                        Passwords and credentials are encrypted and securely stored in MySQL. They are never exposed in logs, JavaScript, or public APIs.
-                    </p>
+                    <h6 class="fw-bold small text-dark mb-1"><i class="fa-solid fa-circle-info text-primary me-1"></i> Port &amp; Encryption Guide</h6>
+                    <ul class="text-muted small mb-0 ps-3">
+                        <li><strong>Port 587:</strong> Select <code>TLS / STARTTLS</code> (Standard for cPanel/aaPanel/Gmail).</li>
+                        <li><strong>Port 465:</strong> Select <code>SSL</code> (Direct SSL connection).</li>
+                        <li><strong>Self-Signed / Custom Certs:</strong> Supported automatically with stream context.</li>
+                    </ul>
                 </div>
             </div>
         </div>

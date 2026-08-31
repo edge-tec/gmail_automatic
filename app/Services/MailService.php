@@ -7,7 +7,7 @@ use Exception;
 
 class MailService {
     /**
-     * Test SMTP Connection
+     * Test SMTP Connection & Authentication without sending an email
      */
     public static function testConnection(?array $config = null): array {
         $cfg = $config ?? self::getConfig();
@@ -17,16 +17,15 @@ class MailService {
         }
 
         try {
-            $socket = self::openSocket($cfg['host'], (int)$cfg['port'], $cfg['encryption'] ?? 'tls', 10);
+            $encryption = strtolower($cfg['encryption'] ?? 'tls');
+            $socket = self::openSocket($cfg['host'], (int)$cfg['port'], $encryption, 12);
             self::readResponse($socket);
 
             self::sendCommand($socket, "EHLO " . gethostname());
 
-            if (($cfg['encryption'] ?? 'tls') === 'tls') {
+            if ($encryption === 'tls') {
                 self::sendCommand($socket, "STARTTLS");
-                if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
-                    throw new Exception("STARTTLS negotiation failed.");
-                }
+                self::enableTls($socket);
                 self::sendCommand($socket, "EHLO " . gethostname());
             }
 
@@ -39,7 +38,7 @@ class MailService {
             self::sendCommand($socket, "QUIT");
             fclose($socket);
 
-            return ['success' => true, 'message' => 'SMTP connection and authentication successful!'];
+            return ['success' => true, 'message' => 'SMTP Server connection, TLS handshake, and credentials verified successfully!'];
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => 'SMTP Connection failed: ' . $e->getMessage()];
         }
@@ -52,25 +51,23 @@ class MailService {
         $cfg = $customConfig ?? self::getConfig();
 
         if (empty($cfg['enabled']) && empty($customConfig)) {
-            // If SMTP is disabled by admin, log and return true/false
             logger("SMTP is disabled in System Settings. Email to {$toEmail} skipped.", 'warning');
             return false;
         }
 
         $fromEmail = $cfg['from_email'] ?? 'support@2xbets.net';
         $fromName = $cfg['from_name'] ?? 'Gmail Automation';
+        $encryption = strtolower($cfg['encryption'] ?? 'tls');
 
         try {
-            $socket = self::openSocket($cfg['host'], (int)$cfg['port'], $cfg['encryption'] ?? 'tls', 15);
+            $socket = self::openSocket($cfg['host'], (int)$cfg['port'], $encryption, 15);
             self::readResponse($socket);
 
             self::sendCommand($socket, "EHLO " . gethostname());
 
-            if (($cfg['encryption'] ?? 'tls') === 'tls') {
+            if ($encryption === 'tls') {
                 self::sendCommand($socket, "STARTTLS");
-                if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
-                    throw new Exception("STARTTLS negotiation failed.");
-                }
+                self::enableTls($socket);
                 self::sendCommand($socket, "EHLO " . gethostname());
             }
 
@@ -159,14 +156,53 @@ class MailService {
         ];
     }
 
-    private static function openSocket(string $host, int $port, string $encryption, int $timeout = 10) {
-        $protocol = ($encryption === 'ssl') ? 'ssl://' : 'tcp://';
-        $socket = @stream_socket_client($protocol . $host . ':' . $port, $errno, $errstr, $timeout);
+    private static function openSocket(string $host, int $port, string $encryption, int $timeout = 15) {
+        $context = stream_context_create([
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true,
+            ]
+        ]);
+
+        $protocol = ($encryption === 'ssl' || $port === 465) ? 'ssl://' : 'tcp://';
+        $socket = @stream_socket_client(
+            $protocol . $host . ':' . $port,
+            $errno,
+            $errstr,
+            $timeout,
+            STREAM_CLIENT_CONNECT,
+            $context
+        );
+
         if (!$socket) {
             throw new Exception("Could not connect to SMTP server ({$host}:{$port}): {$errstr} ({$errno})");
         }
         stream_set_timeout($socket, $timeout);
         return $socket;
+    }
+
+    private static function enableTls($socket): void {
+        $cryptoMethods = [
+            STREAM_CRYPTO_METHOD_TLS_CLIENT,
+            STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT,
+            STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
+            STREAM_CRYPTO_METHOD_TLS_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
+        ];
+
+        $cryptoOk = false;
+        foreach ($cryptoMethods as $method) {
+            if (@stream_socket_enable_crypto($socket, true, $method) === true) {
+                $cryptoOk = true;
+                break;
+            }
+        }
+
+        if (!$cryptoOk) {
+            $lastErr = error_get_last();
+            $detail = !empty($lastErr['message']) ? " ({$lastErr['message']})" : "";
+            throw new Exception("STARTTLS negotiation failed. Please check port / encryption mode (Port 587 uses TLS, Port 465 uses SSL)" . $detail);
+        }
     }
 
     private static function sendCommand($socket, string $cmd): string {

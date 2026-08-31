@@ -96,6 +96,7 @@ $router->post('/admin/trial', 'AdminController@updateTrial', [AdminMiddleware::c
 $router->get('/admin/smtp', 'AdminController@smtp', [AdminMiddleware::class]);
 $router->post('/admin/smtp', 'AdminController@updateSmtp', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/smtp/test', 'AdminController@testSmtp', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/smtp/test-connection', 'AdminController@testSmtpConnection', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/gateways', 'AdminController@gateways', [AdminMiddleware::class]);
 $router->post('/admin/gateways', 'AdminController@updateGateways', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/email-templates', 'AdminController@emailTemplates', [AdminMiddleware::class]);
