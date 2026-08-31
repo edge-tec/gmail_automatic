@@ -1,3 +1,13 @@
+<?php
+$pendingBadgeCount = 0;
+if (auth_user() && (auth_user()->role ?? '') === 'admin') {
+    try {
+        $pendingBadgeCount = (int)(\App\Core\Database::first("SELECT COUNT(*) as c FROM payments WHERE status = 'pending'")['c'] ?? 0);
+    } catch (\Throwable $t) {
+        $pendingBadgeCount = 0;
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -125,14 +135,6 @@
                         <span>Payment Gateways</span>
                     </a>
                 </li>
-                <?php 
-                    $pendingBadgeCount = 0;
-                    if (auth_user() && auth_user()->role === 'admin') {
-                        try {
-                            $pendingBadgeCount = (int)(\App\Core\Database::first("SELECT COUNT(*) as c FROM payments WHERE status = 'pending'")['c'] ?? 0);
-                        } catch (\Throwable $t) {}
-                    }
-                ?>
                 <li>
                     <a href="<?= url('/admin/payments') ?>" class="nav-link d-flex align-items-center justify-content-between <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/payments') ? 'active' : '' ?>">
                         <div class="d-flex align-items-center gap-2">
