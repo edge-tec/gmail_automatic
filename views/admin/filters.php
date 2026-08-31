@@ -38,25 +38,25 @@
             </div>
         </div>
 
-        <!-- 2. Blacklisted Domain Names -->
+        <!-- 2. Blacklisted Domain Names & Extensions -->
         <div class="col-12 col-lg-4">
             <div class="card h-100 shadow-sm border-0">
                 <div class="card-header bg-transparent py-3">
                     <div class="d-flex align-items-center gap-2">
                         <i class="fa-solid fa-globe text-primary fs-5"></i>
                         <div>
-                            <h6 class="fw-bold mb-0">Blacklisted Domains</h6>
-                            <small class="text-muted">Domain &amp; subdomain filters</small>
+                            <h6 class="fw-bold mb-0">Blacklisted Domains &amp; Extensions</h6>
+                            <small class="text-muted">Domain &amp; TLD filters (.net, .bi, .xyz)</small>
                         </div>
                     </div>
                 </div>
                 <div class="card-body">
                     <div class="mb-2 text-muted small">
-                        Any sender with matching domain (e.g. <code>@spamdomain.com</code>) will be skipped immediately.
+                        Any sender with matching domain or extension (e.g. <code>.xyz</code>, <code>.bi</code>, <code>.net</code>, <code>@spamdomain.com</code>) will be skipped immediately.
                     </div>
-                    <textarea name="blacklist_domains" rows="12" class="form-control font-monospace" style="font-size: 0.88rem;" placeholder="spamdomain.com, mailtrack.io, bounce.sender.org, junkmail.net"><?= e($blacklistDomains) ?></textarea>
+                    <textarea name="blacklist_domains" rows="12" class="form-control font-monospace" style="font-size: 0.88rem;" placeholder="spamdomain.com, mailtrack.io, .net, .bi, .xyz, .top, .click, junkmail.net"><?= e($blacklistDomains) ?></textarea>
                     <div class="form-text small mt-2">
-                        <i class="fa-solid fa-circle-check text-success me-1"></i> Separate with comma (<code>,</code>) or new line (without '@').
+                        <i class="fa-solid fa-circle-check text-success me-1"></i> Separate with comma (<code>,</code>) or new line. Supports domain extensions like <code>.net</code>, <code>.bi</code>, <code>.xyz</code>.
                     </div>
                 </div>
             </div>

@@ -345,5 +345,36 @@ class AutomationTest extends TestCase {
         ]);
         $this->assertEquals('skipped', $resBcc['status']);
         $this->assertStringContainsString('BCC', $resBcc['reason']);
+
+        // 10. Test Domain Extension Blacklist (.xyz, .bi, .net)
+        \App\Models\SystemSetting::set('blacklist_domains', 'spamdomain.org, .xyz, .bi, .net');
+        
+        $resXyz = $engine->processIncomingMessage([
+            'message_id' => 'msg_tld_xyz',
+            'thread_id' => 'th_tld_xyz',
+            'sender_email' => 'spammer@promo.xyz',
+            'sender_name' => 'XYZ Sender',
+            'to' => $account->gmail_email,
+            'subject' => 'Offers for you',
+            'snippet' => 'Details',
+            'body' => 'Details',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $resXyz['status']);
+        $this->assertStringContainsString('domain extension', $resXyz['reason']);
+
+        $resBi = $engine->processIncomingMessage([
+            'message_id' => 'msg_tld_bi',
+            'thread_id' => 'th_tld_bi',
+            'sender_email' => 'lead@company.bi',
+            'sender_name' => 'BI Sender',
+            'to' => $account->gmail_email,
+            'subject' => 'Hello',
+            'snippet' => 'Details',
+            'body' => 'Details',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $resBi['status']);
+        $this->assertStringContainsString('domain extension', $resBi['reason']);
     }
 }

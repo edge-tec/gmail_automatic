@@ -284,26 +284,36 @@ class AutomationEngine {
             }
         }
 
-        // 3. Global Admin Blacklisted Domains
+        // 3. Global Admin Blacklisted Domains & Extensions (.net, .bi, .xyz, spamdomain.com)
         $adminDomainsRaw = SystemSetting::get('blacklist_domains', '');
         $adminBlacklistedDomains = array_filter(array_map('trim', preg_split('/[\r\n,]+/', strtolower($adminDomainsRaw))));
         if (!empty($senderDomain)) {
             foreach ($adminBlacklistedDomains as $bDomain) {
                 $bDomain = ltrim($bDomain, '@');
-                if ($senderDomain === $bDomain || str_ends_with($senderDomain, '.' . $bDomain)) {
-                    return ['action' => 'skip', 'reason' => "Sender domain '@{$senderDomain}' is blacklisted by admin"];
+                if (empty($bDomain)) continue;
+                if (str_starts_with($bDomain, '.')) {
+                    if (str_ends_with($senderDomain, $bDomain)) {
+                        return ['action' => 'skip', 'reason' => "Sender domain extension '{$bDomain}' is blacklisted by admin"];
+                    }
+                } elseif ($senderDomain === $bDomain || str_ends_with($senderDomain, '.' . $bDomain)) {
+                    return ['action' => 'skip', 'reason' => "Sender domain '@{$senderDomain}' is blacklisted by admin (pattern: {$bDomain})"];
                 }
             }
         }
 
-        // 4. User Account Blacklisted Domains
+        // 4. User Account Blacklisted Domains & Extensions
         if ($this->settings && !empty($senderDomain)) {
             $userDomainsRaw = $this->settings->getBlacklistDomains();
             $userBlacklistedDomains = array_filter(array_map('trim', preg_split('/[\r\n,]+/', strtolower($userDomainsRaw))));
             foreach ($userBlacklistedDomains as $bDomain) {
                 $bDomain = ltrim($bDomain, '@');
-                if ($senderDomain === $bDomain || str_ends_with($senderDomain, '.' . $bDomain)) {
-                    return ['action' => 'skip', 'reason' => "Sender domain '@{$senderDomain}' is in account blacklist"];
+                if (empty($bDomain)) continue;
+                if (str_starts_with($bDomain, '.')) {
+                    if (str_ends_with($senderDomain, $bDomain)) {
+                        return ['action' => 'skip', 'reason' => "Sender domain extension '{$bDomain}' is in account blacklist"];
+                    }
+                } elseif ($senderDomain === $bDomain || str_ends_with($senderDomain, '.' . $bDomain)) {
+                    return ['action' => 'skip', 'reason' => "Sender domain '@{$senderDomain}' matches account blacklisted pattern '{$bDomain}'"];
                 }
             }
         }
@@ -423,8 +433,17 @@ class AutomationEngine {
 
             if ($rule->rule_type === 'sender_contains' && str_contains($senderEmailLower, $val)) {
                 $match = true;
-            } elseif ($rule->rule_type === 'sender_domain' && ($senderDomain === ltrim($val, '@') || str_ends_with($senderDomain, '.' . ltrim($val, '@')))) {
+            } elseif ($rule->rule_type === 'domain_extension' && str_ends_with($senderDomain, '.' . ltrim($val, '.'))) {
                 $match = true;
+            } elseif ($rule->rule_type === 'sender_domain') {
+                $cleanVal = ltrim($val, '@');
+                if (str_starts_with($cleanVal, '.')) {
+                    if (str_ends_with($senderDomain, $cleanVal)) {
+                        $match = true;
+                    }
+                } elseif ($senderDomain === $cleanVal || str_ends_with($senderDomain, '.' . $cleanVal)) {
+                    $match = true;
+                }
             } elseif ($rule->rule_type === 'subject_contains' && str_contains(strtolower($subject), $val)) {
                 $match = true;
             } elseif ($rule->rule_type === 'body_contains' && str_contains(strtolower($body), $val)) {

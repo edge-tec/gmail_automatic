@@ -254,9 +254,9 @@ $replySteps = $settings->getReplyStepsData();
                         </div>
 
                         <div class="col-12 col-md-4">
-                            <label class="form-label small fw-bold text-dark"><i class="fa-solid fa-globe text-primary me-1"></i> Blacklisted Domains</label>
-                            <textarea name="blacklist_domains" rows="4" class="form-control font-monospace" style="font-size: 0.82rem;" placeholder="spamdomain.com, mailtrack.io, bounce.com"><?= e($settings->getBlacklistDomains()) ?></textarea>
-                            <div class="form-text small" style="font-size: 0.72rem;">Separate with comma (<code>,</code>) or new line (without '@')</div>
+                            <label class="form-label small fw-bold text-dark"><i class="fa-solid fa-globe text-primary me-1"></i> Blacklisted Domains &amp; TLDs</label>
+                            <textarea name="blacklist_domains" rows="4" class="form-control font-monospace" style="font-size: 0.82rem;" placeholder="spamdomain.com, .net, .bi, .xyz, .top, bounce.com"><?= e($settings->getBlacklistDomains()) ?></textarea>
+                            <div class="form-text small" style="font-size: 0.72rem;">Separate with comma (<code>,</code>). Supports <code>.net</code>, <code>.bi</code>, <code>.xyz</code></div>
                         </div>
 
                         <div class="col-12 col-md-4">

@@ -42,6 +42,7 @@
                         <select name="rule_type" id="rule_type" class="form-select">
                             <option value="sender_contains">Sender Email contains</option>
                             <option value="sender_domain">Sender Domain matches (e.g. company.com)</option>
+                            <option value="domain_extension">Domain Extension / TLD matches (e.g. .net, .bi, .xyz)</option>
                             <option value="subject_contains">Email Subject contains</option>
                             <option value="body_contains">Email Body / Content contains</option>
                         </select>
@@ -49,7 +50,7 @@
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">2. Value / Keyword to Match</label>
-                        <input type="text" name="rule_value" class="form-control" placeholder="e.g. support@, partner.com, pricing, inquiry" required>
+                        <input type="text" name="rule_value" class="form-control" placeholder="e.g. .net, .bi, .xyz, support@, partner.com, pricing" required>
                         <div class="form-text small">Case-insensitive matching will be performed.</div>
                     </div>
 
@@ -115,6 +116,8 @@
                                     <span class="badge bg-light text-dark border"><i class="fa-solid fa-at text-danger me-1"></i> Sender Contains</span>
                                     <?php elseif ($r->rule_type === 'sender_domain'): ?>
                                     <span class="badge bg-light text-dark border"><i class="fa-solid fa-globe text-primary me-1"></i> Domain Matches</span>
+                                    <?php elseif ($r->rule_type === 'domain_extension'): ?>
+                                    <span class="badge bg-light text-dark border"><i class="fa-solid fa-network-wired text-success me-1"></i> Extension (.xyz)</span>
                                     <?php elseif ($r->rule_type === 'subject_contains'): ?>
                                     <span class="badge bg-light text-dark border"><i class="fa-solid fa-heading text-warning me-1"></i> Subject Contains</span>
                                     <?php else: ?>
