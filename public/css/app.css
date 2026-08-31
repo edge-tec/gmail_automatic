@@ -61,6 +61,24 @@ body {
     color: #ffffff;
 }
 
+.sidebar-logout-btn {
+    color: #ef4444 !important;
+    padding: 6px 8px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-size: 1rem;
+}
+
+.sidebar-logout-btn:hover {
+    color: #ff6b6b !important;
+    background: rgba(239, 68, 68, 0.15);
+    transform: scale(1.1);
+}
+
 .main-content {
     flex: 1;
     display: flex;

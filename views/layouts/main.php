@@ -97,7 +97,7 @@
                             <div class="text-muted" style="font-size: 0.75rem;"><?= e(auth_user()->role ?? 'user') ?></div>
                         </div>
                     </div>
-                    <a href="<?= url('/logout') ?>" class="text-muted hover-text-white" title="Logout">
+                    <a href="<?= url('/logout') ?>" class="sidebar-logout-btn" title="Logout">
                         <i class="fa-solid fa-right-from-bracket"></i>
                     </a>
                 </div>
