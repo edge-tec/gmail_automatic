@@ -41,7 +41,7 @@
     </div>
     <div class="d-flex align-items-center gap-2">
         <span class="small text-muted fw-semibold">Account:</span>
-        <select class="form-select form-select-sm" style="min-width: 220px;" onchange="location.href = '<?= url('/settings/followups/') ?>/' + this.value">
+        <select class="form-select form-select-sm" style="min-width: 220px;" onchange="location.href = '<?= url('/settings/followups') ?>/' + this.value">
             <?php foreach ($accounts as $acc): ?>
                 <option value="<?= $acc->id ?>" <?= $acc->id === $selectedAccount->id ? 'selected' : '' ?>>
                     <?= e($acc->gmail_email) ?>
