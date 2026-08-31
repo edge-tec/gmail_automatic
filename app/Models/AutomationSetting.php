@@ -65,6 +65,12 @@ class AutomationSetting {
             return [];
         }
 
+        // Detect any legacy hardcoded boilerplate and reject immediately
+        if (str_contains($this->reply_message, 'Thank you for reaching out') || 
+            str_contains($this->reply_message, 'Automated Support')) {
+            return [];
+        }
+
         $decoded = json_decode($this->reply_message, true);
         if (is_array($decoded) && !empty($decoded)) {
             $result = [];
@@ -77,15 +83,20 @@ class AutomationSetting {
                     continue;
                 }
 
+                $msg = is_array($data) ? ($data['message'] ?? '') : (string)$data;
+                if (str_contains($msg, 'Thank you for reaching out') || str_contains($msg, 'Automated Support')) {
+                    $msg = '';
+                }
+
                 if (is_array($data)) {
                     $result[$stepNum] = [
-                        'message' => $data['message'] ?? '',
+                        'message' => $msg,
                         'delay_value' => (int)($data['delay_value'] ?? 0),
                         'delay_unit' => $data['delay_unit'] ?? 'seconds'
                     ];
                 } else {
                     $result[$stepNum] = [
-                        'message' => (string)$data,
+                        'message' => $msg,
                         'delay_value' => $stepNum === 1 ? (int)$this->reply_delay : 0,
                         'delay_unit' => 'seconds'
                     ];
@@ -97,13 +108,7 @@ class AutomationSetting {
             }
         }
 
-        return [
-            1 => [
-                'message' => $this->reply_message,
-                'delay_value' => (int)$this->reply_delay,
-                'delay_unit' => 'seconds'
-            ]
-        ];
+        return [];
     }
 
     public function getReplyMessages(): array {

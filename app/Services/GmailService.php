@@ -276,6 +276,13 @@ class GmailService {
         ?string $inReplyToMessageIdHeader = null,
         ?string $referencesHeader = null
     ): array {
+        if (empty(trim(strip_tags($bodyText)))) {
+            throw new \Exception("Cannot send empty message body. Send aborted.");
+        }
+        if (str_contains($bodyText, 'Automated Support') && str_contains($bodyText, 'Thank you for reaching out')) {
+            throw new \Exception("Blocked attempt to send legacy hardcoded boilerplate message.");
+        }
+
         $fromEmail = $this->account->gmail_email;
 
         // Clean subject: ensure Re: prefix

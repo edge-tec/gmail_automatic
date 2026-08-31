@@ -8,6 +8,7 @@ class App {
     public function __construct() {
         $this->loadEnvironment();
         $this->setTimezone();
+        DatabaseSanitizer::runOnce();
         $this->router = new Router();
         $this->request = new Request();
     }

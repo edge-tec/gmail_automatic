@@ -14,6 +14,7 @@ use App\Services\AutomationEngine;
 use App\Services\QueueWorker;
 
 new App();
+\App\Core\DatabaseSanitizer::runOnce();
 
 $startTime = microtime(true);
 $timestamp = date('Y-m-d H:i:s');
