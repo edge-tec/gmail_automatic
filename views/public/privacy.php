@@ -55,7 +55,7 @@ $title = 'Privacy Policy';
         If you have any questions or concerns regarding this Privacy Policy or our data practices, please contact us at:
     </p>
     <div class="p-3 bg-light rounded border">
-        <strong>Support Email:</strong> <a href="mailto:forhadaistudio007@gmail.com">forhadaistudio007@gmail.com</a><br>
+        <strong>Support Email:</strong> <a href="mailto:support@2xbets.net">support@2xbets.net</a><br>
         <strong>Domain:</strong> <a href="https://2xbets.net">https://2xbets.net</a>
     </div>
 </div>

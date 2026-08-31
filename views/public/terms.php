@@ -61,7 +61,7 @@ $title = 'Terms of Service';
         If you have any questions about these Terms of Service, please contact us at:
     </p>
     <div class="p-3 bg-light rounded border">
-        <strong>Support Email:</strong> <a href="mailto:forhadaistudio007@gmail.com">forhadaistudio007@gmail.com</a><br>
+        <strong>Support Email:</strong> <a href="mailto:support@2xbets.net">support@2xbets.net</a><br>
         <strong>Website:</strong> <a href="https://2xbets.net">https://2xbets.net</a>
     </div>
 </div>
