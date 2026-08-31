@@ -81,7 +81,17 @@ class EmailJob {
      */
     public static function dispatchTemplate(string $slug, string $recipientEmail, array $vars = [], ?string $eventKey = null, ?int $userId = null, ?string $recipientName = null): ?self {
         $tpl = EmailTemplate::findBySlug($slug);
+        if (!$tpl) {
+            // Slug fallbacks for legacy/alternative naming
+            if ($slug === 'payment_approved') {
+                $tpl = EmailTemplate::findBySlug('purchase_confirmation');
+            } elseif ($slug === 'purchase_confirmation') {
+                $tpl = EmailTemplate::findBySlug('payment_approved');
+            }
+        }
+
         if (!$tpl || !$tpl->is_enabled) {
+            logger("EmailTemplate [{$slug}] is missing or disabled. Email to {$recipientEmail} was skipped.", 'warning', $userId);
             return null;
         }
 
@@ -90,7 +100,7 @@ class EmailJob {
             'email' => $recipientEmail,
         ]));
 
-        return self::dispatch([
+        $job = self::dispatch([
             'user_id' => $userId,
             'recipient_email' => $recipientEmail,
             'recipient_name' => $recipientName,
@@ -99,6 +109,17 @@ class EmailJob {
             'subject' => $rendered['subject'],
             'body' => $rendered['body'],
         ]);
+
+        // Attempt immediate real-time delivery if SMTP is enabled
+        if ($job && $job->status === 'pending') {
+            try {
+                \App\Services\MailService::processEmailJob($job);
+            } catch (\Throwable $e) {
+                // If immediate dispatch fails, keep in queue for background retry
+            }
+        }
+
+        return $job;
     }
 
     public static function getReadyJobs(int $limit = 20): array {
