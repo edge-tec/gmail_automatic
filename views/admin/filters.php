@@ -30,9 +30,9 @@
                     <div class="mb-2 text-muted small">
                         Incoming emails from these addresses will <strong>never</strong> receive auto-replies or follow-ups.
                     </div>
-                    <textarea name="blacklist_emails" rows="12" class="form-control font-monospace" style="font-size: 0.88rem;" placeholder="spam@example.com&#10;noreply@google.com&#10;mailer-daemon@googlemail.com"><?= e($blacklistEmails) ?></textarea>
+                    <textarea name="blacklist_emails" rows="12" class="form-control font-monospace" style="font-size: 0.88rem;" placeholder="spam@example.com, noreply@google.com, mailer-daemon@googlemail.com, blocked@domain.com"><?= e($blacklistEmails) ?></textarea>
                     <div class="form-text small mt-2">
-                        Enter one email per line (or separated by comma).
+                        <i class="fa-solid fa-circle-check text-success me-1"></i> Separate with comma (<code>,</code>) or new line.
                     </div>
                 </div>
             </div>
@@ -54,9 +54,9 @@
                     <div class="mb-2 text-muted small">
                         Any sender with matching domain (e.g. <code>@spamdomain.com</code>) will be skipped immediately.
                     </div>
-                    <textarea name="blacklist_domains" rows="12" class="form-control font-monospace" style="font-size: 0.88rem;" placeholder="spamdomain.com&#10;mailtrack.io&#10;bounce.sender.org"><?= e($blacklistDomains) ?></textarea>
+                    <textarea name="blacklist_domains" rows="12" class="form-control font-monospace" style="font-size: 0.88rem;" placeholder="spamdomain.com, mailtrack.io, bounce.sender.org, junkmail.net"><?= e($blacklistDomains) ?></textarea>
                     <div class="form-text small mt-2">
-                        Enter domain names without '@' (one per line).
+                        <i class="fa-solid fa-circle-check text-success me-1"></i> Separate with comma (<code>,</code>) or new line (without '@').
                     </div>
                 </div>
             </div>
@@ -78,9 +78,9 @@
                     <div class="mb-2 text-muted small">
                         If subject or email body contains any of these words/phrases, auto-reply is skipped.
                     </div>
-                    <textarea name="blacklist_keywords" rows="12" class="form-control font-monospace" style="font-size: 0.88rem;" placeholder="unsubscribe&#10;out of office&#10;automatic reply&#10;delivery status notification"><?= e($blacklistKeywords) ?></textarea>
+                    <textarea name="blacklist_keywords" rows="12" class="form-control font-monospace" style="font-size: 0.88rem;" placeholder="unsubscribe, out of office, automatic reply, delivery status notification, casino, bonus"><?= e($blacklistKeywords) ?></textarea>
                     <div class="form-text small mt-2">
-                        Enter keywords or phrases (one per line).
+                        <i class="fa-solid fa-circle-check text-success me-1"></i> Separate with comma (<code>,</code>) or new line.
                     </div>
                 </div>
             </div>
