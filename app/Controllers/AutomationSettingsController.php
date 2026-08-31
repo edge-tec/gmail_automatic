@@ -172,6 +172,26 @@ class AutomationSettingsController {
 
         if (!$autoReplyEnabled) {
             \App\Models\ScheduledJob::cancelPendingJobsByAccountAndType($account->id, 'auto_reply', 'Auto reply was disabled in settings');
+        } else {
+            // Update any pending queued auto-reply jobs with the new customized step messages
+            $pendingJobs = \App\Core\Database::query(
+                "SELECT * FROM scheduled_jobs WHERE gmail_account_id = :acc AND status = 'pending' AND job_type = 'auto_reply'",
+                ['acc' => $account->id]
+            );
+            $updatedSettings = $account->getSettings();
+            if ($updatedSettings) {
+                foreach ($pendingJobs as $pj) {
+                    $payload = json_decode($pj['payload'], true);
+                    if (is_array($payload) && isset($payload['reply_step'])) {
+                        $step = (int)$payload['reply_step'];
+                        $payload['reply_body'] = $updatedSettings->getReplyMessageForStep($step);
+                        \App\Core\Database::execute(
+                            "UPDATE scheduled_jobs SET payload = :p WHERE id = :id",
+                            ['p' => json_encode($payload, JSON_UNESCAPED_UNICODE), 'id' => $pj['id']]
+                        );
+                    }
+                }
+            }
         }
         if (!$followupEnabled) {
             \App\Models\ScheduledJob::cancelPendingJobsByAccountAndType($account->id, 'follow_up', 'Follow-up automation was disabled in settings');
