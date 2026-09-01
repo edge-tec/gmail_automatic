@@ -35,6 +35,21 @@ class Router {
         $method = $request->getMethod();
         $path = $request->getPath();
 
+        // 0. Check active SEO Redirects (301 / 302)
+        try {
+            $redirect = \App\Models\SeoRedirect::findByOldUrl($path);
+            if ($redirect) {
+                $redirect->incrementHit();
+                $targetUrl = str_starts_with($redirect->new_url, 'http') ? $redirect->new_url : url($redirect->new_url);
+                if (!headers_sent()) {
+                    header("Location: {$targetUrl}", true, $redirect->status_code);
+                    exit;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Ignore if DB not ready
+        }
+
         foreach ($this->routes as $route) {
             if ($route['method'] === $method && preg_match($route['regex'], $path, $matches)) {
                 // Execute Middlewares

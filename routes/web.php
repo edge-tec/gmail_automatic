@@ -18,6 +18,18 @@ $router->post('/register', 'AuthController@register', [CSRFMiddleware::class]);
 $router->get('/verify-email', 'AuthController@verifyEmail');
 $router->get('/logout', 'AuthController@logout');
 
+// Public Marketing & SEO Pages
+$router->get('/features', 'PublicPageController@features');
+$router->get('/pricing', 'PublicPageController@pricing');
+$router->get('/how-it-works', 'PublicPageController@howItWorks');
+$router->get('/faq', 'PublicPageController@faq');
+$router->get('/contact', 'PublicPageController@contact');
+$router->post('/contact', 'PublicPageController@submitContact', [CSRFMiddleware::class]);
+$router->get('/blog', 'PublicPageController@blog');
+$router->get('/blog/{slug}', 'PublicPageController@blogSingle');
+$router->get('/sitemap.xml', 'PublicPageController@sitemap');
+$router->get('/robots.txt', 'PublicPageController@robots');
+
 // Public Legal Pages
 $router->get('/privacy', 'LegalController@privacy');
 $router->get('/terms', 'LegalController@terms');
@@ -116,3 +128,35 @@ $router->get('/admin/settings', 'AdminController@settings', [AdminMiddleware::cl
 $router->post('/admin/settings', 'AdminController@updateSettings', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/logs', 'AdminController@logs', [AdminMiddleware::class]);
 $router->post('/admin/toggle-global', 'AdminController@toggleGlobalAutomation', [AdminMiddleware::class, CSRFMiddleware::class]);
+
+// Admin SEO Management Suite
+$router->get('/admin/seo', 'AdminSeoController@index', [AdminMiddleware::class]);
+$router->get('/admin/seo/global', 'AdminSeoController@globalSettings', [AdminMiddleware::class]);
+$router->post('/admin/seo/global', 'AdminSeoController@updateGlobalSettings', [AdminMiddleware::class, CSRFMiddleware::class]);
+
+$router->get('/admin/seo/pages', 'AdminSeoController@pages', [AdminMiddleware::class]);
+$router->get('/admin/seo/pages/{id}', 'AdminSeoController@editPage', [AdminMiddleware::class]);
+$router->post('/admin/seo/pages/{id}', 'AdminSeoController@updatePage', [AdminMiddleware::class, CSRFMiddleware::class]);
+
+$router->get('/admin/seo/redirects', 'AdminSeoController@redirects', [AdminMiddleware::class]);
+$router->post('/admin/seo/redirects', 'AdminSeoController@createRedirect', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/seo/redirects/{id}/delete', 'AdminSeoController@deleteRedirect', [AdminMiddleware::class, CSRFMiddleware::class]);
+
+$router->get('/admin/seo/faqs', 'AdminSeoController@faqs', [AdminMiddleware::class]);
+$router->post('/admin/seo/faqs', 'AdminSeoController@createFaq', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/seo/faqs/{id}/update', 'AdminSeoController@updateFaq', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/seo/faqs/{id}/delete', 'AdminSeoController@deleteFaq', [AdminMiddleware::class, CSRFMiddleware::class]);
+
+$router->get('/admin/seo/blog', 'AdminSeoController@blog', [AdminMiddleware::class]);
+$router->get('/admin/seo/blog/create', 'AdminSeoController@createBlogPost', [AdminMiddleware::class]);
+$router->post('/admin/seo/blog/create', 'AdminSeoController@saveBlogPost', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->get('/admin/seo/blog/{id}/edit', 'AdminSeoController@editBlogPost', [AdminMiddleware::class]);
+$router->post('/admin/seo/blog/{id}/edit', 'AdminSeoController@saveBlogPost', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/seo/blog/{id}/delete', 'AdminSeoController@deleteBlogPost', [AdminMiddleware::class, CSRFMiddleware::class]);
+
+$router->get('/admin/seo/ai-search', 'AdminSeoController@aiSearch', [AdminMiddleware::class]);
+$router->post('/admin/seo/ai-search', 'AdminSeoController@updateAiSearch', [AdminMiddleware::class, CSRFMiddleware::class]);
+
+$router->get('/admin/seo/sitemap-robots', 'AdminSeoController@sitemapRobots', [AdminMiddleware::class]);
+$router->post('/admin/seo/robots', 'AdminSeoController@updateRobots', [AdminMiddleware::class, CSRFMiddleware::class]);
+

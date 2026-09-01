@@ -368,3 +368,82 @@ CREATE TABLE IF NOT EXISTS email_jobs (
     INDEX idx_email_job_event (event_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS seo_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    setting_key VARCHAR(191) NOT NULL UNIQUE,
+    setting_value LONGTEXT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS seo_pages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    route_path VARCHAR(191) NOT NULL UNIQUE,
+    page_name VARCHAR(255) NOT NULL,
+    seo_title VARCHAR(255) NULL,
+    meta_description VARCHAR(500) NULL,
+    focus_keyword VARCHAR(255) NULL,
+    secondary_keywords VARCHAR(500) NULL,
+    canonical_url VARCHAR(500) NULL,
+    is_indexable TINYINT(1) NOT NULL DEFAULT 1,
+    is_followable TINYINT(1) NOT NULL DEFAULT 1,
+    og_title VARCHAR(255) NULL,
+    og_description VARCHAR(500) NULL,
+    og_image VARCHAR(500) NULL,
+    twitter_card VARCHAR(50) NOT NULL DEFAULT 'summary_large_image',
+    schema_type VARCHAR(50) NOT NULL DEFAULT 'WebPage',
+    custom_schema_json LONGTEXT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_seo_page_route (route_path)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS seo_redirects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    old_url VARCHAR(500) NOT NULL UNIQUE,
+    new_url VARCHAR(500) NOT NULL,
+    status_code INT NOT NULL DEFAULT 301,
+    hits INT NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_redirect_old (old_url)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS seo_faqs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    question VARCHAR(500) NOT NULL,
+    answer LONGTEXT NOT NULL,
+    category VARCHAR(100) NOT NULL DEFAULT 'General',
+    sort_order INT NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_faq_sort (sort_order, is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS blog_posts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(500) NOT NULL,
+    slug VARCHAR(191) NOT NULL UNIQUE,
+    excerpt TEXT NULL,
+    content LONGTEXT NOT NULL,
+    featured_image VARCHAR(500) NULL,
+    author_name VARCHAR(255) NOT NULL DEFAULT 'Team',
+    category VARCHAR(100) NOT NULL DEFAULT 'Guides',
+    tags VARCHAR(500) NULL,
+    seo_title VARCHAR(255) NULL,
+    meta_description VARCHAR(500) NULL,
+    focus_keyword VARCHAR(255) NULL,
+    canonical_url VARCHAR(500) NULL,
+    og_image VARCHAR(500) NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'published', -- published, draft
+    views INT NOT NULL DEFAULT 0,
+    published_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_blog_slug (slug),
+    INDEX idx_blog_status (status, published_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+

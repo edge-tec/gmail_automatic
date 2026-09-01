@@ -33,6 +33,10 @@ class Plan {
         return array_map([self::class, 'fromRow'], $rows);
     }
 
+    public static function allActive(): array {
+        return self::getActivePlans();
+    }
+
     public static function all(): array {
         $rows = Database::query("SELECT * FROM plans ORDER BY display_order ASC, price ASC");
         return array_map([self::class, 'fromRow'], $rows);

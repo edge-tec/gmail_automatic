@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gmail Automation - Automate Your Gmail Replies & Follow-ups</title>
-    <meta name="description" content="Connect multiple Gmail accounts, automatically send custom replies, schedule smart multi-step follow-ups, and manage full email automation 24/7.">
+    <?= \App\Services\SeoService::renderHeadTags('/') ?>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

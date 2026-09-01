@@ -14,6 +14,7 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e(config('app.name', 'Gmail Automation Engine')) ?></title>
+    <?= \App\Services\SeoService::renderHeadTags() ?>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -158,6 +159,12 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
                     <a href="<?= url('/admin/filters') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/filters') ? 'active' : '' ?>">
                         <i class="fa-solid fa-ban text-danger"></i>
                         <span>Blacklist Filters</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="<?= url('/admin/seo') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/seo') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-magnifying-glass-chart text-warning"></i>
+                        <span>SEO Management</span>
                     </a>
                 </li>
                 <li>
