@@ -267,7 +267,20 @@ class AdminSeoController {
         if ($id) {
             $post = BlogPost::find($id);
             if ($post) {
+                $oldSlug = $post->slug;
                 $post->update($data);
+                if (!empty($oldSlug) && $post->slug !== $oldSlug) {
+                    try {
+                        SeoRedirect::create([
+                            'old_url' => '/blog/' . $oldSlug,
+                            'new_url' => '/blog/' . $post->slug,
+                            'status_code' => 301,
+                            'is_active' => 1,
+                        ]);
+                    } catch (\Throwable $t) {
+                        // Ignore if redirect already exists
+                    }
+                }
                 flash('success', 'Article updated successfully.');
             }
         } else {

@@ -1,9 +1,10 @@
-<?php
-$pageTitle = 'Privacy Policy';
-$title = 'Privacy Policy';
-?>
-<div class="legal-content">
-    <p class="lead text-dark">
+<div class="card border-0 shadow-sm rounded-4 p-4 p-lg-5">
+    <div class="mb-4 pb-3 border-bottom">
+        <h1 class="fw-extrabold display-6 text-dark mb-2">Privacy Policy</h1>
+        <p class="text-muted small mb-0">Last updated: <?= date('F d, Y') ?></p>
+    </div>
+    <div class="legal-content">
+        <p class="lead text-dark">
         Your privacy is important to us. This Privacy Policy describes how the Gmail Automation Application (referred to as "we", "our", or "the Platform") collects, uses, and safeguards information when you connect and use our email auto-response and sequential follow-up services.
     </p>
 
@@ -58,4 +59,5 @@ $title = 'Privacy Policy';
         <strong>Support Email:</strong> <a href="mailto:support@2xbets.net">support@2xbets.net</a><br>
         <strong>Domain:</strong> <a href="https://2xbets.net">https://2xbets.net</a>
     </div>
+</div>
 </div>

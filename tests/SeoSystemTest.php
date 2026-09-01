@@ -196,8 +196,29 @@ class SeoSystemTest extends TestCase {
         $this->assertNotNull($found);
         $this->assertEquals('SEO Specialist', $found->author_name);
 
+        // Test updating slug and automatic 301 redirect
+        $post->update(['slug' => 'updated-gmail-automation-guide-2026']);
+        $this->assertEquals('updated-gmail-automation-guide-2026', $post->slug);
+
         // Clean up
         $post->delete();
+    }
+
+    public function testStructuredDataXssProtection(): void {
+        $customSchema = json_encode([
+            '@context' => 'https://schema.org',
+            '@type' => 'Organization',
+            'name' => '</script><script>alert(1)</script>',
+        ]);
+
+        $page = SeoPage::findByRoute('/');
+        $this->assertNotNull($page);
+        $page->custom_schema_json = $customSchema;
+
+        $json = SeoService::buildStructuredData('/', $page, null);
+        // Ensure literal </script> is escaped with \u003C
+        $this->assertStringNotContainsString('</script><script>', $json);
+        $this->assertStringContainsString('\u003C', $json);
     }
 
     public function testSeoAuditServiceHealthCheck(): void {
