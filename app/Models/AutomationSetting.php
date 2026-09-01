@@ -21,7 +21,20 @@ class AutomationSetting {
     public ?string $created_at = null;
     public ?string $updated_at = null;
 
+    public static function ensureSchema(): void {
+        static $ensured = false;
+        if ($ensured) return;
+        $ensured = true;
+
+        $driver = config('database.default', 'mysql');
+        $cols = [
+            'require_recipient_reply_before_next_reply' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+        ];
+        \App\Core\DatabaseSanitizer::ensureTableColumns('automation_settings', $cols);
+    }
+
     public static function findByAccountId(int $accountId): ?self {
+        self::ensureSchema();
         $row = Database::first("SELECT * FROM automation_settings WHERE gmail_account_id = :acc LIMIT 1", ['acc' => $accountId]);
         return $row ? self::fromRow($row) : null;
     }
@@ -31,6 +44,7 @@ class AutomationSetting {
     }
 
     public static function createDefault(int $accountId): self {
+        self::ensureSchema();
         $existing = self::findByAccountId($accountId);
         if ($existing) {
             return $existing;
@@ -52,6 +66,7 @@ class AutomationSetting {
     }
 
     public function update(array $data): bool {
+        self::ensureSchema();
         $fields = [];
         $params = ['id' => $this->id];
         foreach ($data as $key => $val) {

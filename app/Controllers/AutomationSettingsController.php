@@ -169,60 +169,66 @@ class AutomationSettingsController {
             $replyDelay = max(0, (int)$request->input('reply_delay', 0));
         }
 
-        $requireRecipientReply = (bool)$request->input('require_recipient_reply_before_next_reply', 0);
+        try {
+            $requireRecipientReply = (bool)$request->input('require_recipient_reply_before_next_reply', 0);
 
-        $settings->update([
-            'auto_reply_enabled' => $autoReplyEnabled ? 1 : 0,
-            'reply_message' => $replyMessage,
-            'max_reply_per_thread' => $maxReplyPerThread,
-            'daily_reply_limit' => $dailyReplyLimit,
-            'reply_delay' => $replyDelay,
-            'followup_enabled' => $followupEnabled ? 1 : 0,
-            'daily_followup_limit' => $dailyFollowupLimit,
-            'require_recipient_reply_before_next_reply' => $requireRecipientReply ? 1 : 0,
-            'timezone' => $timezone,
-            'working_days' => $workingDaysStr,
-            'working_start' => $workingStart,
-            'working_end' => $workingEnd,
-        ]);
+            $settings->update([
+                'auto_reply_enabled' => $autoReplyEnabled ? 1 : 0,
+                'reply_message' => $replyMessage,
+                'max_reply_per_thread' => $maxReplyPerThread,
+                'daily_reply_limit' => $dailyReplyLimit,
+                'reply_delay' => $replyDelay,
+                'followup_enabled' => $followupEnabled ? 1 : 0,
+                'daily_followup_limit' => $dailyFollowupLimit,
+                'require_recipient_reply_before_next_reply' => $requireRecipientReply ? 1 : 0,
+                'timezone' => $timezone,
+                'working_days' => $workingDaysStr,
+                'working_start' => $workingStart,
+                'working_end' => $workingEnd,
+            ]);
 
-        if (!$autoReplyEnabled || empty($replyMessage)) {
-            \App\Models\ScheduledJob::cancelPendingJobsByAccountAndType($account->id, 'auto_reply', 'Auto-reply was disabled or all messages cleared');
-        } else {
-            // Update or cancel pending queued auto-reply jobs based on the new customized step messages
-            $pendingJobs = \App\Core\Database::query(
-                "SELECT * FROM scheduled_jobs WHERE gmail_account_id = :acc AND status = 'pending' AND job_type = 'auto_reply'",
-                ['acc' => $account->id]
-            );
-            $updatedSettings = $account->getSettings();
-            if ($updatedSettings) {
-                foreach ($pendingJobs as $pj) {
-                    $payload = json_decode($pj['payload'], true);
-                    if (is_array($payload) && isset($payload['reply_step'])) {
-                        $step = (int)$payload['reply_step'];
-                        $latestStepMsg = $updatedSettings->getReplyMessageForStep($step);
-                        if (empty(trim(strip_tags($latestStepMsg)))) {
-                            // Message for this step was deleted by user -> cancel job immediately
-                            \App\Core\Database::execute(
-                                "UPDATE scheduled_jobs SET status = 'cancelled', last_error = :err WHERE id = :id",
-                                ['err' => "Auto-reply message for Step #{$step} was deleted by user", 'id' => $pj['id']]
-                            );
-                        } else {
-                            $payload['reply_body'] = $latestStepMsg;
-                            \App\Core\Database::execute(
-                                "UPDATE scheduled_jobs SET payload = :p WHERE id = :id",
-                                ['p' => json_encode($payload, JSON_UNESCAPED_UNICODE), 'id' => $pj['id']]
-                            );
+            if (!$autoReplyEnabled || empty($replyMessage)) {
+                \App\Models\ScheduledJob::cancelPendingJobsByAccountAndType($account->id, 'auto_reply', 'Auto-reply was disabled or all messages cleared');
+            } else {
+                // Update or cancel pending queued auto-reply jobs based on the new customized step messages
+                $pendingJobs = \App\Core\Database::query(
+                    "SELECT * FROM scheduled_jobs WHERE gmail_account_id = :acc AND status = 'pending' AND job_type = 'auto_reply'",
+                    ['acc' => $account->id]
+                );
+                $updatedSettings = $account->getSettings();
+                if ($updatedSettings) {
+                    foreach ($pendingJobs as $pj) {
+                        $payload = json_decode($pj['payload'], true);
+                        if (is_array($payload) && isset($payload['reply_step'])) {
+                            $step = (int)$payload['reply_step'];
+                            $latestStepMsg = $updatedSettings->getReplyMessageForStep($step);
+                            if (empty(trim(strip_tags($latestStepMsg)))) {
+                                // Message for this step was deleted by user -> cancel job immediately
+                                \App\Core\Database::execute(
+                                    "UPDATE scheduled_jobs SET status = 'cancelled', last_error = :err WHERE id = :id",
+                                    ['err' => "Auto-reply message for Step #{$step} was deleted by user", 'id' => $pj['id']]
+                                );
+                            } else {
+                                $payload['reply_body'] = $latestStepMsg;
+                                \App\Core\Database::execute(
+                                    "UPDATE scheduled_jobs SET payload = :p WHERE id = :id",
+                                    ['p' => json_encode($payload, JSON_UNESCAPED_UNICODE), 'id' => $pj['id']]
+                                );
+                            }
                         }
                     }
                 }
             }
-        }
-        if (!$followupEnabled) {
-            \App\Models\ScheduledJob::cancelPendingJobsByAccountAndType($account->id, 'follow_up', 'Follow-up automation was disabled in settings');
+            if (!$followupEnabled) {
+                \App\Models\ScheduledJob::cancelPendingJobsByAccountAndType($account->id, 'follow_up', 'Follow-up automation was disabled in settings');
+            }
+
+            flash('success', "Automation settings updated successfully for {$account->gmail_email}!");
+        } catch (\Throwable $e) {
+            logger("Failed to update automation settings: " . $e->getMessage(), 'error', $account->user_id, $account->id);
+            flash('error', 'Failed to update automation settings: ' . $e->getMessage());
         }
 
-        flash('success', "Automation settings updated successfully for {$account->gmail_email}!");
         redirect("/settings/automation/{$account->id}");
     }
 
