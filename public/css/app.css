@@ -260,3 +260,136 @@ body {
     border: 1px solid #c7d2fe;
     margin-left: 2rem;
 }
+
+/* ==========================================================
+   Comprehensive Device & OS Responsiveness (Mobile, Tablet, Desktop)
+   ========================================================== */
+
+/* Mobile & Tablet Drawer (< 992px) */
+@media (max-width: 991.98px) {
+    .sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: -290px;
+        width: 280px;
+        max-width: 85vw;
+        height: 100vh;
+        z-index: 1050;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .sidebar.show {
+        left: 0;
+    }
+
+    .sidebar-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        z-index: 1040;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .sidebar-backdrop.show {
+        display: block;
+        opacity: 1;
+    }
+
+    .main-content {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .top-navbar {
+        padding: 0.65rem 1rem;
+    }
+}
+
+/* Small Smartphone (< 576px) */
+@media (max-width: 575.98px) {
+    body {
+        font-size: 0.9rem;
+    }
+
+    .top-navbar {
+        padding: 0.5rem 0.75rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .top-navbar h5 {
+        font-size: 1.1rem;
+    }
+
+    main.p-4 {
+        padding: 1rem !important;
+    }
+
+    .card-header, .card-body {
+        padding: 1rem !important;
+    }
+
+    .stat-card {
+        padding: 1rem;
+    }
+
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+
+    .table th, .table td {
+        padding: 0.6rem 0.5rem;
+        font-size: 0.82rem;
+    }
+
+    .btn {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+
+    .message-incoming {
+        margin-right: 0.5rem;
+    }
+
+    .message-outgoing {
+        margin-left: 0.5rem;
+    }
+}
+
+/* Smooth Touch Scrolling on iOS & Android */
+.table-responsive, .sidebar, main {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Safe area insets for notched phones (iPhone X/11/12/13/14/15/16) */
+@supports (padding: max(0px)) {
+    body {
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+    .top-navbar {
+        padding-top: max(0.65rem, env(safe-area-inset-top));
+    }
+    .sidebar {
+        padding-top: max(1rem, env(safe-area-inset-top));
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+}
+

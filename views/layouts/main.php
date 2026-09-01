@@ -27,12 +27,20 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
 </head>
 <body>
     <div class="d-flex">
+        <!-- Mobile Sidebar Backdrop Overlay -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
         <!-- Sidebar -->
-        <aside class="sidebar d-flex flex-column p-3">
-            <a href="<?= url('/dashboard') ?>" class="d-flex align-items-center mb-4 text-white text-decoration-none px-2 gap-2">
-                <i class="fa-solid fa-bolt-lightning text-warning fs-4"></i>
-                <span class="fs-5 fw-bold tracking-tight">GmailAuto</span>
-            </a>
+        <aside class="sidebar d-flex flex-column p-3" id="appSidebar">
+            <div class="d-flex align-items-center justify-content-between mb-4 px-2">
+                <a href="<?= url('/dashboard') ?>" class="d-flex align-items-center text-white text-decoration-none gap-2">
+                    <i class="fa-solid fa-bolt-lightning text-warning fs-4"></i>
+                    <span class="fs-5 fw-bold tracking-tight">GmailAuto</span>
+                </a>
+                <button type="button" class="btn btn-sm text-white-50 d-lg-none p-0 border-0" id="sidebarClose" aria-label="Close sidebar">
+                    <i class="fa-solid fa-xmark fs-4"></i>
+                </button>
+            </div>
             
             <ul class="nav nav-pills flex-column mb-auto">
                 <li class="nav-item">
@@ -204,25 +212,31 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
 
             <!-- Top Navbar -->
             <nav class="top-navbar d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center gap-3">
-                    <h5 class="mb-0 fw-bold"><?= \App\Core\View::yield('title', 'Gmail Automation') ?></h5>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-outline-secondary d-lg-none" id="sidebarToggle" type="button" aria-label="Toggle navigation">
+                        <i class="fa-solid fa-bars fs-6"></i>
+                    </button>
+                    <h5 class="mb-0 fw-bold fs-6 fs-md-5"><?= \App\Core\View::yield('title', 'Gmail Automation') ?></h5>
                 </div>
-                <div class="d-flex align-items-center gap-3">
+                <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
                     <?php if ($pendingBadgeCount > 0): ?>
-                    <a href="<?= url('/admin/payments') ?>" class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1 shadow-sm">
+                    <a href="<?= url('/admin/payments') ?>" class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1 shadow-sm px-2 py-1">
                         <i class="fa-solid fa-bell text-danger"></i>
-                        <span class="fw-bold"><?= $pendingBadgeCount ?> Pending Payment<?= $pendingBadgeCount > 1 ? 's' : '' ?></span>
+                        <span class="fw-bold d-none d-sm-inline"><?= $pendingBadgeCount ?> Pending</span>
+                        <span class="badge bg-danger rounded-pill d-sm-none"><?= $pendingBadgeCount ?></span>
                     </a>
                     <?php endif; ?>
-                    <span class="badge bg-light text-dark border"><i class="fa-solid fa-clock me-1 text-primary"></i> <?= date('d M Y, H:i') ?></span>
-                    <a href="<?= url('/accounts/connect') ?>" class="btn btn-sm btn-primary">
-                        <i class="fa-brands fa-google me-1"></i> Connect Gmail
+                    <span class="badge bg-light text-dark border d-none d-md-inline-block"><i class="fa-solid fa-clock me-1 text-primary"></i> <?= date('d M Y, H:i') ?></span>
+                    <a href="<?= url('/accounts/connect') ?>" class="btn btn-sm btn-primary d-flex align-items-center gap-1 px-2 px-sm-3">
+                        <i class="fa-brands fa-google"></i>
+                        <span class="d-none d-sm-inline">Connect Gmail</span>
+                        <span class="d-sm-none">Connect</span>
                     </a>
                 </div>
             </nav>
 
             <!-- Page Content -->
-            <main class="p-4">
+            <main class="p-3 p-md-4">
                 <!-- Flash Messages -->
                 <?php if ($msg = flash('success')): ?>
                 <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
@@ -253,7 +267,7 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
             </main>
 
             <!-- Footer -->
-            <footer class="mt-auto py-3 px-4 border-top bg-white text-muted small d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <footer class="mt-auto py-3 px-3 px-md-4 border-top bg-white text-muted small d-flex justify-content-between align-items-center flex-wrap gap-2 text-center text-sm-start">
                 <div>
                     &copy; <?= date('Y') ?> <strong><?= e(config('app.name', 'Gmail Automation System')) ?></strong>. All rights reserved.
                 </div>
@@ -267,5 +281,48 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
     <!-- Bootstrap 5.3 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="<?= url('/js/app.js') ?>"></script>
+    <script>
+        // Responsive Drawer Navigation (Mobile & Tablet)
+        (function() {
+            const sidebar = document.getElementById('appSidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            const toggleBtn = document.getElementById('sidebarToggle');
+            const closeBtn = document.getElementById('sidebarClose');
+
+            function openSidebar() {
+                if (sidebar) sidebar.classList.add('show');
+                if (backdrop) backdrop.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeSidebar() {
+                if (sidebar) sidebar.classList.remove('show');
+                if (backdrop) backdrop.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+
+            if (toggleBtn) toggleBtn.addEventListener('click', openSidebar);
+            if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+            if (backdrop) backdrop.addEventListener('click', closeSidebar);
+
+            // Close sidebar when clicking any navigation link on mobile
+            if (sidebar) {
+                sidebar.querySelectorAll('.nav-link').forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 992) {
+                            closeSidebar();
+                        }
+                    });
+                });
+            }
+
+            // Close on Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && sidebar && sidebar.classList.contains('show')) {
+                    closeSidebar();
+                }
+            });
+        })();
+    </script>
 </body>
 </html>
