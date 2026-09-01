@@ -100,10 +100,21 @@ class SkippedEmailController {
     public function clear(Request $request): void {
         $user = Auth::user();
         $accountId = $request->input('account_id') ? (int)$request->input('account_id') : null;
+        $resetSenders = (bool)$request->input('reset_senders', false);
 
         SkippedEmailLog::clearByUser($user->id, $accountId);
 
-        flash('success', 'Skipped and duplicate email report logs have been cleared.');
+        if ($resetSenders) {
+            if ($accountId) {
+                \App\Core\Database::execute("DELETE FROM auto_reply_recipients WHERE user_id = :uid AND gmail_account_id = :acc", ['uid' => $user->id, 'acc' => $accountId]);
+            } else {
+                \App\Core\Database::execute("DELETE FROM auto_reply_recipients WHERE user_id = :uid", ['uid' => $user->id]);
+            }
+            flash('success', 'Skipped email logs and duplicate sender history have been completely reset. All previous senders can now start from Reply #1 again.');
+        } else {
+            flash('success', 'Skipped and duplicate email report logs have been cleared.');
+        }
+
         redirect('/skipped-emails');
     }
 }

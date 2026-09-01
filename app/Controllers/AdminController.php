@@ -746,4 +746,39 @@ class AdminController {
             'totalItems' => $totalItems,
         ]);
     }
+
+    /**
+     * Admin Database Clear & Duplicate Reset:
+     * Clears all duplicate traffic logs and resets historical completed sender states in auto_reply_recipients.
+     * All previous duplicate senders become brand new traffic and can start from Reply #1 again.
+     * Scoped safely: does NOT delete users, credentials, payments, subscriptions, or settings.
+     */
+    public function clearDuplicateTraffic(Request $request): void {
+        $accountId = $request->input('account_id') ? (int)$request->input('account_id') : null;
+        $userId = $request->input('user_id') ? (int)$request->input('user_id') : null;
+
+        try {
+            if ($accountId) {
+                Database::execute("DELETE FROM skipped_email_logs WHERE gmail_account_id = :acc", ['acc' => $accountId]);
+                Database::execute("DELETE FROM auto_reply_recipients WHERE gmail_account_id = :acc", ['acc' => $accountId]);
+                logger("Admin reset duplicate traffic history for Gmail Account #{$accountId}", 'info', Auth::id(), $accountId);
+            } elseif ($userId) {
+                Database::execute("DELETE FROM skipped_email_logs WHERE user_id = :uid", ['uid' => $userId]);
+                Database::execute("DELETE FROM auto_reply_recipients WHERE user_id = :uid", ['uid' => $userId]);
+                logger("Admin reset duplicate traffic history for User #{$userId}", 'info', Auth::id());
+            } else {
+                Database::execute("DELETE FROM skipped_email_logs");
+                Database::execute("DELETE FROM auto_reply_recipients");
+                logger("Admin reset duplicate traffic history system-wide", 'info', Auth::id());
+            }
+
+            flash('success', 'Duplicate traffic and lead history has been completely reset. All previous senders will now be treated as new traffic.');
+        } catch (\Throwable $e) {
+            logger("Failed to clear duplicate traffic history: " . $e->getMessage(), 'error', Auth::id());
+            flash('error', 'Failed to reset duplicate traffic history: ' . $e->getMessage());
+        }
+
+        redirect($request->input('redirect_to', '/admin/skipped-emails'));
+    }
 }
+

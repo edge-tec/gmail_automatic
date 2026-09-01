@@ -302,7 +302,14 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted mb-0">Are you sure you want to clear your skipped and duplicate email history? This action cannot be undone.</p>
+                    <p class="text-muted small mb-3">Are you sure you want to clear your skipped and duplicate email history? This action cannot be undone.</p>
+                    
+                    <div class="form-check p-2 bg-light rounded border">
+                        <input class="form-check-input ms-0 me-2" type="checkbox" name="reset_senders" value="1" id="resetSendersCheck">
+                        <label class="form-check-label small fw-semibold text-dark" for="resetSendersCheck">
+                            Also reset duplicate sender memory (Allows previous senders to receive Reply #1 again as new traffic)
+                        </label>
+                    </div>
                 </div>
                 <div class="modal-footer border-0">
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>

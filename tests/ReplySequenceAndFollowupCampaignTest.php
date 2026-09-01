@@ -531,5 +531,110 @@ class ReplySequenceAndFollowupCampaignTest extends TestCase {
         $thread = EmailThread::findByAccountAndThreadId($this->account->id, $threadId);
         $this->assertEquals(0, $thread->followup_count, 'Follow-up email must not be sent if template is empty or inactive');
     }
+
+    /**
+     * Test 11-18: Admin Clear Duplicate Traffic Resets Sender State and Allows Brand New Sequence
+     */
+    public function testAdminClearResetsDuplicateHistoryAndAllowsSenderToBeNewAgain(): void {
+        $replySteps = [
+            1 => ['message' => 'Step 1 Message', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            2 => ['message' => 'Step 2 Message', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+        ];
+
+        $this->settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => json_encode($replySteps),
+            'max_reply_per_thread' => 2,
+            'daily_reply_limit' => 50,
+        ]);
+
+        $sender = 'reset_lead_' . uniqid() . '@test.com';
+        $engine = new AutomationEngine($this->account);
+
+        // 1. Sender sends Email 1 -> gets Step 1
+        $res1 = $engine->processIncomingMessage([
+            'message_id' => 'msg_rst_1_' . uniqid(),
+            'thread_id' => 'th_rst_1_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Reset Lead',
+            'subject' => 'Inquiry 1',
+            'snippet' => 'Text 1',
+            'body' => 'Text 1',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $res1['status']);
+        $this->worker->run(true);
+
+        // 2. Sender sends Email 2 -> gets Step 2
+        $res2 = $engine->processIncomingMessage([
+            'message_id' => 'msg_rst_2_' . uniqid(),
+            'thread_id' => 'th_rst_2_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Reset Lead',
+            'subject' => 'Inquiry 2',
+            'snippet' => 'Text 2',
+            'body' => 'Text 2',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $res2['status']);
+        $this->worker->run(true);
+
+        // Verify sequence completed
+        $recipient = AutoReplyRecipient::findByAccountAndSender($this->account->id, $sender);
+        $this->assertNotNull($recipient);
+        $this->assertEquals(2, $recipient->reply_sequence_step);
+        $this->assertEquals('completed', $recipient->reply_sequence_status);
+
+        // 3. Sender sends Email 3 -> DUPLICATE
+        $res3 = $engine->processIncomingMessage([
+            'message_id' => 'msg_rst_3_' . uniqid(),
+            'thread_id' => 'th_rst_3_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Reset Lead',
+            'subject' => 'Inquiry 3',
+            'snippet' => 'Text 3',
+            'body' => 'Text 3',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $res3['status']);
+        $this->assertTrue($res3['is_duplicate_traffic']);
+
+        // 4. Admin performs Clear Duplicate Traffic Reset
+        $adminController = new \App\Controllers\AdminController();
+        $request = new \App\Core\Request([
+            'account_id' => $this->account->id,
+            'redirect_to' => '/admin/skipped-emails',
+        ]);
+        $adminController->clearDuplicateTraffic($request);
+
+        // Verify duplicate history is cleared from database
+        $recipientAfter = AutoReplyRecipient::findByAccountAndSender($this->account->id, $sender);
+        $this->assertNull($recipientAfter, 'Recipient record must be purged');
+
+        $logsCount = \App\Models\SkippedEmailLog::countAdmin(['account_id' => $this->account->id]);
+        $this->assertEquals(0, $logsCount, 'Skipped logs must be purged');
+
+        // Verify unrelated data is completely untouched
+        $userCheck = User::find($this->user->id);
+        $this->assertNotNull($userCheck, 'User must remain untouched');
+        $accCheck = GmailAccount::find($this->account->id);
+        $this->assertNotNull($accCheck, 'Gmail account must remain untouched');
+        $this->assertEquals('connected', $accCheck->status);
+
+        // 5. Sender sends a NEW email after Admin Clear -> MUST BE RECOGNIZED AS BRAND NEW TRAFFIC
+        $resFresh = $engine->processIncomingMessage([
+            'message_id' => 'msg_rst_fresh_' . uniqid(),
+            'thread_id' => 'th_rst_fresh_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Reset Lead',
+            'subject' => 'Brand New Inquiry',
+            'snippet' => 'Fresh Text',
+            'body' => 'Fresh Text',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->assertEquals('scheduled', $resFresh['status'], 'Sender must be treated as new traffic after admin clear');
+        $this->assertEquals(1, $resFresh['reply_step'], 'Sequence must start from Reply #1 again');
+    }
 }
 

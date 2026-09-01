@@ -130,11 +130,12 @@ class AutomationSetting {
     public function getTotalConfiguredReplySteps(): int {
         $steps = $this->getReplyStepsData();
         if (empty($steps)) {
+            if (!empty($this->reply_message) && !empty(trim(strip_tags($this->reply_message)))) {
+                return 1;
+            }
             return 0;
         }
-        $maxConfigured = max(array_keys($steps));
-        $maxPerThread = max(1, $this->max_reply_per_thread ?? 5);
-        return min($maxConfigured, $maxPerThread);
+        return max(array_keys($steps));
     }
 
     public function getReplyMessages(): array {

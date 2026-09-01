@@ -133,6 +133,8 @@ $router->get('/admin/settings', 'AdminController@settings', [AdminMiddleware::cl
 $router->post('/admin/settings', 'AdminController@updateSettings', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/logs', 'AdminController@logs', [AdminMiddleware::class]);
 $router->get('/admin/skipped-emails', 'AdminController@skippedEmails', [AdminMiddleware::class]);
+$router->post('/admin/skipped-emails/clear', 'AdminController@clearDuplicateTraffic', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/clear-duplicate-traffic', 'AdminController@clearDuplicateTraffic', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/toggle-global', 'AdminController@toggleGlobalAutomation', [AdminMiddleware::class, CSRFMiddleware::class]);
 
 // Admin SEO Management Suite

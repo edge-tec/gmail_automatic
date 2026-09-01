@@ -5,6 +5,13 @@
         </h4>
         <p class="text-muted small mb-0">System-wide log of all duplicate traffic detections, blacklist skips, spam prevention, and filter rule executions.</p>
     </div>
+
+    <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 shadow-sm" data-bs-toggle="modal" data-bs-target="#adminClearDuplicateModal">
+            <i class="fa-solid fa-rotate-left"></i>
+            <span>Reset Duplicate History &amp; Clear Logs</span>
+        </button>
+    </div>
 </div>
 
 <!-- Quick Stats -->
@@ -265,5 +272,46 @@
         <?php endif; ?>
 
         <?php endif; ?>
+    </div>
+</div>
+
+<!-- Admin Reset Duplicate Traffic Modal -->
+<div class="modal fade" id="adminClearDuplicateModal" tabindex="-1" aria-labelledby="adminClearDuplicateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-danger" id="adminClearDuplicateModalLabel">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i>Reset Duplicate Traffic History
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="<?= url('/admin/clear-duplicate-traffic') ?>">
+                <?= csrf_field() ?>
+                <div class="modal-body pt-2">
+                    <p class="text-secondary small mb-3">
+                        This action will <strong>permanently purge all duplicate traffic and skipped logs</strong>, and reset completed sender duplicate history across the database.
+                    </p>
+                    <div class="alert alert-warning border-0 small mb-3">
+                        <i class="fa-solid fa-circle-info me-1"></i>
+                        <strong>What happens next?</strong> All previously completed duplicate senders will immediately be recognized as <strong>brand new traffic</strong> and start from <strong>Reply #1</strong> upon their next email.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-muted">Scope of Reset:</label>
+                        <select name="user_id" class="form-select form-select-sm">
+                            <option value="">System-Wide (All Users &amp; Connected Accounts)</option>
+                            <?php foreach ($users as $u): ?>
+                                <option value="<?= $u->id ?>"><?= e($u->name) ?> (<?= e($u->email) ?>)</option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-danger px-3">
+                        <i class="fa-solid fa-rotate-left me-1"></i> Confirm &amp; Reset Duplicate State
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
