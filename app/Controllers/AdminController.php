@@ -19,6 +19,7 @@ use App\Models\ActivityLog;
 use App\Models\FollowupCampaign;
 use App\Models\FollowupJob;
 use App\Models\AutoReplyRecipient;
+use App\Models\SkippedEmailLog;
 use App\Models\SystemSetting;
 use App\Services\MailService;
 
@@ -711,5 +712,38 @@ class AdminController {
         SystemSetting::set('global_automation_enabled', $new);
         flash('success', 'Global Automation ' . ($new === '1' ? 'Enabled' : 'Disabled') . ' system-wide.');
         redirect('/admin');
+    }
+
+    public function skippedEmails(Request $request): string {
+        $skipType = $request->input('type');
+        $dateRange = $request->input('date_range', 'all');
+        $search = $request->input('search');
+        $userId = $request->input('user_id') ? (int)$request->input('user_id') : null;
+        $page = max(1, (int)$request->input('page', 1));
+        $limit = 30;
+        $offset = ($page - 1) * $limit;
+
+        $filters = [
+            'user_id' => $userId,
+            'skip_type' => $skipType,
+            'date_range' => $dateRange,
+            'search' => $search,
+        ];
+
+        $totalItems = SkippedEmailLog::countAdmin($filters);
+        $logs = SkippedEmailLog::allAdmin($filters, $limit, $offset);
+        $stats = SkippedEmailLog::getStatsAdmin();
+        $totalPages = max(1, (int)ceil($totalItems / $limit));
+        $users = User::all();
+
+        return View::render('admin/skipped_emails', [
+            'logs' => $logs,
+            'users' => $users,
+            'stats' => $stats,
+            'filters' => $filters,
+            'currentPage' => $page,
+            'totalPages' => $totalPages,
+            'totalItems' => $totalItems,
+        ]);
     }
 }

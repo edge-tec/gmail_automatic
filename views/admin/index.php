@@ -96,11 +96,16 @@
 
 <!-- Auto-Reply Duplicate Traffic Protection Stats -->
 <div class="card shadow-sm border-0 mb-4">
-    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h6 class="fw-bold mb-0 text-dark">
             <i class="fa-solid fa-shield-halved text-success me-2"></i> Auto-Reply Duplicate Traffic Protection Analytics
         </h6>
-        <span class="badge bg-success-subtle text-success border border-success-subtle">1 Reply Per Unique Traffic</span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-success-subtle text-success border border-success-subtle">1 Reply Per Unique Traffic</span>
+            <a href="<?= url('/admin/skipped-emails') ?>" class="btn btn-xs btn-outline-warning text-dark fw-semibold" style="font-size: 0.78rem; padding: 0.25rem 0.6rem;">
+                <i class="fa-solid fa-list-check me-1"></i> Skipped Report
+            </a>
+        </div>
     </div>
     <div class="card-body">
         <div class="row g-3 text-center">

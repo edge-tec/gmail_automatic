@@ -151,11 +151,39 @@ class AutomationTest extends TestCase {
             'references' => '<msg-header-1@mail.gmail.com>',
         ];
 
-        // Under 1 Auto Reply per Unique Traffic Source rule:
-        // A second email from the same sender to this account is skipped as duplicate traffic
+        // Under Reply Sequence rule:
+        // Incoming email #2 gets Reply #2 scheduled
         $replyResult = $engine->processIncomingMessage($replyMsgData);
-        $this->assertEquals('skipped', $replyResult['status']);
-        $this->assertTrue($replyResult['is_duplicate_traffic'] ?? false);
+        $this->assertEquals('scheduled', $replyResult['status']);
+        $this->assertEquals(2, $replyResult['reply_step']);
+
+        // Incoming email #3 gets Reply #3 scheduled
+        $replyResult3 = $engine->processIncomingMessage([
+            'message_id' => 'msg_reply_3_' . uniqid(),
+            'thread_id' => $threadId,
+            'sender_email' => 'customer@client.com',
+            'sender_name' => 'John Customer',
+            'subject' => 'Re: Need product information',
+            'snippet' => 'Questions 3',
+            'body' => 'Questions 3',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $replyResult3['status']);
+        $this->assertEquals(3, $replyResult3['reply_step']);
+
+        // Incoming email #4 after 3/3 configured steps: skipped as duplicate traffic
+        $replyResult4 = $engine->processIncomingMessage([
+            'message_id' => 'msg_reply_4_' . uniqid(),
+            'thread_id' => $threadId,
+            'sender_email' => 'customer@client.com',
+            'sender_name' => 'John Customer',
+            'subject' => 'Re: Need product information',
+            'snippet' => 'Questions 4',
+            'body' => 'Questions 4',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $replyResult4['status']);
+        $this->assertTrue($replyResult4['is_duplicate_traffic'] ?? false);
     }
 
     public function testAdminBlacklistFilters(): void {
@@ -413,7 +441,7 @@ class AutomationTest extends TestCase {
         $payload1 = $job1->getPayloadArray();
         $this->assertEquals('Hello, this is my exact customized message 1.', $payload1['reply_body']);
 
-        // 2. Second incoming email from same sender: must be skipped under duplicate traffic protection
+        // 2. Second incoming email from same sender: receives Step 2
         $res2 = $engine->processIncomingMessage([
             'message_id' => 'msg_strict_2',
             'thread_id' => 'th_strict_1',
@@ -426,8 +454,24 @@ class AutomationTest extends TestCase {
             'date' => date('Y-m-d H:i:s'),
         ]);
 
-        $this->assertEquals('skipped', $res2['status']);
-        $this->assertTrue($res2['is_duplicate_traffic'] ?? false);
+        $this->assertEquals('scheduled', $res2['status']);
+        $this->assertEquals(2, $res2['reply_step']);
+
+        // Third email after 2/2 steps: skipped under duplicate traffic protection
+        $res2_dup = $engine->processIncomingMessage([
+            'message_id' => 'msg_strict_2_dup',
+            'thread_id' => 'th_strict_1',
+            'sender_email' => 'lead1@customer.com',
+            'sender_name' => 'Lead One',
+            'to' => $account->gmail_email,
+            'subject' => 'Re: Inquiry Again',
+            'snippet' => 'Follow up again',
+            'body' => 'Follow up again',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->assertEquals('skipped', $res2_dup['status']);
+        $this->assertTrue($res2_dup['is_duplicate_traffic'] ?? false);
 
         // 3. New lead with missing Step 2 message: must SKIP and NEVER send fallback text
         $res3 = $engine->processIncomingMessage([

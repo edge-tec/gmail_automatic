@@ -92,6 +92,12 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
                         <span>Activity Logs</span>
                     </a>
                 </li>
+                <li>
+                    <a href="<?= url('/skipped-emails') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/skipped-emails') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-shield-halved text-warning"></i>
+                        <span>Duplicate &amp; Skipped Mails</span>
+                    </a>
+                </li>
 
                 <?php if (auth_user() && auth_user()->role === 'admin'): ?>
                 <hr class="my-3">
@@ -159,6 +165,12 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
                     <a href="<?= url('/admin/filters') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/filters') ? 'active' : '' ?>">
                         <i class="fa-solid fa-ban text-danger"></i>
                         <span>Blacklist Filters</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="<?= url('/admin/skipped-emails') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/skipped-emails') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-shield-halved text-warning"></i>
+                        <span>Global Skipped Report</span>
                     </a>
                 </li>
                 <li>

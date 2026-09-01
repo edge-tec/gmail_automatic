@@ -265,8 +265,12 @@ CREATE TABLE IF NOT EXISTS auto_reply_recipients (
     normalized_sender_email VARCHAR(255) NOT NULL,
     first_message_id VARCHAR(191) NULL,
     first_thread_id VARCHAR(191) NULL,
+    reply_sequence_step INT NOT NULL DEFAULT 0,
+    reply_sequence_total INT NOT NULL DEFAULT 1,
+    reply_sequence_status VARCHAR(50) NOT NULL DEFAULT 'active', -- active, completed
+    reply_sequence_completed_at DATETIME NULL,
     reply_sent_at DATETIME NULL,
-    reply_status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, processing, replied, skipped_duplicate, failed, cancelled
+    reply_status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, processing, active, completed, replied, cancelled, failed
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_acc_sender_reply (gmail_account_id, normalized_sender_email),
@@ -274,7 +278,8 @@ CREATE TABLE IF NOT EXISTS auto_reply_recipients (
     FOREIGN KEY (gmail_account_id) REFERENCES gmail_accounts(id) ON DELETE CASCADE,
     INDEX idx_arr_user (user_id),
     INDEX idx_arr_acc (gmail_account_id),
-    INDEX idx_arr_status (reply_status)
+    INDEX idx_arr_status (reply_status),
+    INDEX idx_arr_seq_status (reply_sequence_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS activity_logs (
@@ -445,5 +450,32 @@ CREATE TABLE IF NOT EXISTS blog_posts (
     INDEX idx_blog_slug (slug),
     INDEX idx_blog_status (status, published_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS skipped_email_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    gmail_account_id INT NOT NULL,
+    thread_id INT NULL,
+    gmail_thread_id VARCHAR(191) NULL,
+    gmail_message_id VARCHAR(191) NULL,
+    sender_email VARCHAR(255) NOT NULL,
+    sender_name VARCHAR(255) NULL,
+    recipient_email VARCHAR(255) NULL,
+    subject VARCHAR(500) NULL,
+    snippet TEXT NULL,
+    skip_reason VARCHAR(255) NOT NULL,
+    skip_type VARCHAR(50) NOT NULL DEFAULT 'duplicate_traffic', -- duplicate_traffic, blacklist, spam_filter, limit_reached, rule_skip, disabled
+    first_reply_sent_at DATETIME NULL,
+    received_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (gmail_account_id) REFERENCES gmail_accounts(id) ON DELETE CASCADE,
+    INDEX idx_sel_user (user_id),
+    INDEX idx_sel_acc (gmail_account_id),
+    INDEX idx_sel_sender (sender_email),
+    INDEX idx_sel_type (skip_type),
+    INDEX idx_sel_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 

@@ -92,6 +92,11 @@ $router->post('/threads/{id}/toggle-automation', 'ThreadController@toggleAutomat
 $router->get('/logs', 'LogController@index', [AuthMiddleware::class]);
 $router->post('/logs/clear', 'LogController@clear', [AuthMiddleware::class, CSRFMiddleware::class]);
 
+// Duplicate & Skipped Emails Report
+$router->get('/skipped-emails', 'SkippedEmailController@index', [AuthMiddleware::class]);
+$router->get('/skipped-emails/export', 'SkippedEmailController@exportCsv', [AuthMiddleware::class]);
+$router->post('/skipped-emails/clear', 'SkippedEmailController@clear', [AuthMiddleware::class, CSRFMiddleware::class]);
+
 // Admin Panel Routes
 $router->get('/admin', 'AdminController@index', [AdminMiddleware::class]);
 $router->get('/admin/users', 'AdminController@users', [AdminMiddleware::class]);
@@ -127,6 +132,7 @@ $router->post('/admin/filters', 'AdminController@updateFilters', [AdminMiddlewar
 $router->get('/admin/settings', 'AdminController@settings', [AdminMiddleware::class]);
 $router->post('/admin/settings', 'AdminController@updateSettings', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/logs', 'AdminController@logs', [AdminMiddleware::class]);
+$router->get('/admin/skipped-emails', 'AdminController@skippedEmails', [AdminMiddleware::class]);
 $router->post('/admin/toggle-global', 'AdminController@toggleGlobalAutomation', [AdminMiddleware::class, CSRFMiddleware::class]);
 
 // Admin SEO Management Suite

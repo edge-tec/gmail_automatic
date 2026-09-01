@@ -10,8 +10,12 @@ class AutoReplyRecipient {
     public string $normalized_sender_email;
     public ?string $first_message_id = null;
     public ?string $first_thread_id = null;
+    public int $reply_sequence_step = 0;
+    public int $reply_sequence_total = 1;
+    public string $reply_sequence_status = 'active'; // active, completed
+    public ?string $reply_sequence_completed_at = null;
     public ?string $reply_sent_at = null;
-    public string $reply_status; // pending, processing, replied, skipped_duplicate, failed, cancelled
+    public string $reply_status = 'pending'; // pending, processing, active, completed, replied, cancelled, failed
     public ?string $created_at = null;
     public ?string $updated_at = null;
 
@@ -38,26 +42,46 @@ class AutoReplyRecipient {
     }
 
     /**
-     * Atomically claims or retrieves a recipient record to prevent race conditions.
-     * Returns ['recipient' => AutoReplyRecipient, 'is_new' => bool, 'is_eligible' => bool]
+     * Atomically claims or evaluates a sender's Reply Sequence.
+     * 
+     * Rule:
+     * - Until the configured Reply Sequence (Reply #1 to #N) is successfully sent, incoming emails are NOT duplicate.
+     * - Only after Reply #N has been sent or queued does the sequence become COMPLETED and duplicate protection activates.
+     * 
+     * Returns:
+     * [
+     *    'recipient' => AutoReplyRecipient,
+     *    'next_step' => int,
+     *    'is_eligible' => bool,
+     *    'is_duplicate' => bool
+     * ]
      */
-    public static function claimOrGet(int $userId, int $accountId, string $senderEmail, ?string $msgId = null, ?string $threadId = null): array {
+    public static function claimOrGetForSequence(
+        int $userId,
+        int $accountId,
+        string $senderEmail,
+        int $totalConfiguredSteps,
+        ?string $msgId = null,
+        ?string $threadId = null
+    ): array {
         $normalized = self::normalizeEmail($senderEmail);
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
+        $totalConfiguredSteps = max(1, $totalConfiguredSteps);
 
         try {
             Database::execute(
                 "INSERT INTO auto_reply_recipients 
-                (user_id, gmail_account_id, normalized_sender_email, first_message_id, first_thread_id, reply_status, created_at)
+                (user_id, gmail_account_id, normalized_sender_email, first_message_id, first_thread_id, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status, created_at)
                 VALUES 
-                (:uid, :acc, :sender, :mid, :tid, 'pending', {$now})",
+                (:uid, :acc, :sender, :mid, :tid, 0, :total, 'active', 'pending', {$now})",
                 [
                     'uid' => $userId,
                     'acc' => $accountId,
                     'sender' => $normalized,
                     'mid' => $msgId,
                     'tid' => $threadId,
+                    'total' => $totalConfiguredSteps,
                 ]
             );
 
@@ -65,36 +89,145 @@ class AutoReplyRecipient {
             $recipient = self::find($id);
             return [
                 'recipient' => $recipient,
-                'is_new' => true,
+                'next_step' => 1,
                 'is_eligible' => true,
+                'is_duplicate' => false,
             ];
         } catch (\Throwable $e) {
-            // Record exists (unique constraint violation)
+            // Recipient record already exists
             $existing = self::findByAccountAndSender($accountId, $normalized);
             if (!$existing) {
                 return [
                     'recipient' => null,
-                    'is_new' => false,
+                    'next_step' => 0,
                     'is_eligible' => false,
+                    'is_duplicate' => true,
                 ];
             }
 
-            // Eligible only if previous attempt was cancelled
-            $isEligible = ($existing->reply_status === 'cancelled');
-            if ($isEligible) {
-                $existing->update([
-                    'reply_status' => 'pending',
-                    'first_message_id' => $msgId ?? $existing->first_message_id,
-                    'first_thread_id' => $threadId ?? $existing->first_thread_id,
-                ]);
+            // Sync latest total steps if user increased sequence configuration
+            if ($totalConfiguredSteps > $existing->reply_sequence_total) {
+                $existing->update(['reply_sequence_total' => $totalConfiguredSteps]);
+                $existing->reply_sequence_total = $totalConfiguredSteps;
             }
 
+            // Determine highest step already scheduled in pending jobs for this recipient & account
+            $queuedStep = self::getHighestQueuedStep($accountId, $normalized);
+
+            // Determine next step
+            $highestStepInFlight = max($existing->reply_sequence_step, $queuedStep);
+            $nextStep = $highestStepInFlight + 1;
+
+            // Check if sequence is completed
+            if ($nextStep > $totalConfiguredSteps || ($existing->reply_sequence_status === 'completed' && $existing->reply_sequence_step >= $totalConfiguredSteps)) {
+                return [
+                    'recipient' => $existing,
+                    'next_step' => $nextStep,
+                    'is_eligible' => false,
+                    'is_duplicate' => true,
+                ];
+            }
+
+            // Sequence is still active!
             return [
                 'recipient' => $existing,
-                'is_new' => false,
-                'is_eligible' => $isEligible,
+                'next_step' => $nextStep,
+                'is_eligible' => true,
+                'is_duplicate' => false,
             ];
         }
+    }
+
+    /**
+     * Backward-compatible claimOrGet method
+     */
+    public static function claimOrGet(int $userId, int $accountId, string $senderEmail, ?string $msgId = null, ?string $threadId = null): array {
+        $res = self::claimOrGetForSequence($userId, $accountId, $senderEmail, 1, $msgId, $threadId);
+        return [
+            'recipient' => $res['recipient'],
+            'is_new' => $res['next_step'] === 1 && $res['is_eligible'],
+            'is_eligible' => $res['is_eligible'],
+        ];
+    }
+
+    /**
+     * Finds highest pending/queued step number in scheduled_jobs for this recipient
+     */
+    public static function getHighestQueuedStep(int $accountId, string $normalizedSenderEmail): int {
+        $jobs = Database::query(
+            "SELECT payload FROM scheduled_jobs 
+             WHERE gmail_account_id = :acc AND job_type = 'auto_reply' AND status IN ('pending', 'processing')",
+            ['acc' => $accountId]
+        );
+
+        $maxStep = 0;
+        foreach ($jobs as $j) {
+            $payload = json_decode($j['payload'] ?? '', true);
+            if (is_array($payload)) {
+                $email = self::normalizeEmail($payload['recipient_email'] ?? '');
+                if ($email === $normalizedSenderEmail) {
+                    $step = (int)($payload['reply_step'] ?? 1);
+                    if ($step > $maxStep) {
+                        $maxStep = $step;
+                    }
+                }
+            }
+        }
+        return $maxStep;
+    }
+
+    /**
+     * Record a reply step successfully sent by worker
+     */
+    public function recordStepSent(int $step, int $totalSteps, string $sentAt): bool {
+        $driver = config('database.default', 'mysql');
+        $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
+        $totalSteps = max(1, $totalSteps);
+        $newStep = max($this->reply_sequence_step, $step);
+        $isCompleted = ($newStep >= $totalSteps);
+
+        $fields = [
+            'reply_sequence_step' => $newStep,
+            'reply_sequence_total' => $totalSteps,
+            'reply_sequence_status' => $isCompleted ? 'completed' : 'active',
+            'reply_status' => $isCompleted ? 'replied' : 'active',
+            'reply_sent_at' => $sentAt,
+            'updated_at' => $now,
+        ];
+
+        if ($isCompleted) {
+            $fields['reply_sequence_completed_at'] = $sentAt;
+        }
+
+        $setSql = [];
+        $params = ['id' => $this->id];
+        foreach ($fields as $k => $v) {
+            if ($k === 'updated_at') {
+                $setSql[] = "updated_at = {$now}";
+            } else {
+                $setSql[] = "{$k} = :{$k}";
+                $params[$k] = $v;
+            }
+        }
+
+        $sql = "UPDATE auto_reply_recipients SET " . implode(', ', $setSql) . " WHERE id = :id";
+        $ok = Database::execute($sql, $params);
+        if ($ok) {
+            $this->reply_sequence_step = $newStep;
+            $this->reply_sequence_total = $totalSteps;
+            $this->reply_sequence_status = $isCompleted ? 'completed' : 'active';
+            $this->reply_status = $isCompleted ? 'replied' : 'active';
+            $this->reply_sent_at = $sentAt;
+            if ($isCompleted) {
+                $this->reply_sequence_completed_at = $sentAt;
+            }
+        }
+        return $ok;
+    }
+
+    public function markReplied(): bool {
+        $sentAt = date('Y-m-d H:i:s');
+        return $this->recordStepSent($this->reply_sequence_step ?: 1, $this->reply_sequence_total ?: 1, $sentAt);
     }
 
     public function update(array $data): bool {
@@ -104,7 +237,7 @@ class AutoReplyRecipient {
             $fields[] = "{$key} = :{$key}";
             $params[$key] = $val;
             if (property_exists($this, $key)) {
-                $this->$key = $val;
+                $this->{$key} = $val;
             }
         }
 
@@ -112,15 +245,6 @@ class AutoReplyRecipient {
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
         $sql = "UPDATE auto_reply_recipients SET " . implode(', ', $fields) . ", updated_at = {$now} WHERE id = :id";
         return Database::execute($sql, $params);
-    }
-
-    public function markReplied(): bool {
-        $driver = config('database.default', 'mysql');
-        $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
-        return Database::execute(
-            "UPDATE auto_reply_recipients SET reply_status = 'replied', reply_sent_at = {$now}, updated_at = {$now} WHERE id = :id",
-            ['id' => $this->id]
-        );
     }
 
     public function markProcessing(): bool {
@@ -135,6 +259,10 @@ class AutoReplyRecipient {
         return $this->update(['reply_status' => 'failed']);
     }
 
+    public function isSequenceCompleted(): bool {
+        return $this->reply_sequence_status === 'completed' || ($this->reply_sequence_step >= $this->reply_sequence_total && $this->reply_sequence_step > 0);
+    }
+
     public static function countUniqueTrafficToday(int $accountId): int {
         $driver = config('database.default', 'mysql');
         $todayCond = $driver === 'mysql' ? "DATE(created_at) = CURDATE()" : "date(created_at) = date('now')";
@@ -147,7 +275,7 @@ class AutoReplyRecipient {
 
     public static function countRepliedForAccount(int $accountId): int {
         $row = Database::first(
-            "SELECT COUNT(*) as total FROM auto_reply_recipients WHERE gmail_account_id = :acc AND reply_status = 'replied'",
+            "SELECT COUNT(*) as total FROM auto_reply_recipients WHERE gmail_account_id = :acc AND reply_status IN ('replied', 'active')",
             ['acc' => $accountId]
         );
         return (int)($row['total'] ?? 0);
@@ -163,7 +291,7 @@ class AutoReplyRecipient {
     public static function countTotalRepliedTodayAdmin(): int {
         $driver = config('database.default', 'mysql');
         $todayCond = $driver === 'mysql' ? "DATE(reply_sent_at) = CURDATE()" : "date(reply_sent_at) = date('now')";
-        $row = Database::first("SELECT COUNT(*) as total FROM auto_reply_recipients WHERE reply_status = 'replied' AND {$todayCond}");
+        $row = Database::first("SELECT COUNT(*) as total FROM auto_reply_recipients WHERE reply_sent_at IS NOT NULL AND {$todayCond}");
         return (int)($row['total'] ?? 0);
     }
 
@@ -185,6 +313,10 @@ class AutoReplyRecipient {
         $m->normalized_sender_email = $row['normalized_sender_email'];
         $m->first_message_id = $row['first_message_id'] ?? null;
         $m->first_thread_id = $row['first_thread_id'] ?? null;
+        $m->reply_sequence_step = isset($row['reply_sequence_step']) ? (int)$row['reply_sequence_step'] : 0;
+        $m->reply_sequence_total = isset($row['reply_sequence_total']) ? (int)$row['reply_sequence_total'] : 1;
+        $m->reply_sequence_status = $row['reply_sequence_status'] ?? 'active';
+        $m->reply_sequence_completed_at = $row['reply_sequence_completed_at'] ?? null;
         $m->reply_sent_at = $row['reply_sent_at'] ?? null;
         $m->reply_status = $row['reply_status'] ?? 'pending';
         $m->created_at = $row['created_at'] ?? null;

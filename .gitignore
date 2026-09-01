@@ -5,5 +5,9 @@
 /storage/sessions/*
 !/storage/sessions/.gitkeep
 /storage/installed.lock
+/storage/backups/*
+!/storage/backups/.gitkeep
+scratch/
 .DS_Store
 .phpunit.result.cache
+

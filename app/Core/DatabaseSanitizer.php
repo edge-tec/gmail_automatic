@@ -83,19 +83,56 @@ class DatabaseSanitizer {
                         // Ignore if column already exists
                     }
                 }
+
+                $recipientCols = [
+                    'reply_sequence_step' => 'INT NOT NULL DEFAULT 0',
+                    'reply_sequence_total' => 'INT NOT NULL DEFAULT 1',
+                    'reply_sequence_status' => "VARCHAR(50) NOT NULL DEFAULT 'active'",
+                    'reply_sequence_completed_at' => 'DATETIME NULL',
+                ];
+
+                foreach ($recipientCols as $col => $type) {
+                    try {
+                        Database::execute("ALTER TABLE auto_reply_recipients ADD COLUMN IF NOT EXISTS {$col} {$type}");
+                    } catch (\Throwable $t) {
+                        // Ignore if column already exists
+                    }
+                }
             } else {
                 try {
-                    Database::execute("ALTER TABLE users ADD COLUMN remember_token VARCHAR(191) NULL");
+                    Database::execute("ALTER TABLE auto_reply_recipients ADD COLUMN reply_sequence_step INTEGER NOT NULL DEFAULT 0");
                 } catch (\Throwable $t) {}
                 try {
-                    Database::execute("ALTER TABLE users ADD COLUMN remember_token_expires_at DATETIME NULL");
+                    Database::execute("ALTER TABLE auto_reply_recipients ADD COLUMN reply_sequence_total INTEGER NOT NULL DEFAULT 1");
                 } catch (\Throwable $t) {}
                 try {
-                    Database::execute("ALTER TABLE daily_usage ADD COLUMN followup_messages_count INTEGER NOT NULL DEFAULT 0");
-                } catch (\Throwable $t) {
-                    // Ignore if column already exists
-                }
+                    Database::execute("ALTER TABLE auto_reply_recipients ADD COLUMN reply_sequence_status VARCHAR(50) NOT NULL DEFAULT 'active'");
+                } catch (\Throwable $t) {}
+                try {
+                    Database::execute("ALTER TABLE auto_reply_recipients ADD COLUMN reply_sequence_completed_at DATETIME NULL");
+                } catch (\Throwable $t) {}
             }
+
+            // Ensure skipped_email_logs table exists
+            Database::execute("CREATE TABLE IF NOT EXISTS skipped_email_logs (
+                id " . ($driver === 'mysql' ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT') . ",
+                user_id " . ($driver === 'mysql' ? 'INT NOT NULL' : 'INTEGER NOT NULL') . ",
+                gmail_account_id " . ($driver === 'mysql' ? 'INT NOT NULL' : 'INTEGER NOT NULL') . ",
+                thread_id " . ($driver === 'mysql' ? 'INT NULL' : 'INTEGER NULL') . ",
+                gmail_thread_id VARCHAR(191) NULL,
+                gmail_message_id VARCHAR(191) NULL,
+                sender_email VARCHAR(255) NOT NULL,
+                sender_name VARCHAR(255) NULL,
+                recipient_email VARCHAR(255) NULL,
+                subject VARCHAR(500) NULL,
+                snippet TEXT NULL,
+                skip_reason VARCHAR(255) NOT NULL,
+                skip_type VARCHAR(50) NOT NULL DEFAULT 'duplicate_traffic',
+                first_reply_sent_at " . ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL') . ",
+                received_at " . ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL') . ",
+                created_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . "
+            )");
+
 
             // 1. Purge any legacy default boilerplate from automation_settings table
             Database::execute(

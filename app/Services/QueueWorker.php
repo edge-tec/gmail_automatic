@@ -176,16 +176,18 @@ class QueueWorker {
                     return true;
                 }
 
-                // Final concurrency check: verify recipient has not already been replied to
+                // Strictly fetch latest live user-configured message from database for this step
+                $stepNumber = (int)($payload['reply_step'] ?? 1);
+                $totalSteps = (int)($payload['total_steps'] ?? $settings->getTotalConfiguredReplySteps());
+
+                // Concurrency check: verify this step hasn't already been sent to this recipient
                 $replyRecipient = AutoReplyRecipient::findByAccountAndSender($account->id, $recipientEmail);
-                if ($replyRecipient && $replyRecipient->reply_status === 'replied') {
-                    $job->cancel('Auto-reply already sent to this recipient.');
-                    echo "  ↳ Skipped: Auto-reply already sent to {$recipientEmail}.\n";
+                if ($replyRecipient && $replyRecipient->reply_sequence_step >= $stepNumber) {
+                    $job->cancel("Auto-reply Step #{$stepNumber} already sent to this recipient.");
+                    echo "  ↳ Skipped: Auto-reply Step #{$stepNumber} already sent to {$recipientEmail}.\n";
                     return true;
                 }
 
-                // Strictly fetch latest live user-configured message from database for this step
-                $stepNumber = (int)($payload['reply_step'] ?? 1);
                 $liveTemplate = $settings->getReplyMessageForStep($stepNumber);
 
                 if (empty(trim(strip_tags($liveTemplate)))) {
@@ -308,12 +310,15 @@ class QueueWorker {
 
             // Update thread counters & timestamps
             if ($job->job_type === 'auto_reply') {
+                $stepNumber = (int)($payload['reply_step'] ?? 1);
+                $totalSteps = (int)($payload['total_steps'] ?? $settings->getTotalConfiguredReplySteps());
+
                 if (isset($replyRecipient) && $replyRecipient) {
-                    $replyRecipient->markReplied();
+                    $replyRecipient->recordStepSent($stepNumber, $totalSteps, $sentAt);
                 } else {
                     $rec = AutoReplyRecipient::findByAccountAndSender($account->id, $recipientEmail);
                     if ($rec) {
-                        $rec->markReplied();
+                        $rec->recordStepSent($stepNumber, $totalSteps, $sentAt);
                     }
                 }
 

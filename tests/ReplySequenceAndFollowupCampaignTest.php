@@ -1,0 +1,535 @@
+<?php
+namespace Tests;
+
+use PHPUnit\Framework\TestCase;
+use App\Core\App;
+use App\Core\Database;
+use App\Models\User;
+use App\Models\GmailAccount;
+use App\Models\AutomationSetting;
+use App\Models\FollowupTemplate;
+use App\Models\FollowupCampaign;
+use App\Models\FollowupJob;
+use App\Models\AutoReplyRecipient;
+use App\Models\EmailThread;
+use App\Models\EmailMessage;
+use App\Models\ScheduledJob;
+use App\Models\DailyUsage;
+use App\Services\AutomationEngine;
+use App\Services\QueueWorker;
+
+class ReplySequenceAndFollowupCampaignTest extends TestCase {
+    private User $user;
+    private GmailAccount $account;
+    private AutomationSetting $settings;
+    private QueueWorker $worker;
+
+    public static function setUpBeforeClass(): void {
+        parent::setUpBeforeClass();
+        $sqlitePath = storage_path('database/test.sqlite');
+        putenv("DB_CONNECTION=sqlite");
+        putenv("DB_DATABASE={$sqlitePath}");
+        putenv("APP_KEY=base64:32characterRandomSecretKeyForTesting==");
+        $_ENV['DB_CONNECTION'] = 'sqlite';
+        $_ENV['DB_DATABASE'] = $sqlitePath;
+        $_ENV['APP_KEY'] = 'base64:32characterRandomSecretKeyForTesting==';
+
+        new App();
+        Database::resetConnection();
+        \Database\MigrationRunner::run();
+    }
+
+    protected function setUp(): void {
+        parent::setUp();
+        new App();
+
+        $this->user = User::create([
+            'name' => 'Sequence Tester',
+            'email' => 'seq_test_' . uniqid() . '@example.com',
+            'password' => password_hash('Pass@123', PASSWORD_BCRYPT),
+            'status' => 'active',
+        ]);
+
+        $this->account = GmailAccount::create([
+            'user_id' => $this->user->id,
+            'gmail_email' => 'gmail_seq_' . uniqid() . '@gmail.com',
+            'google_user_id' => 'gid_' . uniqid(),
+            'access_token' => 'access_token_mock',
+            'refresh_token' => 'refresh_token_mock',
+            'status' => 'connected',
+        ]);
+
+        $this->settings = AutomationSetting::createDefault($this->account->id);
+        $this->worker = new QueueWorker();
+    }
+
+    /**
+     * Test 1 & 3: 5 Configured Replies -> 5 replies allowed, 6th email is duplicate
+     */
+    public function testFiveConfiguredRepliesProgressUntilCompletedThenDuplicate(): void {
+        $replySteps = [
+            1 => ['message' => 'User Reply #1', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            2 => ['message' => 'User Reply #2', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            3 => ['message' => 'User Reply #3', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            4 => ['message' => 'User Reply #4', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            5 => ['message' => 'User Reply #5', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+        ];
+
+        $this->settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => json_encode($replySteps),
+            'max_reply_per_thread' => 5,
+            'daily_reply_limit' => 50,
+        ]);
+
+        $sender = 'lead_five_' . uniqid() . '@test.com';
+        $engine = new AutomationEngine($this->account);
+
+        // Emails #1 to #5 must each be scheduled
+        for ($i = 1; $i <= 5; $i++) {
+            $msg = [
+                'message_id' => "msg_5seq_{$i}_" . uniqid(),
+                'thread_id' => 'th_5seq_' . uniqid(),
+                'sender_email' => $sender,
+                'sender_name' => 'Five Step Lead',
+                'subject' => "Inquiry Step {$i}",
+                'snippet' => "Body {$i}",
+                'body' => "Body {$i}",
+                'date' => date('Y-m-d H:i:s'),
+            ];
+
+            $res = $engine->processIncomingMessage($msg);
+            $this->assertEquals('scheduled', $res['status'], "Incoming email #{$i} must be scheduled for Reply #{$i}");
+            $this->assertEquals($i, $res['reply_step']);
+
+            // Run worker to dispatch and mark step sent
+            $this->worker->run(true);
+        }
+
+        // Verify recipient sequence is now completed
+        $recipient = AutoReplyRecipient::findByAccountAndSender($this->account->id, $sender);
+        $this->assertNotNull($recipient);
+        $this->assertEquals(5, $recipient->reply_sequence_step);
+        $this->assertEquals('completed', $recipient->reply_sequence_status);
+
+        // Email #6 from same sender -> must be skipped as DUPLICATE
+        $msg6 = [
+            'message_id' => 'msg_5seq_6_' . uniqid(),
+            'thread_id' => 'th_5seq_6_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Five Step Lead',
+            'subject' => 'Inquiry Step 6 (Extra)',
+            'snippet' => 'Extra email',
+            'body' => 'Extra email',
+            'date' => date('Y-m-d H:i:s'),
+        ];
+        $res6 = $engine->processIncomingMessage($msg6);
+        $this->assertEquals('skipped', $res6['status']);
+        $this->assertTrue($res6['is_duplicate_traffic']);
+        $this->assertStringContainsString('5/5 steps', $res6['reason']);
+    }
+
+    /**
+     * Test 2 & 4: 7 Configured Replies -> 7 replies allowed, 8th email is duplicate
+     */
+    public function testSevenConfiguredRepliesProgressUntilCompletedThenDuplicate(): void {
+        $replySteps = [];
+        for ($s = 1; $s <= 7; $s++) {
+            $replySteps[$s] = ['message' => "Custom Reply #{$s} Content", 'delay_value' => 0, 'delay_unit' => 'seconds'];
+        }
+
+        $this->settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => json_encode($replySteps),
+            'max_reply_per_thread' => 7,
+            'daily_reply_limit' => 50,
+        ]);
+
+        $sender = 'lead_seven_' . uniqid() . '@test.com';
+        $engine = new AutomationEngine($this->account);
+
+        // Emails #1 to #7 must each be scheduled
+        for ($i = 1; $i <= 7; $i++) {
+            $msg = [
+                'message_id' => "msg_7seq_{$i}_" . uniqid(),
+                'thread_id' => 'th_7seq_' . uniqid(),
+                'sender_email' => $sender,
+                'sender_name' => 'Seven Step Lead',
+                'subject' => "Inquiry Step {$i}",
+                'snippet' => "Body {$i}",
+                'body' => "Body {$i}",
+                'date' => date('Y-m-d H:i:s'),
+            ];
+
+            $res = $engine->processIncomingMessage($msg);
+            $this->assertEquals('scheduled', $res['status'], "Incoming email #{$i} must be scheduled for Reply #{$i}");
+            $this->assertEquals($i, $res['reply_step']);
+
+            // Run worker to dispatch and mark step sent
+            $this->worker->run(true);
+        }
+
+        // Email #8 from same sender -> DUPLICATE
+        $msg8 = [
+            'message_id' => 'msg_7seq_8_' . uniqid(),
+            'thread_id' => 'th_7seq_8_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Seven Step Lead',
+            'subject' => 'Inquiry Step 8 (Extra)',
+            'snippet' => 'Extra email',
+            'body' => 'Extra email',
+            'date' => date('Y-m-d H:i:s'),
+        ];
+        $res8 = $engine->processIncomingMessage($msg8);
+        $this->assertEquals('skipped', $res8['status']);
+        $this->assertTrue($res8['is_duplicate_traffic']);
+        $this->assertStringContainsString('7/7 steps', $res8['reason']);
+    }
+
+    /**
+     * Test 7: Multiple Senders have Independent Sequences
+     */
+    public function testMultipleSendersHaveIndependentSequences(): void {
+        $replySteps = [
+            1 => ['message' => 'Reply 1', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            2 => ['message' => 'Reply 2', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            3 => ['message' => 'Reply 3', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+        ];
+
+        $this->settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => json_encode($replySteps),
+            'max_reply_per_thread' => 3,
+            'daily_reply_limit' => 50,
+        ]);
+
+        $senderA = 'sender_a_' . uniqid() . '@test.com';
+        $senderB = 'sender_b_' . uniqid() . '@test.com';
+        $engine = new AutomationEngine($this->account);
+
+        // Sender A sends Email #1 -> Reply #1
+        $resA1 = $engine->processIncomingMessage([
+            'message_id' => 'msg_a_1_' . uniqid(),
+            'thread_id' => 'th_a_' . uniqid(),
+            'sender_email' => $senderA,
+            'sender_name' => 'Sender A',
+            'subject' => 'A1',
+            'snippet' => 'A1',
+            'body' => 'A1',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $resA1['status']);
+        $this->assertEquals(1, $resA1['reply_step']);
+
+        // Sender B sends Email #1 -> Reply #1 (Independent of A)
+        $resB1 = $engine->processIncomingMessage([
+            'message_id' => 'msg_b_1_' . uniqid(),
+            'thread_id' => 'th_b_' . uniqid(),
+            'sender_email' => $senderB,
+            'sender_name' => 'Sender B',
+            'subject' => 'B1',
+            'snippet' => 'B1',
+            'body' => 'B1',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $resB1['status']);
+        $this->assertEquals(1, $resB1['reply_step']);
+    }
+
+    /**
+     * Test 11, 12, 13, 14: Follow-up Campaign Counting (1 Email/Conversation with 5 Follow-ups = 1 Daily Follow Count)
+     */
+    public function testOneEmailWithFiveFollowupsCountsAsOneDailyFollow(): void {
+        // Create 5 follow-up templates
+        Database::execute("DELETE FROM followup_templates WHERE gmail_account_id = :acc", ['acc' => $this->account->id]);
+        for ($step = 1; $step <= 5; $step++) {
+            FollowupTemplate::create([
+                'user_id' => $this->user->id,
+                'gmail_account_id' => $this->account->id,
+                'name' => "Follow-up #{$step}",
+                'step_number' => $step,
+                'subject_type' => 'same_thread',
+                'message' => "Custom Follow-up Step #{$step} Message",
+                'delay_value' => 0,
+                'delay_unit' => 'seconds',
+                'status' => 'active',
+            ]);
+        }
+
+        $this->settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => 'Initial Auto Reply',
+            'followup_enabled' => 1,
+            'daily_followup_limit' => 10,
+        ]);
+
+        $sender = 'lead_fu_5_' . uniqid() . '@test.com';
+        $engine = new AutomationEngine($this->account);
+
+        // 1. Incoming Email -> Schedules Auto-Reply
+        $msg = [
+            'message_id' => 'msg_fu5_' . uniqid(),
+            'thread_id' => 'th_fu5_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Follow-up Lead',
+            'subject' => 'Lead with 5 Followups',
+            'snippet' => 'Snippet',
+            'body' => 'Body text',
+            'date' => date('Y-m-d H:i:s'),
+        ];
+        $res = $engine->processIncomingMessage($msg);
+        $this->assertEquals('scheduled', $res['status']);
+
+        // Run worker to send Auto Reply -> this automatically creates Follow-up Campaign & schedules Step 1
+        $this->worker->run(true);
+
+        // Run worker consecutively to process all 5 follow-up steps
+        for ($step = 1; $step <= 5; $step++) {
+            $this->worker->run(true);
+        }
+
+        // Verify Daily Usage:
+        // Daily Followup Campaigns = 1
+        // Daily Followup Messages Sent = 5
+        $usage = DailyUsage::getOrCreate($this->account->id, date('Y-m-d'));
+        $this->assertEquals(1, (int)$usage['followup_count'], '1 Conversation with 5 follow-ups must equal 1 Daily Follow Campaign count');
+        $this->assertEquals(5, (int)$usage['followup_messages_count'], '5 actual follow-up emails were sent');
+    }
+
+    /**
+     * Test 13: Three separate campaigns with multiple follow-ups -> Daily Follow count = 3
+     */
+    public function testThreeCampaignsWithMultipleFollowupsEqualsThreeDailyFollows(): void {
+        Database::execute("DELETE FROM followup_templates WHERE gmail_account_id = :acc", ['acc' => $this->account->id]);
+        for ($step = 1; $step <= 3; $step++) {
+            FollowupTemplate::create([
+                'user_id' => $this->user->id,
+                'gmail_account_id' => $this->account->id,
+                'name' => "Follow-up #{$step}",
+                'step_number' => $step,
+                'subject_type' => 'same_thread',
+                'message' => "Follow-up #{$step} Message",
+                'delay_value' => 0,
+                'delay_unit' => 'seconds',
+                'status' => 'active',
+            ]);
+        }
+
+        $this->settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => 'Initial Auto Reply',
+            'followup_enabled' => 1,
+            'daily_followup_limit' => 10,
+        ]);
+
+        $engine = new AutomationEngine($this->account);
+
+        // Create 3 separate conversations
+        for ($c = 1; $c <= 3; $c++) {
+            $engine->processIncomingMessage([
+                'message_id' => "msg_c{$c}_" . uniqid(),
+                'thread_id' => "th_c{$c}_" . uniqid(),
+                'sender_email' => "client_{$c}_" . uniqid() . '@test.com',
+                'sender_name' => "Client {$c}",
+                'subject' => "Subject {$c}",
+                'snippet' => "Snippet {$c}",
+                'body' => "Body {$c}",
+                'date' => date('Y-m-d H:i:s'),
+            ]);
+        }
+
+        // Process all auto-replies and follow-ups
+        for ($r = 1; $r <= 10; $r++) {
+            $this->worker->run(true);
+        }
+
+        $usage = DailyUsage::getOrCreate($this->account->id, date('Y-m-d'));
+        // Total follow-up campaigns started must be 3
+        $this->assertEquals(3, (int)$usage['followup_count'], '3 separate campaigns must equal 3 Daily Follow Campaign count');
+    }
+
+    /**
+     * Test 19: Real Recipient Reply Cancels Remaining Follow-ups
+     */
+    public function testRealRecipientReplyCancelsRemainingFollowups(): void {
+        Database::execute("DELETE FROM followup_templates WHERE gmail_account_id = :acc", ['acc' => $this->account->id]);
+        FollowupTemplate::create([
+            'user_id' => $this->user->id,
+            'gmail_account_id' => $this->account->id,
+            'name' => 'Follow-up #1',
+            'step_number' => 1,
+            'subject_type' => 'same_thread',
+            'message' => 'Step 1 Followup',
+            'delay_value' => 3600, // 1 hour delay
+            'delay_unit' => 'seconds',
+            'status' => 'active',
+        ]);
+
+        $this->settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => 'Initial Auto Reply',
+            'followup_enabled' => 1,
+            'daily_followup_limit' => 10,
+        ]);
+
+        $sender = 'cancel_fu_' . uniqid() . '@test.com';
+        $threadId = 'th_cancel_' . uniqid();
+        $engine = new AutomationEngine($this->account);
+
+        // 1. Initial Email -> Scheduled Auto-Reply
+        $engine->processIncomingMessage([
+            'message_id' => 'msg_canc_1_' . uniqid(),
+            'thread_id' => $threadId,
+            'sender_email' => $sender,
+            'sender_name' => 'Cancel Recipient',
+            'subject' => 'Project Inquiry',
+            'snippet' => 'Snippet',
+            'body' => 'Body',
+            'date' => date('Y-m-d H:i:s', time() - 3600),
+        ]);
+
+        // Send Auto Reply -> Creates campaign and schedules Followup Step 1 in 1 hour
+        $this->worker->run(true);
+
+        $thread = EmailThread::findByAccountAndThreadId($this->account->id, $threadId);
+        $campaign = FollowupCampaign::findByThreadId($thread->id);
+        $this->assertNotNull($campaign);
+        $this->assertEquals('active', $campaign->campaign_status);
+
+        // 2. Recipient sends genuine reply AFTER our outgoing reply timestamp
+        $replyDate = date('Y-m-d H:i:s', strtotime($thread->last_outgoing_at) + 120);
+        $engine->processIncomingMessage([
+            'message_id' => 'msg_canc_2_' . uniqid(),
+            'thread_id' => $threadId,
+            'sender_email' => $sender,
+            'sender_name' => 'Cancel Recipient',
+            'subject' => 'Re: Project Inquiry',
+            'snippet' => 'Yes I am interested, lets meet tomorrow.',
+            'body' => 'Yes I am interested, lets meet tomorrow.',
+            'date' => $replyDate,
+        ]);
+
+        // Verify Campaign is marked replied and pending jobs cancelled
+        $campaignUpdated = FollowupCampaign::find($campaign->id);
+        $this->assertEquals('replied', $campaignUpdated->campaign_status);
+
+        $followupJobs = Database::query("SELECT * FROM scheduled_jobs WHERE thread_id = :tid AND job_type = 'follow_up'", ['tid' => $thread->id]);
+        foreach ($followupJobs as $pj) {
+            $this->assertEquals('cancelled', $pj['status']);
+        }
+    }
+
+    /**
+     * Test 16: Existing active campaign completes all follow-ups even if daily limit for new campaigns is reached
+     */
+    public function testExistingActiveCampaignCompletesEvenIfNewCampaignDailyLimitIsReached(): void {
+        Database::execute("DELETE FROM followup_templates WHERE gmail_account_id = :acc", ['acc' => $this->account->id]);
+        for ($s = 1; $s <= 3; $s++) {
+            FollowupTemplate::create([
+                'user_id' => $this->user->id,
+                'gmail_account_id' => $this->account->id,
+                'name' => "Step #{$s}",
+                'step_number' => $s,
+                'subject_type' => 'same_thread',
+                'message' => "Campaign 1 Step #{$s} Message",
+                'delay_value' => 0,
+                'delay_unit' => 'seconds',
+                'status' => 'active',
+            ]);
+        }
+
+        // Set daily follow-up limit to 1 campaign
+        $this->settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => 'Initial Auto Reply',
+            'followup_enabled' => 1,
+            'daily_followup_limit' => 1,
+        ]);
+
+        $engine = new AutomationEngine($this->account);
+
+        // 1. Start Campaign #1
+        $engine->processIncomingMessage([
+            'message_id' => 'msg_camp1_' . uniqid(),
+            'thread_id' => 'th_camp1_' . uniqid(),
+            'sender_email' => 'camp1_lead@test.com',
+            'sender_name' => 'Camp 1 Lead',
+            'subject' => 'Camp 1 Subject',
+            'snippet' => 'Camp 1 Snippet',
+            'body' => 'Camp 1 Body',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+
+        // Send Auto Reply -> Creates Campaign 1 and schedules Follow-up 1
+        $this->worker->run(true);
+
+        // Process Follow-up Step 1 -> Campaign 1 is counted today (1/1 limit reached)
+        $this->worker->run(true);
+
+        $usage = DailyUsage::getOrCreate($this->account->id, date('Y-m-d'));
+        $this->assertEquals(1, (int)$usage['followup_count'], 'Campaign 1 counted');
+
+        // Process Follow-up Step 2 and Step 3 -> Both must execute successfully even though limit is 1/1
+        $this->worker->run(true);
+        $this->worker->run(true);
+
+        $usageAfter = DailyUsage::getOrCreate($this->account->id, date('Y-m-d'));
+        $this->assertEquals(1, (int)$usageAfter['followup_count'], 'Campaign count remains 1');
+        $this->assertEquals(3, (int)$usageAfter['followup_messages_count'], 'All 3 follow-up steps executed');
+    }
+
+    /**
+     * Test 20 & 22: Message delete / empty protection cancels job without sending fallback
+     */
+    public function testDeletedOrEmptyMessageJobIsCancelledWithoutFallback(): void {
+        Database::execute("DELETE FROM followup_templates WHERE gmail_account_id = :acc", ['acc' => $this->account->id]);
+        $template = FollowupTemplate::create([
+            'user_id' => $this->user->id,
+            'gmail_account_id' => $this->account->id,
+            'name' => 'Step 1 Template',
+            'step_number' => 1,
+            'subject_type' => 'same_thread',
+            'message' => 'Will be emptied',
+            'delay_value' => 3600, // 1 hour delay so it stays pending after auto-reply
+            'delay_unit' => 'seconds',
+            'status' => 'active',
+        ]);
+
+        $this->settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => 'Initial Auto Reply',
+            'followup_enabled' => 1,
+            'daily_followup_limit' => 10,
+        ]);
+
+        $engine = new AutomationEngine($this->account);
+        $threadId = 'th_empty_' . uniqid();
+        $engine->processIncomingMessage([
+            'message_id' => 'msg_emp_' . uniqid(),
+            'thread_id' => $threadId,
+            'sender_email' => 'empty_lead@test.com',
+            'sender_name' => 'Empty Lead',
+            'subject' => 'Subject',
+            'snippet' => 'Snippet',
+            'body' => 'Body',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+
+        // Send auto reply -> schedules follow-up step 1 with 1 hour delay
+        $this->worker->run(true);
+
+        // Now user empties or deletes the template before follow-up step executes
+        $template->update(['message' => '   ', 'status' => 'inactive']);
+
+        // Make the pending follow-up job ready to process
+        Database::execute("UPDATE scheduled_jobs SET scheduled_at = datetime('now', '-1 minute') WHERE job_type = 'follow_up'");
+
+        // Worker runs
+        $this->worker->run(true);
+
+        // Job must be cancelled and no email sent with fallback boilerplate
+        $thread = EmailThread::findByAccountAndThreadId($this->account->id, $threadId);
+        $this->assertEquals(0, $thread->followup_count, 'Follow-up email must not be sent if template is empty or inactive');
+    }
+}
+

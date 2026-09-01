@@ -10,6 +10,7 @@ use App\Models\FollowupTemplate;
 use App\Models\FollowupCampaign;
 use App\Models\FollowupJob;
 use App\Models\AutoReplyRecipient;
+use App\Models\SkippedEmailLog;
 use App\Models\ScheduledJob;
 use App\Models\DailyUsage;
 use App\Models\SystemSetting;
@@ -112,15 +113,51 @@ class AutomationEngine {
         // 6. Check Blacklist Rules (Admin + Account Level: Emails, Domains, and Content/Keywords)
         $blacklistDecision = $this->checkBlacklistRules($senderEmail, $subject, $body);
         if ($blacklistDecision['action'] === 'skip') {
-            logger("Skipped incoming email from {$senderEmail}: {$blacklistDecision['reason']}", 'warning', $this->account->user_id, $this->account->id);
-            return ['status' => 'skipped', 'reason' => $blacklistDecision['reason']];
+            $reason = $blacklistDecision['reason'];
+            try {
+                SkippedEmailLog::create([
+                    'user_id' => $this->account->user_id,
+                    'gmail_account_id' => $this->account->id,
+                    'thread_id' => $thread->id,
+                    'gmail_thread_id' => $threadId,
+                    'gmail_message_id' => $msgId,
+                    'sender_email' => $senderEmail,
+                    'sender_name' => $senderName,
+                    'recipient_email' => $this->account->gmail_email,
+                    'subject' => $subject,
+                    'snippet' => $msgData['snippet'] ?? '',
+                    'skip_reason' => $reason,
+                    'skip_type' => 'blacklist',
+                    'received_at' => $date,
+                ]);
+            } catch (\Throwable $t) {}
+            logger("Skipped incoming email from {$senderEmail}: {$reason}", 'warning', $this->account->user_id, $this->account->id);
+            return ['status' => 'skipped', 'reason' => $reason];
         }
 
         // 7. Anti-Spam / Multi-Recipient & Bulk Header Checks (Skip if multiple To, CC, BCC, or bulk spam)
         $spamCheck = $this->checkSpamAndMultiRecipients($msgData);
         if ($spamCheck['is_spam']) {
-            logger("Skipped spam/bulk incoming email from {$senderEmail}: {$spamCheck['reason']}", 'warning', $this->account->user_id, $this->account->id);
-            return ['status' => 'skipped', 'reason' => $spamCheck['reason']];
+            $reason = $spamCheck['reason'];
+            try {
+                SkippedEmailLog::create([
+                    'user_id' => $this->account->user_id,
+                    'gmail_account_id' => $this->account->id,
+                    'thread_id' => $thread->id,
+                    'gmail_thread_id' => $threadId,
+                    'gmail_message_id' => $msgId,
+                    'sender_email' => $senderEmail,
+                    'sender_name' => $senderName,
+                    'recipient_email' => $this->account->gmail_email,
+                    'subject' => $subject,
+                    'snippet' => $msgData['snippet'] ?? '',
+                    'skip_reason' => $reason,
+                    'skip_type' => 'spam_filter',
+                    'received_at' => $date,
+                ]);
+            } catch (\Throwable $t) {}
+            logger("Skipped spam/bulk incoming email from {$senderEmail}: {$reason}", 'warning', $this->account->user_id, $this->account->id);
+            return ['status' => 'skipped', 'reason' => $reason];
         }
 
         // 8. Check Account Auto Reply Settings
@@ -141,39 +178,63 @@ class AutomationEngine {
         $ruleDecision = $this->evaluateRules($senderEmail, $subject, $body);
         if ($ruleDecision['action'] === 'skip') {
             $reason = $ruleDecision['reason'] ?? 'Skipped by custom automation rule';
+            try {
+                SkippedEmailLog::create([
+                    'user_id' => $this->account->user_id,
+                    'gmail_account_id' => $this->account->id,
+                    'thread_id' => $thread->id,
+                    'gmail_thread_id' => $threadId,
+                    'gmail_message_id' => $msgId,
+                    'sender_email' => $senderEmail,
+                    'sender_name' => $senderName,
+                    'recipient_email' => $this->account->gmail_email,
+                    'subject' => $subject,
+                    'snippet' => $msgData['snippet'] ?? '',
+                    'skip_reason' => $reason,
+                    'skip_type' => 'rule_skip',
+                    'received_at' => $date,
+                ]);
+            } catch (\Throwable $t) {}
             logger("Skipped incoming email from {$senderEmail}: {$reason}", 'warning', $this->account->user_id, $this->account->id);
             return ['status' => 'skipped', 'reason' => $reason];
         }
 
-        // 9. Check Per-Thread Reply Limit
-        $nextReplyStep = $thread->reply_count + 1;
-        if ($thread->reply_count >= $this->settings->max_reply_per_thread) {
-            $thread->update(['automation_status' => 'completed']);
-            return ['status' => 'limit_reached', 'reason' => "Max reply per thread reached ({$this->settings->max_reply_per_thread})"];
+        // 9.5. Auto-Reply Sequence & Duplicate Traffic Protection
+        $totalConfiguredSteps = $this->settings->getTotalConfiguredReplySteps();
+        if ($totalConfiguredSteps <= 0) {
+            return ['status' => 'skipped', 'reason' => 'Message content is missing. Automated email was not sent.'];
         }
 
-        // 9. Check Daily Reply Limit (Applies to new leads/traffic; multiple replies to the same lead count as 1)
-        $usage = $this->account->getTodayUsage();
-        $stepDelay = $this->settings->getReplyDelaySecondsForStep($nextReplyStep);
-
-        if ($thread->reply_count === 0 && $usage['reply_count'] >= $this->settings->daily_reply_limit) {
-            // Schedule new lead reply for next day beginning of working hour
-            $scheduledAt = $this->calculateNextAllowedSendTime(true);
-        } else {
-            $scheduledAt = $this->calculateNextAllowedSendTime(false, $stepDelay);
-        }
-
-        // 9.5. Auto-Reply Duplicate Traffic Protection: 1 Auto Reply per Unique Traffic Source per Gmail Account
-        $claimResult = AutoReplyRecipient::claimOrGet(
+        $claimResult = AutoReplyRecipient::claimOrGetForSequence(
             $this->account->user_id,
             $this->account->id,
             $senderEmail,
+            $totalConfiguredSteps,
             $msgId,
             $threadId
         );
 
-        if (!$claimResult['is_eligible']) {
-            $reason = "Duplicate traffic: Auto-reply already sent or queued for {$senderEmail} on this account";
+        if (!$claimResult['is_eligible'] || $claimResult['is_duplicate']) {
+            $reason = "Duplicate traffic: Auto-reply sequence ({$totalConfiguredSteps}/{$totalConfiguredSteps} steps) already completed for {$senderEmail} on this account";
+            $firstReplySentAt = $claimResult['recipient']?->reply_sent_at;
+            try {
+                SkippedEmailLog::create([
+                    'user_id' => $this->account->user_id,
+                    'gmail_account_id' => $this->account->id,
+                    'thread_id' => $thread->id,
+                    'gmail_thread_id' => $threadId,
+                    'gmail_message_id' => $msgId,
+                    'sender_email' => $senderEmail,
+                    'sender_name' => $senderName,
+                    'recipient_email' => $this->account->gmail_email,
+                    'subject' => $subject,
+                    'snippet' => $msgData['snippet'] ?? '',
+                    'skip_reason' => $reason,
+                    'skip_type' => 'duplicate_traffic',
+                    'first_reply_sent_at' => $firstReplySentAt,
+                    'received_at' => $date,
+                ]);
+            } catch (\Throwable $t) {}
             logger("Skipped incoming email: {$reason}", 'info', $this->account->user_id, $this->account->id);
             return [
                 'status' => 'skipped',
@@ -182,13 +243,23 @@ class AutomationEngine {
             ];
         }
 
+        $nextReplyStep = (int)($claimResult['next_step'] ?? 1);
+
+        // Check Daily Reply Limit
+        $usage = $this->account->getTodayUsage();
+        $stepDelay = $this->settings->getReplyDelaySecondsForStep($nextReplyStep);
+
+        if ($usage['reply_count'] >= ($this->settings->daily_reply_limit ?? 100)) {
+            // Schedule reply for next day beginning of working hour
+            $scheduledAt = $this->calculateNextAllowedSendTime(true);
+        } else {
+            $scheduledAt = $this->calculateNextAllowedSendTime(false, $stepDelay);
+        }
+
         // 10. Prepare Reply Message for Step #$nextReplyStep with Template Variables
         $templateMessage = $ruleDecision['custom_message'] ?? $this->settings->getReplyMessageForStep($nextReplyStep);
         $cleanCheck = trim(strip_tags($templateMessage));
         if (empty($cleanCheck)) {
-            if ($claimResult && isset($claimResult['recipient']) && $claimResult['recipient']) {
-                $claimResult['recipient']->markCancelled();
-            }
             logger("Message content is missing for Step #{$nextReplyStep}. Automated email was not sent.", 'warning', $this->account->user_id, $this->account->id);
             return ['status' => 'skipped', 'reason' => "Message content is missing for Step #{$nextReplyStep}. Automated email was not sent."];
         }
@@ -216,6 +287,7 @@ class AutomationEngine {
                 'references' => $msgData['references'] ?? null,
                 'gmail_message_id' => $msgId,
                 'reply_step' => $nextReplyStep,
+                'total_steps' => $totalConfiguredSteps,
             ],
             'scheduled_at' => $scheduledAt,
             'status' => 'pending',

@@ -37,15 +37,18 @@
     </div>
     <!-- Stat 4: Duplicate Emails Skipped -->
     <div class="col-12 col-sm-6 col-xl-auto flex-fill">
-        <div class="stat-card d-flex align-items-center justify-content-between p-3">
-            <div>
-                <div class="text-muted small fw-semibold">Duplicate Emails Skipped</div>
-                <div class="fs-4 fw-bold mt-1 text-warning"><?= $duplicateSkippedCount ?? 0 ?></div>
+        <a href="<?= url('/skipped-emails') ?>" class="text-decoration-none">
+            <div class="stat-card d-flex align-items-center justify-content-between p-3 h-100">
+                <div>
+                    <div class="text-muted small fw-semibold">Duplicate Emails Skipped</div>
+                    <div class="fs-4 fw-bold mt-1 text-warning"><?= $duplicateSkippedCount ?? 0 ?></div>
+                    <div class="text-primary small" style="font-size: 0.75rem;"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>View report</div>
+                </div>
+                <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
             </div>
-            <div class="stat-icon bg-warning bg-opacity-10 text-warning">
-                <i class="fa-solid fa-shield-halved"></i>
-            </div>
-        </div>
+        </a>
     </div>
     <!-- Stat 5: Daily Follow Campaigns -->
     <div class="col-12 col-sm-6 col-xl-auto flex-fill">
