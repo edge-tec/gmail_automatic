@@ -79,10 +79,13 @@ class AutomationEngine {
             'last_processed_message_id' => $msgId,
         ]);
 
-        // 4. If recipient replied, cancel any pending unanswered follow-up sequences & campaign
-        $campaign = FollowupCampaign::findByThreadId($thread->id);
-        if ($thread->reply_count > 0 || $thread->followup_count > 0 || $campaign) {
-            if ($campaign) {
+        // 4. If recipient wrote back AFTER an outgoing message was sent, mark thread as replied and stop pending follow-up campaigns
+        $hasSentOutgoing = ($thread->reply_count > 0 || $thread->followup_count > 0) && !empty($thread->last_outgoing_at);
+        $isReplyToUs = $hasSentOutgoing && (strtotime($date) >= (strtotime($thread->last_outgoing_at) - 60));
+
+        if ($isReplyToUs) {
+            $campaign = FollowupCampaign::findByThreadId($thread->id);
+            if ($campaign && $campaign->campaign_status === 'active') {
                 $campaign->markReplied();
             }
             \App\Core\Database::execute(
@@ -90,6 +93,7 @@ class AutomationEngine {
                 ['tid' => $thread->id, 'now' => date('Y-m-d H:i:s')]
             );
             $thread->update([
+                'automation_status' => 'replied',
                 'next_followup_at' => null,
             ]);
             logger("Recipient replied in thread {$threadId}. Follow-up campaign stopped.", 'info', $this->account->user_id, $this->account->id);
@@ -160,25 +164,22 @@ class AutomationEngine {
         }
 
         // 9.5. Auto-Reply Duplicate Traffic Protection: 1 Auto Reply per Unique Traffic Source per Gmail Account
-        $claimResult = null;
-        if ($thread->reply_count === 0) {
-            $claimResult = AutoReplyRecipient::claimOrGet(
-                $this->account->user_id,
-                $this->account->id,
-                $senderEmail,
-                $msgId,
-                $threadId
-            );
+        $claimResult = AutoReplyRecipient::claimOrGet(
+            $this->account->user_id,
+            $this->account->id,
+            $senderEmail,
+            $msgId,
+            $threadId
+        );
 
-            if (!$claimResult['is_eligible']) {
-                $reason = "Duplicate traffic: Auto-reply already sent or queued for {$senderEmail} on this account";
-                logger("Skipped incoming email: {$reason}", 'info', $this->account->user_id, $this->account->id);
-                return [
-                    'status' => 'skipped',
-                    'reason' => $reason,
-                    'is_duplicate_traffic' => true,
-                ];
-            }
+        if (!$claimResult['is_eligible']) {
+            $reason = "Duplicate traffic: Auto-reply already sent or queued for {$senderEmail} on this account";
+            logger("Skipped incoming email: {$reason}", 'info', $this->account->user_id, $this->account->id);
+            return [
+                'status' => 'skipped',
+                'reason' => $reason,
+                'is_duplicate_traffic' => true,
+            ];
         }
 
         // 10. Prepare Reply Message for Step #$nextReplyStep with Template Variables

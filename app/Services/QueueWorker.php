@@ -17,8 +17,30 @@ use Exception;
 class QueueWorker {
     private bool $stopRequested = false;
 
+    /**
+     * Recover stuck 'processing' jobs that may have been abandoned due to unexpected crashes or timeouts.
+     */
+    public static function recoverStaleJobs(int $timeoutMinutes = 5): int {
+        $driver = config('database.default', 'mysql');
+        $now = date('Y-m-d H:i:s');
+        $staleThreshold = date('Y-m-d H:i:s', time() - ($timeoutMinutes * 60));
+
+        $sql = "UPDATE scheduled_jobs 
+                SET status = 'pending', last_error = 'Auto-recovered from interrupted processing', updated_at = :now 
+                WHERE status = 'processing' AND (updated_at <= :thresh OR updated_at IS NULL)";
+        return Database::execute($sql, ['now' => $now, 'thresh' => $staleThreshold]);
+    }
+
     public function run(bool $once = false, int $batchSize = 25): void {
-        echo "[" . date('Y-m-d H:i:s') . "] Gmail Automation Queue Worker started...\n";
+        $timestamp = date('Y-m-d H:i:s');
+        echo "[{$timestamp}] Gmail Automation Queue Worker started...\n";
+
+        // Update heartbeat
+        SystemSetting::set('worker_last_heartbeat', $timestamp);
+        SystemSetting::set('worker_status', 'running');
+
+        // 0. Recover any stale processing jobs
+        self::recoverStaleJobs();
 
         // 1. Process asynchronous email notification jobs (SMTP)
         $this->processEmailJobs($batchSize);
@@ -26,8 +48,12 @@ class QueueWorker {
         // 2. Check expiring subscriptions and trials and send reminders
         $this->checkExpiringSubscriptionsAndTrials();
 
-        // 3. Process scheduled Gmail automation jobs
+        // 3. Process scheduled Gmail automation jobs in continuous or multi-batch mode
+        $iterations = 0;
+        $maxOnceIterations = 10;
+
         while (!$this->stopRequested) {
+            SystemSetting::set('worker_last_heartbeat', date('Y-m-d H:i:s'));
             $jobs = ScheduledJob::getReadyJobs($batchSize);
             
             if (empty($jobs)) {
@@ -40,11 +66,19 @@ class QueueWorker {
             }
 
             foreach ($jobs as $job) {
-                $this->processJob($job);
+                try {
+                    $this->processJob($job);
+                } catch (\Throwable $e) {
+                    logger("Fatal error in queue job #{$job->id}: " . $e->getMessage(), 'error');
+                    echo "  ✗ Uncaught error in Job #{$job->id}: " . $e->getMessage() . "\n";
+                }
             }
 
             if ($once) {
-                break;
+                $iterations++;
+                if ($iterations >= $maxOnceIterations) {
+                    break;
+                }
             }
         }
     }

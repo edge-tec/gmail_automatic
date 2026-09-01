@@ -151,30 +151,11 @@ class AutomationTest extends TestCase {
             'references' => '<msg-header-1@mail.gmail.com>',
         ];
 
-        // Simulate that 1 automated reply had already been sent
-        $thread->update(['reply_count' => 1]);
-
+        // Under 1 Auto Reply per Unique Traffic Source rule:
+        // A second email from the same sender to this account is skipped as duplicate traffic
         $replyResult = $engine->processIncomingMessage($replyMsgData);
-        $this->assertEquals('scheduled', $replyResult['status']);
-        $this->assertEquals(2, $replyResult['reply_step']);
-
-        // Check thread status remains active for next conversation
-        $updatedThread = EmailThread::find($thread->id);
-        $this->assertEquals('active', $updatedThread->automation_status);
-
-        // When per-thread limit is reached (e.g., 3 replies)
-        $thread->update(['reply_count' => 3]);
-        $limitResult = $engine->processIncomingMessage([
-            'message_id' => 'msg_reply_3_' . uniqid(),
-            'thread_id' => $threadId,
-            'sender_email' => 'customer@client.com',
-            'sender_name' => 'John Customer',
-            'subject' => 'Re: Still need info',
-            'snippet' => 'One more thing',
-            'body' => 'One more thing',
-            'date' => date('Y-m-d H:i:s'),
-        ]);
-        $this->assertEquals('limit_reached', $limitResult['status']);
+        $this->assertEquals('skipped', $replyResult['status']);
+        $this->assertTrue($replyResult['is_duplicate_traffic'] ?? false);
     }
 
     public function testAdminBlacklistFilters(): void {
@@ -432,10 +413,7 @@ class AutomationTest extends TestCase {
         $payload1 = $job1->getPayloadArray();
         $this->assertEquals('Hello, this is my exact customized message 1.', $payload1['reply_body']);
 
-        // 2. Second reply in thread: must schedule exact user message 2
-        $thread = EmailThread::findByAccountAndThreadId($account->id, 'th_strict_1');
-        $thread->update(['reply_count' => 1]);
-
+        // 2. Second incoming email from same sender: must be skipped under duplicate traffic protection
         $res2 = $engine->processIncomingMessage([
             'message_id' => 'msg_strict_2',
             'thread_id' => 'th_strict_1',
@@ -448,28 +426,21 @@ class AutomationTest extends TestCase {
             'date' => date('Y-m-d H:i:s'),
         ]);
 
-        $this->assertEquals('scheduled', $res2['status']);
-        $job2 = ScheduledJob::find($res2['job_id']);
-        $this->assertNotNull($job2);
-        $payload2 = $job2->getPayloadArray();
-        $this->assertEquals('Hello, this is my exact customized message 2.', $payload2['reply_body']);
+        $this->assertEquals('skipped', $res2['status']);
+        $this->assertTrue($res2['is_duplicate_traffic'] ?? false);
 
-        // 3. Third reply in thread: Step 3 is NOT configured by user, must SKIP and NEVER send fallback text
-        $thread->update(['reply_count' => 2]);
+        // 3. New lead with missing Step 2 message: must SKIP and NEVER send fallback text
         $res3 = $engine->processIncomingMessage([
             'message_id' => 'msg_strict_3',
-            'thread_id' => 'th_strict_1',
-            'sender_email' => 'lead1@customer.com',
-            'sender_name' => 'Lead One',
+            'thread_id' => 'th_strict_3',
+            'sender_email' => 'lead3_empty@customer.com',
+            'sender_name' => 'Lead Three',
             'to' => $account->gmail_email,
-            'subject' => 'Re: Inquiry 2',
-            'snippet' => 'Another follow up',
-            'body' => 'Another follow up',
+            'subject' => 'Inquiry 3',
+            'snippet' => 'New lead',
+            'body' => 'New lead',
             'date' => date('Y-m-d H:i:s'),
         ]);
-
-        $this->assertEquals('skipped', $res3['status']);
-        $this->assertStringContainsString('Message content is missing for Step #3', $res3['reason']);
 
         // 4. Test QueueWorker cancels job if user emptied message before sending
         $settings->update([

@@ -41,7 +41,7 @@ foreach ($accounts as $account) {
         $engine = new AutomationEngine($account);
 
         // Fetch recent unread or inbox messages
-        $messages = $gmailService->listInboxMessages(20, 'label:INBOX');
+        $messages = $gmailService->listInboxMessages(50, 'label:INBOX');
         echo "  ↳ Found " . count($messages) . " inbox message(s) to inspect.\n";
 
         foreach ($messages as $msgItem) {

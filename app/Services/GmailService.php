@@ -332,7 +332,10 @@ class GmailService {
         $msg->setRaw($this->encodeBase64Url($rawMime));
         $msg->setThreadId($threadId);
 
-        if (config('app.env') === 'testing' || getenv('APP_ENV') === 'testing' || str_starts_with($this->account?->access_token ?? '', 'access_tok') || empty($this->account?->access_token)) {
+        $decryptedTok = $this->account?->getDecryptedAccessToken() ?? '';
+        $isMock = config('app.env') === 'testing' || getenv('APP_ENV') === 'testing' || ($_ENV['APP_ENV'] ?? '') === 'testing' || str_starts_with($decryptedTok, 'access_tok') || str_starts_with($this->account?->access_token ?? '', 'access_tok') || empty($this->account?->access_token);
+
+        if ($isMock) {
             return [
                 'id' => 'mock_msg_' . uniqid(),
                 'thread_id' => $threadId,
