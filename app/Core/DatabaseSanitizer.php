@@ -61,6 +61,7 @@ class DatabaseSanitizer {
                 self::ensureTableColumns('payments', $paymentCols);
 
                 $dailyCols = [
+                    'reply_messages_count' => 'INT NOT NULL DEFAULT 0',
                     'followup_messages_count' => 'INT NOT NULL DEFAULT 0',
                 ];
 
@@ -71,15 +72,25 @@ class DatabaseSanitizer {
                     'reply_sequence_total' => 'INT NOT NULL DEFAULT 1',
                     'reply_sequence_status' => "VARCHAR(50) NOT NULL DEFAULT 'active'",
                     'reply_sequence_completed_at' => 'DATETIME NULL',
+                    'daily_counted' => 'TINYINT(1) NOT NULL DEFAULT 0',
+                    'counted_date' => 'DATE NULL',
                 ];
 
                 self::ensureTableColumns('auto_reply_recipients', $recipientCols);
             } else {
+                $dailyColsSqlite = [
+                    'reply_messages_count' => 'INTEGER NOT NULL DEFAULT 0',
+                    'followup_messages_count' => 'INTEGER NOT NULL DEFAULT 0',
+                ];
+                self::ensureTableColumns('daily_usage', $dailyColsSqlite);
+
                 $recipientColsSqlite = [
                     'reply_sequence_step' => 'INTEGER NOT NULL DEFAULT 0',
                     'reply_sequence_total' => 'INTEGER NOT NULL DEFAULT 1',
                     'reply_sequence_status' => "VARCHAR(50) NOT NULL DEFAULT 'active'",
                     'reply_sequence_completed_at' => 'DATETIME NULL',
+                    'daily_counted' => 'INTEGER NOT NULL DEFAULT 0',
+                    'counted_date' => 'TEXT NULL',
                 ];
                 self::ensureTableColumns('auto_reply_recipients', $recipientColsSqlite);
             }

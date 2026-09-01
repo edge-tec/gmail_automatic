@@ -21,6 +21,7 @@ class DailyUsage {
 
         $driver = config('database.default', 'mysql');
         $cols = [
+            'reply_messages_count' => ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
             'followup_messages_count' => ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
         ];
         \App\Core\DatabaseSanitizer::ensureTableColumns('daily_usage', $cols);
@@ -41,8 +42,8 @@ class DailyUsage {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
-        $sql = "INSERT INTO daily_usage (gmail_account_id, usage_date, reply_count, followup_count, followup_messages_count, total_sent, created_at)
-                VALUES (:acc, :dt, 0, 0, 0, 0, {$now})";
+        $sql = "INSERT INTO daily_usage (gmail_account_id, usage_date, reply_count, reply_messages_count, followup_count, followup_messages_count, total_sent, created_at)
+                VALUES (:acc, :dt, 0, 0, 0, 0, 0, {$now})";
 
         try {
             Database::execute($sql, ['acc' => $accountId, 'dt' => $date]);
@@ -58,12 +59,16 @@ class DailyUsage {
             'gmail_account_id' => $accountId,
             'usage_date' => $date,
             'reply_count' => 0,
+            'reply_messages_count' => 0,
             'followup_count' => 0,
             'followup_messages_count' => 0,
             'total_sent' => 0,
         ];
     }
 
+    /**
+     * Increment Unique Traffic Sequence count (Counts 1 per traffic sequence)
+     */
     public static function incrementReply(int $accountId, ?string $date = null): void {
         $date = $date ?? date('Y-m-d');
         self::getOrCreate($accountId, $date);
@@ -73,7 +78,25 @@ class DailyUsage {
 
         Database::execute(
             "UPDATE daily_usage 
-             SET reply_count = reply_count + 1, total_sent = total_sent + 1, updated_at = {$now} 
+             SET reply_count = reply_count + 1, updated_at = {$now} 
+             WHERE gmail_account_id = :acc AND usage_date = :dt",
+            ['acc' => $accountId, 'dt' => $date]
+        );
+    }
+
+    /**
+     * Increment Actual Auto-Reply Message Sent count
+     */
+    public static function incrementReplyMessage(int $accountId, ?string $date = null): void {
+        $date = $date ?? date('Y-m-d');
+        self::getOrCreate($accountId, $date);
+
+        $driver = config('database.default', 'mysql');
+        $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
+
+        Database::execute(
+            "UPDATE daily_usage 
+             SET reply_messages_count = reply_messages_count + 1, total_sent = total_sent + 1, updated_at = {$now} 
              WHERE gmail_account_id = :acc AND usage_date = :dt",
             ['acc' => $accountId, 'dt' => $date]
         );

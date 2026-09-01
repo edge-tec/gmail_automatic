@@ -193,7 +193,8 @@ CREATE TABLE IF NOT EXISTS daily_usage (
     id INT AUTO_INCREMENT PRIMARY KEY,
     gmail_account_id INT NOT NULL,
     usage_date DATE NOT NULL,
-    reply_count INT NOT NULL DEFAULT 0,
+    reply_count INT NOT NULL DEFAULT 0, -- Unique traffic sequences counted towards daily limit (1 per lead sequence)
+    reply_messages_count INT NOT NULL DEFAULT 0, -- Actual auto-reply messages sent
     followup_count INT NOT NULL DEFAULT 0, -- Unique follow-up campaigns counted towards daily limit
     followup_messages_count INT NOT NULL DEFAULT 0, -- Actual follow-up messages sent
     total_sent INT NOT NULL DEFAULT 0,
@@ -270,6 +271,8 @@ CREATE TABLE IF NOT EXISTS auto_reply_recipients (
     reply_sequence_status VARCHAR(50) NOT NULL DEFAULT 'active', -- active, completed
     reply_sequence_completed_at DATETIME NULL,
     reply_sent_at DATETIME NULL,
+    daily_counted TINYINT(1) NOT NULL DEFAULT 0,
+    counted_date DATE NULL,
     reply_status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, processing, active, completed, replied, cancelled, failed
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -279,7 +282,8 @@ CREATE TABLE IF NOT EXISTS auto_reply_recipients (
     INDEX idx_arr_user (user_id),
     INDEX idx_arr_acc (gmail_account_id),
     INDEX idx_arr_status (reply_status),
-    INDEX idx_arr_seq_status (reply_sequence_status)
+    INDEX idx_arr_seq_status (reply_sequence_status),
+    INDEX idx_arr_counted (daily_counted, counted_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS activity_logs (

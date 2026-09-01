@@ -207,16 +207,21 @@ class QueueWorker {
                     'date' => date('Y-m-d H:i:s'),
                 ]);
 
-                // Check daily limit for unique traffic sources (1 reply per unique lead/traffic)
-                if ($thread->reply_count === 0 && $usage['reply_count'] >= ($settings->daily_reply_limit ?? 100)) {
+                // Check daily limit for starting NEW traffic sequences (Step 1)
+                // Existing active sequences (Step 2+) are already authorized and must complete their remaining replies
+                $todayDate = date('Y-m-d');
+                $isSequenceCountedToday = $replyRecipient && $replyRecipient->daily_counted === 1 && $replyRecipient->counted_date === $todayDate;
+                $isNewTrafficSequence = ($stepNumber === 1 && !$isSequenceCountedToday);
+
+                if ($isNewTrafficSequence && $usage['reply_count'] >= ($settings->daily_reply_limit ?? 100)) {
                     // Reschedule for tomorrow
                     $nextTime = $engine->calculateNextAllowedSendTime(true);
                     $job->update([
                         'status' => 'pending',
                         'scheduled_at' => $nextTime,
-                        'last_error' => 'Daily lead/traffic limit reached. Postponed to next day.',
+                        'last_error' => 'Daily reply limit for new traffic reached. Postponed to next day.',
                     ]);
-                    echo "  ↳ Daily lead/traffic limit reached. Postponed to {$nextTime}.\n";
+                    echo "  ↳ Daily reply limit reached for new traffic. Postponed to {$nextTime}.\n";
                     return false;
                 }
             } elseif ($job->job_type === 'follow_up') {
@@ -315,12 +320,10 @@ class QueueWorker {
 
                 $replyRecipient = AutoReplyRecipient::findByUserAndSender($account->user_id, $recipientEmail);
                 if ($replyRecipient) {
-                    $replyRecipient->recordStepSent($stepNumber, $totalSteps, $sentAt);
+                    $replyRecipient->recordStepSent($stepNumber, $totalSteps, $sentAt, $account->id);
                 }
 
                 logger("[QueueWorker] Traffic: {$recipientEmail} | Step #{$stepNumber} sent successfully via {$account->gmail_email} | Sequence: {$stepNumber}/{$totalSteps}", 'info', $account->user_id, $account->id);
-
-                DailyUsage::incrementReply($account->id);
 
                 $thread->update([
                     'reply_count' => $thread->reply_count + 1,

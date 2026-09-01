@@ -15,6 +15,8 @@ class AutoReplyRecipient {
     public string $reply_sequence_status = 'active'; // active, completed
     public ?string $reply_sequence_completed_at = null;
     public ?string $reply_sent_at = null;
+    public int $daily_counted = 0;
+    public ?string $counted_date = null;
     public string $reply_status = 'pending'; // pending, processing, active, completed, replied, cancelled, failed
     public ?string $created_at = null;
     public ?string $updated_at = null;
@@ -41,6 +43,8 @@ class AutoReplyRecipient {
             'reply_sequence_total' => ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1'),
             'reply_sequence_status' => "VARCHAR(50) NOT NULL DEFAULT 'active'",
             'reply_sequence_completed_at' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
+            'daily_counted' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+            'counted_date' => ($driver === 'mysql' ? 'DATE NULL' : 'TEXT NULL'),
         ];
         \App\Core\DatabaseSanitizer::ensureTableColumns('auto_reply_recipients', $recipientCols);
 
@@ -344,13 +348,32 @@ class AutoReplyRecipient {
 
     /**
      * Record a reply step successfully sent by worker
+     * 
+     * Rule:
+     * - Daily Reply quota is counted ONCE per unique traffic sequence (1 per lead).
+     * - Subsequent replies (Step 2, 3, 4, 5...) increment reply_messages_count without consuming additional daily traffic quota.
      */
-    public function recordStepSent(int $step, int $totalSteps, string $sentAt): bool {
+    public function recordStepSent(int $step, int $totalSteps, string $sentAt, int $accountId = 0): bool {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
         $totalSteps = max(1, $totalSteps);
         $newStep = max($this->reply_sequence_step, $step);
         $isCompleted = ($newStep >= $totalSteps);
+        $todayDate = date('Y-m-d');
+        $accId = $accountId ?: $this->gmail_account_id;
+
+        // Daily Reply Quota Counting: 1 traffic sequence = 1 Daily Reply count
+        $shouldCountDaily = ($this->daily_counted === 0 || $this->counted_date !== $todayDate);
+
+        if ($shouldCountDaily && $accId > 0) {
+            DailyUsage::incrementReply($accId, $todayDate);
+            $this->daily_counted = 1;
+            $this->counted_date = $todayDate;
+        }
+
+        if ($accId > 0) {
+            DailyUsage::incrementReplyMessage($accId, $todayDate);
+        }
 
         $fields = [
             'reply_sequence_step' => $newStep,
@@ -358,6 +381,8 @@ class AutoReplyRecipient {
             'reply_sequence_status' => $isCompleted ? 'completed' : 'active',
             'reply_status' => $isCompleted ? 'replied' : 'active',
             'reply_sent_at' => $sentAt,
+            'daily_counted' => 1,
+            'counted_date' => $todayDate,
             'updated_at' => $now,
         ];
 
@@ -384,6 +409,8 @@ class AutoReplyRecipient {
             $this->reply_sequence_status = $isCompleted ? 'completed' : 'active';
             $this->reply_status = $isCompleted ? 'replied' : 'active';
             $this->reply_sent_at = $sentAt;
+            $this->daily_counted = 1;
+            $this->counted_date = $todayDate;
             if ($isCompleted) {
                 $this->reply_sequence_completed_at = $sentAt;
             }
@@ -488,6 +515,8 @@ class AutoReplyRecipient {
         $m->reply_sequence_status = $row['reply_sequence_status'] ?? 'active';
         $m->reply_sequence_completed_at = $row['reply_sequence_completed_at'] ?? null;
         $m->reply_sent_at = $row['reply_sent_at'] ?? null;
+        $m->daily_counted = isset($row['daily_counted']) ? (int)$row['daily_counted'] : 0;
+        $m->counted_date = $row['counted_date'] ?? null;
         $m->reply_status = $row['reply_status'] ?? 'pending';
         $m->created_at = $row['created_at'] ?? null;
         $m->updated_at = $row['updated_at'] ?? null;

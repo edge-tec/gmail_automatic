@@ -127,6 +127,102 @@ class ReplySequenceAndFollowupCampaignTest extends TestCase {
         $this->assertEquals('skipped', $res6['status']);
         $this->assertTrue($res6['is_duplicate_traffic']);
         $this->assertStringContainsString('5/5 steps', $res6['reason']);
+
+        // Verify Daily Usage: 1 traffic sequence = 1 daily reply count, 5 actual messages
+        $usage = $this->account->getTodayUsage();
+        $this->assertEquals(1, $usage['reply_count'], '5 replies to 1 traffic sequence must consume only 1 daily reply count');
+        $this->assertEquals(5, $usage['reply_messages_count'], '5 actual outgoing messages must be recorded in reply_messages_count');
+    }
+
+    /**
+     * Test 5, 6, 7: Daily Reply Limit applies to NEW traffic sequences and does NOT block active sequences
+     */
+    public function testDailyReplyLimitCountsOnePerTrafficSequenceAndDoesNotBlockActiveSequence(): void {
+        $replySteps = [
+            1 => ['message' => 'Step 1 Message', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            2 => ['message' => 'Step 2 Message', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            3 => ['message' => 'Step 3 Message', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+        ];
+
+        // Set daily limit to 1
+        $this->settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => json_encode($replySteps),
+            'max_reply_per_thread' => 3,
+            'daily_reply_limit' => 1,
+        ]);
+
+        $trafficA = 'traffic_a_' . uniqid() . '@test.com';
+        $trafficB = 'traffic_b_' . uniqid() . '@test.com';
+        $engine = new AutomationEngine($this->account);
+
+        // 1. Traffic A sends Email 1 -> consumes the 1 allowed daily reply quota
+        $r1 = $engine->processIncomingMessage([
+            'message_id' => 'msg_a_1_' . uniqid(),
+            'thread_id' => 'th_a_1_' . uniqid(),
+            'sender_email' => $trafficA,
+            'sender_name' => 'Traffic A',
+            'subject' => 'Inquiry A1',
+            'snippet' => 'Body A1',
+            'body' => 'Body A1',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $r1['status']);
+        $this->assertEquals(1, $r1['reply_step']);
+        $this->worker->run(true);
+
+        $usage = $this->account->getTodayUsage();
+        $this->assertEquals(1, $usage['reply_count'], 'Daily reply count must be 1');
+
+        // 2. Traffic A sends Email 2 & Email 3 -> MUST NOT BE BLOCKED BY DAILY LIMIT (already active sequence)
+        $r2 = $engine->processIncomingMessage([
+            'message_id' => 'msg_a_2_' . uniqid(),
+            'thread_id' => 'th_a_2_' . uniqid(),
+            'sender_email' => $trafficA,
+            'sender_name' => 'Traffic A',
+            'subject' => 'Inquiry A2',
+            'snippet' => 'Body A2',
+            'body' => 'Body A2',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $r2['status'], 'Active sequence step 2 must not be blocked by daily limit');
+        $this->assertEquals(2, $r2['reply_step']);
+        $this->worker->run(true);
+
+        $r3 = $engine->processIncomingMessage([
+            'message_id' => 'msg_a_3_' . uniqid(),
+            'thread_id' => 'th_a_3_' . uniqid(),
+            'sender_email' => $trafficA,
+            'sender_name' => 'Traffic A',
+            'subject' => 'Inquiry A3',
+            'snippet' => 'Body A3',
+            'body' => 'Body A3',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $r3['status'], 'Active sequence step 3 must not be blocked by daily limit');
+        $this->assertEquals(3, $r3['reply_step']);
+        $this->worker->run(true);
+
+        // Daily reply quota must STILL be 1 (Traffic A = 1 daily reply sequence)
+        $usageAfter = $this->account->getTodayUsage();
+        $this->assertEquals(1, $usageAfter['reply_count'], 'Traffic A must only consume 1 daily reply count');
+        $this->assertEquals(3, $usageAfter['reply_messages_count'], '3 actual outgoing messages recorded');
+
+        // 3. Traffic B (NEW traffic) sends Email 1 -> Daily limit (1/1) reached, must be postponed to tomorrow
+        $rB = $engine->processIncomingMessage([
+            'message_id' => 'msg_b_1_' . uniqid(),
+            'thread_id' => 'th_b_1_' . uniqid(),
+            'sender_email' => $trafficB,
+            'sender_name' => 'Traffic B',
+            'subject' => 'Inquiry B1',
+            'snippet' => 'Body B1',
+            'body' => 'Body B1',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $rB['status']);
+        // Scheduled time must be postponed to tomorrow because limit for new traffic is reached
+        $tomorrowDate = date('Y-m-d', strtotime('+1 day'));
+        $this->assertStringContainsString($tomorrowDate, $rB['scheduled_at'], 'New traffic must be postponed to tomorrow when daily limit reached');
     }
 
     /**

@@ -245,11 +245,15 @@ class AutomationEngine {
 
         $nextReplyStep = (int)($claimResult['next_step'] ?? 1);
 
-        // Check Daily Reply Limit
+        // Check Daily Reply Limit for Starting New Traffic Sequences (Step 1)
+        // Active sequences (Step 2, 3, 4, 5...) are not blocked by the daily new-traffic limit
         $usage = $this->account->getTodayUsage();
         $stepDelay = $this->settings->getReplyDelaySecondsForStep($nextReplyStep);
 
-        if ($usage['reply_count'] >= ($this->settings->daily_reply_limit ?? 100)) {
+        $recipientObj = $claimResult['recipient'] ?? null;
+        $isNewTrafficSequence = ($nextReplyStep === 1 && (!$recipientObj || $recipientObj->daily_counted === 0 || $recipientObj->counted_date !== date('Y-m-d')));
+
+        if ($isNewTrafficSequence && $usage['reply_count'] >= ($this->settings->daily_reply_limit ?? 100)) {
             // Schedule reply for next day beginning of working hour
             $scheduledAt = $this->calculateNextAllowedSendTime(true);
         } else {
