@@ -931,5 +931,157 @@ class ReplySequenceAndFollowupCampaignTest extends TestCase {
         $this->assertEquals('skipped', $r2['status']);
         $this->assertEquals('Message already processed', $r2['reason']);
     }
+
+    /**
+     * Test 23: Require Recipient Reply Before Sending Next Auto-Reply (Toggle ON)
+     */
+    public function testRequireRecipientReplyBeforeNextAutoReplyEnabledSkipsUntilRecipientReplies(): void {
+        $replySteps = [
+            1 => ['message' => 'Message A (Step 1)', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            2 => ['message' => 'Message B (Step 2)', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            3 => ['message' => 'Message C (Step 3)', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+        ];
+
+        $this->settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => json_encode($replySteps),
+            'max_reply_per_thread' => 3,
+            'daily_reply_limit' => 50,
+            'require_recipient_reply_before_next_reply' => 1,
+        ]);
+
+        $sender = 'reply_gate_lead_' . uniqid() . '@test.com';
+        $engine = new AutomationEngine($this->account);
+        $threadId1 = 'th_gate_1_' . uniqid();
+
+        // 1. First incoming email -> Eligible for Reply #1
+        $r1 = $engine->processIncomingMessage([
+            'message_id' => 'msg_gate_1_' . uniqid(),
+            'thread_id' => $threadId1,
+            'sender_email' => $sender,
+            'sender_name' => 'Gate Lead',
+            'subject' => 'Inquiry 1',
+            'snippet' => 'Hello 1',
+            'body' => 'Hello 1',
+            'date' => date('Y-m-d H:i:s', strtotime('-10 minutes')),
+        ]);
+        $this->assertEquals('scheduled', $r1['status']);
+        $this->assertEquals(1, $r1['reply_step']);
+
+        // Worker sends Reply #1
+        $this->worker->run(true);
+
+        $recipient = AutoReplyRecipient::findByUserAndSender($this->user->id, $sender);
+        $this->assertNotNull($recipient);
+        $this->assertEquals(1, $recipient->reply_sequence_step);
+
+        // 2. Sender sends Email #2 in a new thread without replying to Reply #1 -> MUST BE SKIPPED
+        $r2 = $engine->processIncomingMessage([
+            'message_id' => 'msg_gate_2_' . uniqid(),
+            'thread_id' => 'th_gate_2_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Gate Lead',
+            'subject' => 'Unrelated Inquiry 2',
+            'snippet' => 'Hello again',
+            'body' => 'Hello again',
+            'date' => date('Y-m-d H:i:s', strtotime('-8 minutes')),
+        ]);
+        $this->assertEquals('skipped', $r2['status']);
+        $this->assertEquals('awaiting_recipient_reply', $r2['skip_type'] ?? '');
+
+        // Verify sequence step DID NOT ADVANCE (remains 1)
+        $recipient->refresh();
+        $this->assertEquals(1, $recipient->reply_sequence_step, 'Skipped email must not advance sequence step');
+
+        // 3. Sender sends Email #3 without replying -> MUST BE SKIPPED
+        $r3 = $engine->processIncomingMessage([
+            'message_id' => 'msg_gate_3_' . uniqid(),
+            'thread_id' => 'th_gate_3_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Gate Lead',
+            'subject' => 'Unrelated Inquiry 3',
+            'snippet' => 'Hello again 3',
+            'body' => 'Hello again 3',
+            'date' => date('Y-m-d H:i:s', strtotime('-6 minutes')),
+        ]);
+        $this->assertEquals('skipped', $r3['status']);
+        $this->assertEquals('awaiting_recipient_reply', $r3['skip_type'] ?? '');
+        $recipient->refresh();
+        $this->assertEquals(1, $recipient->reply_sequence_step);
+
+        // 4. Now recipient REPLIES to our Reply #1 in thread 1
+        $rReply1 = $engine->processIncomingMessage([
+            'message_id' => 'msg_gate_rep_1_' . uniqid(),
+            'thread_id' => $threadId1, // same thread where Reply #1 was sent
+            'sender_email' => $sender,
+            'sender_name' => 'Gate Lead',
+            'subject' => 'Re: Inquiry 1',
+            'snippet' => 'Thank you, here is my response to Reply 1',
+            'body' => 'Thank you, here is my response to Reply 1',
+            'is_reply' => true,
+            'date' => date('Y-m-d H:i:s', strtotime('-4 minutes')),
+        ]);
+        $this->assertEquals('scheduled', $rReply1['status'], 'Genuine recipient reply must unlock Reply #2');
+        $this->assertEquals(2, $rReply1['reply_step']);
+
+        // Worker sends Reply #2
+        $this->worker->run(true);
+        $recipient->refresh();
+        $this->assertEquals(2, $recipient->reply_sequence_step);
+
+        // 5. Sender sends another unreplied email -> Skipped (awaiting reply to Reply #2)
+        $r4 = $engine->processIncomingMessage([
+            'message_id' => 'msg_gate_4_' . uniqid(),
+            'thread_id' => 'th_gate_4_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Gate Lead',
+            'subject' => 'Inquiry 4',
+            'snippet' => 'Just checking in',
+            'body' => 'Just checking in',
+            'date' => date('Y-m-d H:i:s', strtotime('-2 minutes')),
+        ]);
+        $this->assertEquals('skipped', $r4['status']);
+        $this->assertEquals('awaiting_recipient_reply', $r4['skip_type'] ?? '');
+
+        // 6. Recipient replies to Reply #2 -> Unlocks Reply #3
+        $rReply2 = $engine->processIncomingMessage([
+            'message_id' => 'msg_gate_rep_2_' . uniqid(),
+            'thread_id' => $threadId1,
+            'sender_email' => $sender,
+            'sender_name' => 'Gate Lead',
+            'subject' => 'Re: Inquiry 1',
+            'snippet' => 'Here is my reply to your 2nd message',
+            'body' => 'Here is my reply to your 2nd message',
+            'is_reply' => true,
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $rReply2['status']);
+        $this->assertEquals(3, $rReply2['reply_step']);
+
+        // Worker sends Reply #3 (Final Step)
+        $this->worker->run(true);
+        $recipient->refresh();
+        $this->assertEquals(3, $recipient->reply_sequence_step);
+        $this->assertEquals('completed', $recipient->reply_sequence_status);
+
+        // 7. Subsequent email after completion -> DUPLICATE TRAFFIC
+        $rFinal = $engine->processIncomingMessage([
+            'message_id' => 'msg_gate_after_done_' . uniqid(),
+            'thread_id' => $threadId1,
+            'sender_email' => $sender,
+            'sender_name' => 'Gate Lead',
+            'subject' => 'Re: Inquiry 1',
+            'snippet' => 'Another email',
+            'body' => 'Another email',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $rFinal['status']);
+        $this->assertTrue($rFinal['is_duplicate_traffic'] ?? false);
+
+        // Verify Daily Quota
+        $usage = $this->account->getTodayUsage();
+        $this->assertEquals(1, $usage['reply_count'], '1 traffic sequence must consume only 1 daily reply count');
+        $this->assertEquals(3, $usage['reply_messages_count'], '3 actual outgoing messages recorded');
+    }
 }
 

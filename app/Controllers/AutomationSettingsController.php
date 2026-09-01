@@ -169,6 +169,8 @@ class AutomationSettingsController {
             $replyDelay = max(0, (int)$request->input('reply_delay', 0));
         }
 
+        $requireRecipientReply = (bool)$request->input('require_recipient_reply_before_next_reply', 0);
+
         $settings->update([
             'auto_reply_enabled' => $autoReplyEnabled ? 1 : 0,
             'reply_message' => $replyMessage,
@@ -177,6 +179,7 @@ class AutomationSettingsController {
             'reply_delay' => $replyDelay,
             'followup_enabled' => $followupEnabled ? 1 : 0,
             'daily_followup_limit' => $dailyFollowupLimit,
+            'require_recipient_reply_before_next_reply' => $requireRecipientReply ? 1 : 0,
             'timezone' => $timezone,
             'working_days' => $workingDaysStr,
             'working_start' => $workingStart,

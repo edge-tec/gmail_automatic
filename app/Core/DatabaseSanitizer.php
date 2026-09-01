@@ -67,6 +67,11 @@ class DatabaseSanitizer {
 
                 self::ensureTableColumns('daily_usage', $dailyCols);
 
+                $settingCols = [
+                    'require_recipient_reply_before_next_reply' => 'TINYINT(1) NOT NULL DEFAULT 0',
+                ];
+                self::ensureTableColumns('automation_settings', $settingCols);
+
                 $recipientCols = [
                     'reply_sequence_step' => 'INT NOT NULL DEFAULT 0',
                     'reply_sequence_total' => 'INT NOT NULL DEFAULT 1',
@@ -74,10 +79,17 @@ class DatabaseSanitizer {
                     'reply_sequence_completed_at' => 'DATETIME NULL',
                     'daily_counted' => 'TINYINT(1) NOT NULL DEFAULT 0',
                     'counted_date' => 'DATE NULL',
+                    'recipient_replied_for_step' => 'INT NOT NULL DEFAULT 0',
+                    'last_recipient_reply_at' => 'DATETIME NULL',
                 ];
 
                 self::ensureTableColumns('auto_reply_recipients', $recipientCols);
             } else {
+                $settingColsSqlite = [
+                    'require_recipient_reply_before_next_reply' => 'INTEGER NOT NULL DEFAULT 0',
+                ];
+                self::ensureTableColumns('automation_settings', $settingColsSqlite);
+
                 $dailyColsSqlite = [
                     'reply_messages_count' => 'INTEGER NOT NULL DEFAULT 0',
                     'followup_messages_count' => 'INTEGER NOT NULL DEFAULT 0',
@@ -91,6 +103,8 @@ class DatabaseSanitizer {
                     'reply_sequence_completed_at' => 'DATETIME NULL',
                     'daily_counted' => 'INTEGER NOT NULL DEFAULT 0',
                     'counted_date' => 'TEXT NULL',
+                    'recipient_replied_for_step' => 'INTEGER NOT NULL DEFAULT 0',
+                    'last_recipient_reply_at' => 'TEXT NULL',
                 ];
                 self::ensureTableColumns('auto_reply_recipients', $recipientColsSqlite);
             }

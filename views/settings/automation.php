@@ -307,6 +307,30 @@ $replySteps = $settings->getReplyStepsData();
 
                     <hr class="my-3">
 
+                    <!-- Require Recipient Reply Toggle -->
+                    <div class="mb-3 p-3 rounded border bg-light">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label small fw-bold m-0 text-dark d-flex align-items-center gap-2" for="require_recipient_reply_before_next_reply" style="cursor: pointer;">
+                                <i class="fa-solid fa-reply-all text-primary"></i>
+                                <span>Only Reply When Recipient Replies</span>
+                            </label>
+                            <div class="form-check form-switch m-0 fs-5">
+                                <input class="form-check-input" type="checkbox" name="require_recipient_reply_before_next_reply" value="1" id="require_recipient_reply_before_next_reply" role="switch" style="cursor: pointer;" <?= $settings->require_recipient_reply_before_next_reply ? 'checked' : '' ?> onchange="document.getElementById('require_reply_status_text').innerHTML = this.checked ? '<span class=\'badge bg-success-subtle text-success border border-success-subtle\'><i class=\'fa-solid fa-circle-check me-1\'></i>ON: Waiting for Recipient Replies</span>' : '<span class=\'badge bg-secondary-subtle text-secondary border border-secondary-subtle\'><i class=\'fa-solid fa-circle-pause me-1\'></i>OFF: Sequential Auto-Reply</span>'">
+                            </div>
+                        </div>
+                        <p class="text-muted small mb-2" style="font-size: 0.8rem; line-height: 1.4;">
+                            When enabled, the system will only send the next auto-reply after the recipient has replied to our previous message. Multiple incoming emails from the same traffic without a recipient reply will be skipped and will not advance the reply sequence.
+                        </p>
+                        <div id="require_reply_status_text">
+                            <?= $settings->require_recipient_reply_before_next_reply 
+                                ? '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="fa-solid fa-circle-check me-1"></i>ON: Waiting for Recipient Replies</span>' 
+                                : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"><i class="fa-solid fa-circle-pause me-1"></i>OFF: Sequential Auto-Reply</span>' 
+                            ?>
+                        </div>
+                    </div>
+
+                    <hr class="my-3">
+
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <label class="form-label small fw-semibold m-0">Follow-up Automation</label>

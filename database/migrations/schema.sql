@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS automation_settings (
     reply_delay INT NOT NULL DEFAULT 0, -- delay in seconds
     followup_enabled TINYINT(1) NOT NULL DEFAULT 0,
     daily_followup_limit INT NOT NULL DEFAULT 100,
+    require_recipient_reply_before_next_reply TINYINT(1) NOT NULL DEFAULT 0,
     timezone VARCHAR(100) NOT NULL DEFAULT 'Asia/Dhaka',
     working_days VARCHAR(255) NOT NULL DEFAULT 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday',
     working_start VARCHAR(20) NOT NULL DEFAULT '00:00',
@@ -273,6 +274,8 @@ CREATE TABLE IF NOT EXISTS auto_reply_recipients (
     reply_sent_at DATETIME NULL,
     daily_counted TINYINT(1) NOT NULL DEFAULT 0,
     counted_date DATE NULL,
+    recipient_replied_for_step INT NOT NULL DEFAULT 0,
+    last_recipient_reply_at DATETIME NULL,
     reply_status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, processing, active, completed, replied, cancelled, failed
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

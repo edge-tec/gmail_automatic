@@ -17,6 +17,8 @@ class AutoReplyRecipient {
     public ?string $reply_sent_at = null;
     public int $daily_counted = 0;
     public ?string $counted_date = null;
+    public int $recipient_replied_for_step = 0;
+    public ?string $last_recipient_reply_at = null;
     public string $reply_status = 'pending'; // pending, processing, active, completed, replied, cancelled, failed
     public ?string $created_at = null;
     public ?string $updated_at = null;
@@ -45,6 +47,8 @@ class AutoReplyRecipient {
             'reply_sequence_completed_at' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
             'daily_counted' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
             'counted_date' => ($driver === 'mysql' ? 'DATE NULL' : 'TEXT NULL'),
+            'recipient_replied_for_step' => ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+            'last_recipient_reply_at' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
         ];
         \App\Core\DatabaseSanitizer::ensureTableColumns('auto_reply_recipients', $recipientCols);
 
@@ -212,7 +216,9 @@ class AutoReplyRecipient {
         string $senderEmail,
         int $totalConfiguredSteps,
         ?string $msgId = null,
-        ?string $threadId = null
+        ?string $threadId = null,
+        bool $requireRecipientReply = false,
+        bool $isRecipientReply = false
     ): array {
         self::ensureSchema();
         $normalized = self::normalizeEmail($senderEmail);
@@ -296,7 +302,22 @@ class AutoReplyRecipient {
             ];
         }
 
-        // Sequence is still active!
+        // Check Require Recipient Reply Before Next Auto-Reply setting:
+        // If enabled and our system has already sent at least 1 reply ($highestStepInFlight >= 1),
+        // we must wait for a genuine recipient reply before unlocking the next reply step.
+        if ($requireRecipientReply && $highestStepInFlight >= 1 && !$isRecipientReply) {
+            logger("Traffic: {$senderEmail} | User: {$userId} | Sequence ID: {$existing->id} | Current Step: {$existing->reply_sequence_step} | Status: WAITING_FOR_RECIPIENT_REPLY | Decision: SKIP_AWAITING_RECIPIENT_REPLY", 'info', $userId, $accountId);
+            return [
+                'recipient' => $existing,
+                'next_step' => $existing->reply_sequence_step,
+                'is_eligible' => false,
+                'is_duplicate' => false,
+                'skip_type' => 'awaiting_recipient_reply',
+                'skip_reason' => "Waiting for recipient to reply to our previous auto-reply (Step #{$existing->reply_sequence_step}) before sending next reply",
+            ];
+        }
+
+        // Sequence is still active & eligible!
         logger("Traffic: {$senderEmail} | User: {$userId} | Sequence ID: {$existing->id} | Current Step: {$existing->reply_sequence_step} | In-Flight: {$highestStepInFlight} | Selected Reply: #{$nextStep} | Total: {$totalConfiguredSteps} | Decision: ACTIVE_SEQUENCE", 'info', $userId, $accountId);
 
         return [
@@ -497,9 +518,11 @@ class AutoReplyRecipient {
         return (int)($row['total'] ?? 0);
     }
 
-    public static function countFailedAdmin(): int {
-        $row = Database::first("SELECT COUNT(*) as total FROM auto_reply_recipients WHERE reply_status = 'failed'");
-        return (int)($row['total'] ?? 0);
+    public function markRecipientReplied(int $step, string $replyAt): bool {
+        return $this->update([
+            'recipient_replied_for_step' => $step,
+            'last_recipient_reply_at' => $replyAt,
+        ]);
     }
 
     private static function fromRow(array $row): self {
@@ -517,6 +540,8 @@ class AutoReplyRecipient {
         $m->reply_sent_at = $row['reply_sent_at'] ?? null;
         $m->daily_counted = isset($row['daily_counted']) ? (int)$row['daily_counted'] : 0;
         $m->counted_date = $row['counted_date'] ?? null;
+        $m->recipient_replied_for_step = isset($row['recipient_replied_for_step']) ? (int)$row['recipient_replied_for_step'] : 0;
+        $m->last_recipient_reply_at = $row['last_recipient_reply_at'] ?? null;
         $m->reply_status = $row['reply_status'] ?? 'pending';
         $m->created_at = $row['created_at'] ?? null;
         $m->updated_at = $row['updated_at'] ?? null;

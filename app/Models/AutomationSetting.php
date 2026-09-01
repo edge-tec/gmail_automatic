@@ -13,6 +13,7 @@ class AutomationSetting {
     public int $reply_delay;
     public bool $followup_enabled;
     public int $daily_followup_limit;
+    public bool $require_recipient_reply_before_next_reply = false;
     public string $timezone;
     public string $working_days;
     public string $working_start;
@@ -39,9 +40,9 @@ class AutomationSetting {
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
         $sql = "INSERT INTO automation_settings 
-                (gmail_account_id, auto_reply_enabled, reply_message, max_reply_per_thread, daily_reply_limit, reply_delay, followup_enabled, daily_followup_limit, timezone, working_days, working_start, working_end, created_at)
+                (gmail_account_id, auto_reply_enabled, reply_message, max_reply_per_thread, daily_reply_limit, reply_delay, followup_enabled, daily_followup_limit, require_recipient_reply_before_next_reply, timezone, working_days, working_start, working_end, created_at)
                 VALUES 
-                (:acc, 0, NULL, 3, 100, 0, 0, 100, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', {$now})";
+                (:acc, 0, NULL, 3, 100, 0, 0, 100, 0, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', {$now})";
 
         Database::execute($sql, [
             'acc' => $accountId,
@@ -221,6 +222,7 @@ class AutomationSetting {
         $setting->reply_delay = (int)($row['reply_delay'] ?? 0);
         $setting->followup_enabled = (bool)($row['followup_enabled'] ?? false);
         $setting->daily_followup_limit = (int)($row['daily_followup_limit'] ?? 100);
+        $setting->require_recipient_reply_before_next_reply = (bool)($row['require_recipient_reply_before_next_reply'] ?? false);
         $setting->timezone = $row['timezone'] ?? 'Asia/Dhaka';
         $setting->working_days = $row['working_days'] ?? 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday';
         $setting->working_start = $row['working_start'] ?? '00:00';

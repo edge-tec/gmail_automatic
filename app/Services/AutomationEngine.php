@@ -82,7 +82,9 @@ class AutomationEngine {
 
         // 4. If recipient wrote back AFTER an outgoing message was sent, mark thread as replied and stop pending follow-up campaigns
         $hasSentOutgoing = ($thread->reply_count > 0 || $thread->followup_count > 0) && !empty($thread->last_outgoing_at);
-        $isReplyToUs = $hasSentOutgoing && (strtotime($date) >= (strtotime($thread->last_outgoing_at) - 60));
+        $isReplyToUs = ($hasSentOutgoing && (strtotime($date) >= (strtotime($thread->last_outgoing_at) - 60)))
+            || !empty($msgData['in_reply_to'])
+            || (!empty($msgData['is_reply']) && $hasSentOutgoing);
 
         if ($isReplyToUs) {
             $campaign = FollowupCampaign::findByThreadId($thread->id);
@@ -205,42 +207,79 @@ class AutomationEngine {
             return ['status' => 'skipped', 'reason' => 'Message content is missing. Automated email was not sent.'];
         }
 
+        $requireRecipientReply = (bool)($this->settings->require_recipient_reply_before_next_reply ?? false);
+
         $claimResult = AutoReplyRecipient::claimOrGetForSequence(
             $this->account->user_id,
             $this->account->id,
             $senderEmail,
             $totalConfiguredSteps,
             $msgId,
-            $threadId
+            $threadId,
+            $requireRecipientReply,
+            $isReplyToUs
         );
 
-        if (!$claimResult['is_eligible'] || $claimResult['is_duplicate']) {
-            $reason = "Duplicate traffic: Auto-reply sequence ({$totalConfiguredSteps}/{$totalConfiguredSteps} steps) already completed for {$senderEmail} on this account";
-            $firstReplySentAt = $claimResult['recipient']?->reply_sent_at;
-            try {
-                SkippedEmailLog::create([
-                    'user_id' => $this->account->user_id,
-                    'gmail_account_id' => $this->account->id,
-                    'thread_id' => $thread->id,
-                    'gmail_thread_id' => $threadId,
-                    'gmail_message_id' => $msgId,
-                    'sender_email' => $senderEmail,
-                    'sender_name' => $senderName,
-                    'recipient_email' => $this->account->gmail_email,
-                    'subject' => $subject,
-                    'snippet' => $msgData['snippet'] ?? '',
-                    'skip_reason' => $reason,
-                    'skip_type' => 'duplicate_traffic',
-                    'first_reply_sent_at' => $firstReplySentAt,
-                    'received_at' => $date,
-                ]);
-            } catch (\Throwable $t) {}
-            logger("Skipped incoming email: {$reason}", 'info', $this->account->user_id, $this->account->id);
-            return [
-                'status' => 'skipped',
-                'reason' => $reason,
-                'is_duplicate_traffic' => true,
-            ];
+        if (!$claimResult['is_eligible']) {
+            if (($claimResult['skip_type'] ?? '') === 'awaiting_recipient_reply') {
+                $reason = $claimResult['skip_reason'] ?? "Waiting for recipient to reply to previous auto-reply before sending next reply";
+                try {
+                    SkippedEmailLog::create([
+                        'user_id' => $this->account->user_id,
+                        'gmail_account_id' => $this->account->id,
+                        'thread_id' => $thread->id,
+                        'gmail_thread_id' => $threadId,
+                        'gmail_message_id' => $msgId,
+                        'sender_email' => $senderEmail,
+                        'sender_name' => $senderName,
+                        'recipient_email' => $this->account->gmail_email,
+                        'subject' => $subject,
+                        'snippet' => $msgData['snippet'] ?? '',
+                        'skip_reason' => $reason,
+                        'skip_type' => 'awaiting_recipient_reply',
+                        'received_at' => $date,
+                    ]);
+                } catch (\Throwable $t) {}
+                logger("Skipped incoming email from {$senderEmail}: {$reason}", 'info', $this->account->user_id, $this->account->id);
+                return [
+                    'status' => 'skipped',
+                    'reason' => $reason,
+                    'skip_type' => 'awaiting_recipient_reply',
+                ];
+            }
+
+            if ($claimResult['is_duplicate']) {
+                $reason = "Duplicate traffic: Auto-reply sequence ({$totalConfiguredSteps}/{$totalConfiguredSteps} steps) already completed for {$senderEmail} on this account";
+                $firstReplySentAt = $claimResult['recipient']?->reply_sent_at;
+                try {
+                    SkippedEmailLog::create([
+                        'user_id' => $this->account->user_id,
+                        'gmail_account_id' => $this->account->id,
+                        'thread_id' => $thread->id,
+                        'gmail_thread_id' => $threadId,
+                        'gmail_message_id' => $msgId,
+                        'sender_email' => $senderEmail,
+                        'sender_name' => $senderName,
+                        'recipient_email' => $this->account->gmail_email,
+                        'subject' => $subject,
+                        'snippet' => $msgData['snippet'] ?? '',
+                        'skip_reason' => $reason,
+                        'skip_type' => 'duplicate_traffic',
+                        'first_reply_sent_at' => $firstReplySentAt,
+                        'received_at' => $date,
+                    ]);
+                } catch (\Throwable $t) {}
+                logger("Skipped incoming email: {$reason}", 'info', $this->account->user_id, $this->account->id);
+                return [
+                    'status' => 'skipped',
+                    'reason' => $reason,
+                    'is_duplicate_traffic' => true,
+                ];
+            }
+        }
+
+        if ($isReplyToUs && isset($claimResult['recipient']) && $claimResult['recipient']) {
+            $claimResult['recipient']->markRecipientReplied($claimResult['recipient']->reply_sequence_step, $date);
         }
 
         $nextReplyStep = (int)($claimResult['next_step'] ?? 1);
