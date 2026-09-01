@@ -153,6 +153,41 @@ if (!function_exists('flash')) {
     }
 }
 
+if (!function_exists('flash_messages')) {
+    function flash_messages(): string {
+        $html = '';
+        if ($msg = flash('success')) {
+            $html .= '<div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2 shadow-sm mb-4" role="alert">'
+                  . '<i class="fa-solid fa-circle-check fs-5 text-success"></i>'
+                  . '<div>' . e($msg) . '</div>'
+                  . '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>'
+                  . '</div>';
+        }
+        if ($msg = flash('error')) {
+            $html .= '<div class="alert alert-danger alert-dismissible fade show d-flex align-items-center gap-2 shadow-sm mb-4" role="alert">'
+                  . '<i class="fa-solid fa-triangle-exclamation fs-5 text-danger"></i>'
+                  . '<div>' . e($msg) . '</div>'
+                  . '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>'
+                  . '</div>';
+        }
+        if ($msg = flash('warning')) {
+            $html .= '<div class="alert alert-warning alert-dismissible fade show d-flex align-items-center gap-2 shadow-sm mb-4" role="alert">'
+                  . '<i class="fa-solid fa-circle-exclamation fs-5 text-warning"></i>'
+                  . '<div>' . e($msg) . '</div>'
+                  . '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>'
+                  . '</div>';
+        }
+        if ($msg = flash('info')) {
+            $html .= '<div class="alert alert-info alert-dismissible fade show d-flex align-items-center gap-2 shadow-sm mb-4" role="alert">'
+                  . '<i class="fa-solid fa-circle-info fs-5 text-info"></i>'
+                  . '<div>' . e($msg) . '</div>'
+                  . '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>'
+                  . '</div>';
+        }
+        return $html;
+    }
+}
+
 if (!function_exists('logger')) {
     function logger(string $message, string $type = 'info', ?int $userId = null, ?int $gmailAccountId = null, array $context = []): void {
         \App\Models\ActivityLog::createLog($type, $message, $userId, $gmailAccountId, $context);

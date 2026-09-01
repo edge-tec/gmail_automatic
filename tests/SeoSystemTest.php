@@ -229,4 +229,31 @@ class SeoSystemTest extends TestCase {
         $this->assertGreaterThanOrEqual(50, $audit['score']);
         $this->assertNotEmpty($audit['passed']);
     }
+
+    public function testAllPublicAndLegalPagesRenderSuccessfully(): void {
+        $legal = new \App\Controllers\LegalController();
+        $req = new \App\Core\Request();
+
+        $termsHtml = $legal->terms($req);
+        $this->assertStringContainsString('Terms of Service', $termsHtml);
+
+        $privacyHtml = $legal->privacy($req);
+        $this->assertStringContainsString('Privacy Policy', $privacyHtml);
+
+        $apiDisclosureHtml = $legal->googleApiDisclosure($req);
+        $this->assertStringContainsString('Google API Services User Data Disclosure', $apiDisclosureHtml);
+
+        $zeroFallbackHtml = $legal->zeroFallbackPolicy($req);
+        $this->assertStringContainsString('Zero-Fallback Security Policy', $zeroFallbackHtml);
+
+        $dataSecurityHtml = $legal->dataSecurity($req);
+        $this->assertStringContainsString('Data Security', $dataSecurityHtml);
+
+        $public = new \App\Controllers\PublicPageController();
+        $this->assertStringContainsString('Features', $public->features());
+        $this->assertStringContainsString('Pricing', $public->pricing());
+        $this->assertStringContainsString('How It Works', $public->howItWorks());
+        $this->assertStringContainsString('Frequently Asked Questions', $public->faq());
+        $this->assertStringContainsString('Contact', $public->contact());
+    }
 }
