@@ -2,14 +2,46 @@
 namespace App\Core;
 
 class Session {
+    /**
+     * Session lifetime in seconds (30 days: 30 * 24 * 60 * 60 = 2,592,000s)
+     */
+    public const LIFETIME = 2592000;
+
     public static function start(): void {
         if (session_status() === PHP_SESSION_NONE) {
+            $lifetime = self::LIFETIME;
+
+            // Ensure isolated session storage path so server OS cron doesn't purge sessions early
+            $sessionSavePath = storage_path('sessions');
+            if (!is_dir($sessionSavePath)) {
+                @mkdir($sessionSavePath, 0777, true);
+            }
+            if (is_dir($sessionSavePath) && is_writable($sessionSavePath)) {
+                session_save_path($sessionSavePath);
+            }
+
+            ini_set('session.gc_maxlifetime', (string)$lifetime);
+            ini_set('session.cookie_lifetime', (string)$lifetime);
             ini_set('session.cookie_httponly', '1');
             ini_set('session.use_only_cookies', '1');
             ini_set('session.cookie_samesite', 'Lax');
-            if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+
+            $isSecure = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
+                        (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
+            if ($isSecure) {
                 ini_set('session.cookie_secure', '1');
             }
+
+            session_set_cookie_params([
+                'lifetime' => $lifetime,
+                'path' => '/',
+                'domain' => '',
+                'secure' => $isSecure,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
+
             session_start();
         }
     }
@@ -58,12 +90,15 @@ class Session {
                 session_name(),
                 '',
                 time() - 42000,
-                $params['path'],
-                $params['domain'],
-                $params['secure'],
-                $params['httponly']
+                $params['path'] ?: '/',
+                $params['domain'] ?: '',
+                $params['secure'] ?? false,
+                $params['httponly'] ?? true
             );
         }
-        session_destroy();
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
     }
 }
+

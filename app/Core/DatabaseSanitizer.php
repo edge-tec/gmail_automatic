@@ -60,6 +60,24 @@ class DatabaseSanitizer {
                         // Ignore if column already exists
                     }
                 }
+
+                $dailyCols = [
+                    'followup_messages_count' => 'INT NOT NULL DEFAULT 0',
+                ];
+
+                foreach ($dailyCols as $col => $type) {
+                    try {
+                        Database::execute("ALTER TABLE daily_usage ADD COLUMN IF NOT EXISTS {$col} {$type}");
+                    } catch (\Throwable $t) {
+                        // Ignore if column already exists
+                    }
+                }
+            } else {
+                try {
+                    Database::execute("ALTER TABLE daily_usage ADD COLUMN followup_messages_count INTEGER NOT NULL DEFAULT 0");
+                } catch (\Throwable $t) {
+                    // Ignore if column already exists
+                }
             }
 
             // 1. Purge any legacy default boilerplate from automation_settings table

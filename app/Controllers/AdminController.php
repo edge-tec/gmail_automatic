@@ -16,6 +16,8 @@ use App\Models\EmailThread;
 use App\Models\ScheduledJob;
 use App\Models\DailyUsage;
 use App\Models\ActivityLog;
+use App\Models\FollowupCampaign;
+use App\Models\FollowupJob;
 use App\Models\SystemSetting;
 use App\Services\MailService;
 
@@ -28,7 +30,14 @@ class AdminController {
         $totalThreads = (int)(Database::first("SELECT COUNT(*) as c FROM email_threads")['c'] ?? 0);
         $totalReplies = (int)(Database::first("SELECT SUM(reply_count) as c FROM daily_usage")['c'] ?? 0);
         $totalFollowups = (int)(Database::first("SELECT SUM(followup_count) as c FROM daily_usage")['c'] ?? 0);
+        $totalFollowupMessages = (int)(Database::first("SELECT SUM(followup_messages_count) as c FROM daily_usage")['c'] ?? 0);
         
+        $todayCampaignsCount = FollowupCampaign::countTodayCampaigns();
+        $todayFollowupMessages = (int)(Database::first("SELECT SUM(followup_messages_count) as c FROM daily_usage WHERE usage_date = :dt", ['dt' => date('Y-m-d')])['c'] ?? 0);
+        $duplicateEmailsPrevented = (int)(Database::first("SELECT COUNT(*) as c FROM activity_logs WHERE message LIKE '%Duplicate email prevented%'")['c'] ?? 0);
+        $activeFollowupCampaigns = FollowupCampaign::countActive();
+        $cancelledFollowupCampaigns = FollowupCampaign::countCancelled();
+
         $pendingJobs = (int)(Database::first("SELECT COUNT(*) as c FROM scheduled_jobs WHERE status = 'pending'")['c'] ?? 0);
         $failedJobs = (int)(Database::first("SELECT COUNT(*) as c FROM scheduled_jobs WHERE status = 'failed'")['c'] ?? 0);
 
@@ -55,6 +64,12 @@ class AdminController {
             'totalThreads' => $totalThreads,
             'totalReplies' => $totalReplies,
             'totalFollowups' => $totalFollowups,
+            'totalFollowupMessages' => $totalFollowupMessages,
+            'todayCampaignsCount' => $todayCampaignsCount,
+            'todayFollowupMessages' => $todayFollowupMessages,
+            'duplicateEmailsPrevented' => $duplicateEmailsPrevented,
+            'activeFollowupCampaigns' => $activeFollowupCampaigns,
+            'cancelledFollowupCampaigns' => $cancelledFollowupCampaigns,
             'pendingJobs' => $pendingJobs,
             'failedJobs' => $failedJobs,
             'totalRevenue' => $totalRevenue,

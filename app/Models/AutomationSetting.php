@@ -25,6 +25,10 @@ class AutomationSetting {
         return $row ? self::fromRow($row) : null;
     }
 
+    public static function createOrGet(int $accountId): self {
+        return self::createDefault($accountId);
+    }
+
     public static function createDefault(int $accountId): self {
         $existing = self::findByAccountId($accountId);
         if ($existing) {

@@ -1,10 +1,10 @@
 <div class="row g-3 mb-4">
     <!-- Stat 1: Total Accounts -->
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="stat-card d-flex align-items-center justify-content-between">
+    <div class="col-12 col-sm-6 col-xl-auto flex-fill">
+        <div class="stat-card d-flex align-items-center justify-content-between p-3">
             <div>
                 <div class="text-muted small fw-semibold">Connected Accounts</div>
-                <div class="fs-3 fw-bold mt-1"><?= count($accounts) ?></div>
+                <div class="fs-4 fw-bold mt-1"><?= count($accounts) ?></div>
             </div>
             <div class="stat-icon bg-primary bg-opacity-10 text-primary">
                 <i class="fa-brands fa-google"></i>
@@ -12,35 +12,47 @@
         </div>
     </div>
     <!-- Stat 2: Today's Replies -->
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="stat-card d-flex align-items-center justify-content-between">
+    <div class="col-12 col-sm-6 col-xl-auto flex-fill">
+        <div class="stat-card d-flex align-items-center justify-content-between p-3">
             <div>
                 <div class="text-muted small fw-semibold">Today's Leads Replied</div>
-                <div class="fs-3 fw-bold mt-1 text-success"><?= $todayUsage['total_replies'] ?></div>
+                <div class="fs-4 fw-bold mt-1 text-success"><?= $todayUsage['total_replies'] ?></div>
             </div>
             <div class="stat-icon bg-success bg-opacity-10 text-success">
                 <i class="fa-solid fa-paper-plane"></i>
             </div>
         </div>
     </div>
-    <!-- Stat 3: Today's Follow-ups -->
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="stat-card d-flex align-items-center justify-content-between">
+    <!-- Stat 3: Daily Follow Campaigns (Unique Conversations) -->
+    <div class="col-12 col-sm-6 col-xl-auto flex-fill">
+        <div class="stat-card d-flex align-items-center justify-content-between p-3">
             <div>
-                <div class="text-muted small fw-semibold">Today's Follow-ups</div>
-                <div class="fs-3 fw-bold mt-1 text-info"><?= $todayUsage['total_followups'] ?></div>
+                <div class="text-muted small fw-semibold">Daily Follow Campaigns</div>
+                <div class="fs-4 fw-bold mt-1 text-info"><?= $todayUsage['total_followups'] ?> <span class="fs-6 fw-normal text-muted">/ conv</span></div>
             </div>
             <div class="stat-icon bg-info bg-opacity-10 text-info">
                 <i class="fa-solid fa-arrows-split-up-and-left"></i>
             </div>
         </div>
     </div>
-    <!-- Stat 4: Pending Queue -->
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="stat-card d-flex align-items-center justify-content-between">
+    <!-- Stat 4: Follow-up Messages Sent -->
+    <div class="col-12 col-sm-6 col-xl-auto flex-fill">
+        <div class="stat-card d-flex align-items-center justify-content-between p-3">
+            <div>
+                <div class="text-muted small fw-semibold">Follow-up Messages Sent</div>
+                <div class="fs-4 fw-bold mt-1 text-primary"><?= $todayUsage['total_followup_messages'] ?? $todayUsage['total_followups'] ?> <span class="fs-6 fw-normal text-muted">emails</span></div>
+            </div>
+            <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                <i class="fa-solid fa-envelope-circle-check"></i>
+            </div>
+        </div>
+    </div>
+    <!-- Stat 5: Pending Queue -->
+    <div class="col-12 col-sm-6 col-xl-auto flex-fill">
+        <div class="stat-card d-flex align-items-center justify-content-between p-3">
             <div>
                 <div class="text-muted small fw-semibold">Scheduled / Pending</div>
-                <div class="fs-3 fw-bold mt-1 text-warning"><?= $pendingJobsCount ?></div>
+                <div class="fs-4 fw-bold mt-1 text-warning"><?= $pendingJobsCount ?></div>
             </div>
             <div class="stat-icon bg-warning bg-opacity-10 text-warning">
                 <i class="fa-solid fa-hourglass-half"></i>

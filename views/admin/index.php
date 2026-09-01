@@ -43,7 +43,7 @@
 </div>
 <?php endif; ?>
 
-<!-- Stat Cards -->
+<!-- Main Stat Cards -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
         <div class="stat-card p-3 bg-white rounded-3 border shadow-sm h-100">
@@ -89,7 +89,56 @@
                 <i class="fa-solid fa-dollar-sign text-success"></i>
             </div>
             <div class="fs-3 fw-bold mt-1 text-success">$<?= number_format($totalRevenue, 2) ?></div>
-            <div class="small text-muted"><?= $totalReplies + $totalFollowups ?> Total Sent Emails</div>
+            <div class="small text-muted"><?= $totalReplies + ($totalFollowupMessages ?: $totalFollowups) ?> Total Sent Emails</div>
+        </div>
+    </div>
+</div>
+
+<!-- Follow-up System & Duplicate Protection Stats -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold mb-0 text-dark">
+            <i class="fa-solid fa-arrows-split-up-and-left text-info me-2"></i> Follow-up Campaign &amp; Duplicate Protection Analytics
+        </h6>
+        <span class="badge bg-info-subtle text-info border border-info-subtle">Per-Conversation Tracking</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 text-center">
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="p-2 border rounded-3 bg-light">
+                    <div class="text-muted small fw-semibold">Campaigns Today</div>
+                    <div class="fs-4 fw-bold text-primary mt-1"><?= $todayCampaignsCount ?></div>
+                    <div class="text-muted" style="font-size: 0.75rem;">Unique conversations</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="p-2 border rounded-3 bg-light">
+                    <div class="text-muted small fw-semibold">Messages Sent Today</div>
+                    <div class="fs-4 fw-bold text-success mt-1"><?= $todayFollowupMessages ?></div>
+                    <div class="text-muted" style="font-size: 0.75rem;">Actual step messages</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-lg-3">
+                <div class="p-2 border rounded-3 bg-light">
+                    <div class="text-muted small fw-semibold">Duplicates Prevented</div>
+                    <div class="fs-4 fw-bold text-warning mt-1"><?= $duplicateEmailsPrevented ?></div>
+                    <div class="text-muted" style="font-size: 0.75rem;">Duplicate emails blocked</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-6 col-lg-2">
+                <div class="p-2 border rounded-3 bg-light">
+                    <div class="text-muted small fw-semibold">Active Campaigns</div>
+                    <div class="fs-4 fw-bold text-info mt-1"><?= $activeFollowupCampaigns ?></div>
+                    <div class="text-muted" style="font-size: 0.75rem;">Ongoing sequences</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="p-2 border rounded-3 bg-light">
+                    <div class="text-muted small fw-semibold">Cancelled / Replied</div>
+                    <div class="fs-4 fw-bold text-secondary mt-1"><?= $cancelledFollowupCampaigns ?></div>
+                    <div class="text-muted" style="font-size: 0.75rem;">Replied or stopped</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

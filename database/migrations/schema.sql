@@ -192,13 +192,68 @@ CREATE TABLE IF NOT EXISTS daily_usage (
     gmail_account_id INT NOT NULL,
     usage_date DATE NOT NULL,
     reply_count INT NOT NULL DEFAULT 0,
-    followup_count INT NOT NULL DEFAULT 0,
+    followup_count INT NOT NULL DEFAULT 0, -- Unique follow-up campaigns counted towards daily limit
+    followup_messages_count INT NOT NULL DEFAULT 0, -- Actual follow-up messages sent
     total_sent INT NOT NULL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_account_date (gmail_account_id, usage_date),
     FOREIGN KEY (gmail_account_id) REFERENCES gmail_accounts(id) ON DELETE CASCADE,
     INDEX idx_usage_date (usage_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS followup_campaigns (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    gmail_account_id INT NOT NULL,
+    thread_id INT NOT NULL,
+    gmail_thread_id VARCHAR(191) NOT NULL,
+    message_id VARCHAR(191) NULL,
+    sender_email VARCHAR(255) NOT NULL,
+    recipient_email VARCHAR(255) NOT NULL,
+    normalized_subject VARCHAR(500) NULL,
+    campaign_status VARCHAR(50) NOT NULL DEFAULT 'active', -- active, completed, cancelled, replied, stopped
+    daily_follow_counted TINYINT(1) NOT NULL DEFAULT 0,
+    counted_date DATE NULL,
+    total_steps INT NOT NULL DEFAULT 0,
+    current_step INT NOT NULL DEFAULT 0,
+    last_sent_at DATETIME NULL,
+    next_step_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_acc_thread_camp (gmail_account_id, gmail_thread_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (gmail_account_id) REFERENCES gmail_accounts(id) ON DELETE CASCADE,
+    FOREIGN KEY (thread_id) REFERENCES email_threads(id) ON DELETE CASCADE,
+    INDEX idx_fc_user (user_id),
+    INDEX idx_fc_acc (gmail_account_id),
+    INDEX idx_fc_thread (thread_id),
+    INDEX idx_fc_status (campaign_status),
+    INDEX idx_fc_date (counted_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS followup_jobs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    campaign_id INT NOT NULL,
+    gmail_account_id INT NOT NULL,
+    thread_id INT NOT NULL,
+    followup_step INT NOT NULL DEFAULT 1,
+    template_id INT NULL,
+    message LONGTEXT NULL,
+    scheduled_at DATETIME NOT NULL,
+    sent_at DATETIME NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, processing, sent, failed, cancelled
+    attempts INT NOT NULL DEFAULT 0,
+    max_attempts INT NOT NULL DEFAULT 3,
+    last_error TEXT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (campaign_id) REFERENCES followup_campaigns(id) ON DELETE CASCADE,
+    FOREIGN KEY (gmail_account_id) REFERENCES gmail_accounts(id) ON DELETE CASCADE,
+    FOREIGN KEY (thread_id) REFERENCES email_threads(id) ON DELETE CASCADE,
+    INDEX idx_fj_camp (campaign_id),
+    INDEX idx_fj_status (status, scheduled_at),
+    INDEX idx_fj_acc (gmail_account_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS activity_logs (

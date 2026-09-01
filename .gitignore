@@ -2,6 +2,8 @@
 /.env
 /storage/database/*.sqlite
 /storage/logs/*.log
+/storage/sessions/*
+!/storage/sessions/.gitkeep
 /storage/installed.lock
 .DS_Store
 .phpunit.result.cache

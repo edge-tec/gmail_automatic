@@ -7,6 +7,8 @@ use App\Models\AutomationRule;
 use App\Models\EmailThread;
 use App\Models\EmailMessage;
 use App\Models\FollowupTemplate;
+use App\Models\FollowupCampaign;
+use App\Models\FollowupJob;
 use App\Models\ScheduledJob;
 use App\Models\DailyUsage;
 use App\Models\SystemSetting;
@@ -44,6 +46,7 @@ class AutomationEngine {
         // 1. Idempotency Check
         $existingMsg = EmailMessage::findByAccountAndMessageId($this->account->id, $msgId);
         if ($existingMsg) {
+            logger("Duplicate email prevented for account {$this->account->gmail_email} in thread {$threadId} (Message: {$msgId})", 'info', $this->account->user_id, $this->account->id);
             return ['status' => 'duplicate', 'message_id' => $msgId];
         }
 
@@ -75,13 +78,20 @@ class AutomationEngine {
             'last_processed_message_id' => $msgId,
         ]);
 
-        // 4. If recipient replied, cancel any pending unanswered follow-up sequences
-        if ($thread->reply_count > 0 || $thread->followup_count > 0) {
-            ScheduledJob::cancelPendingJobsForThread($thread->id, 'Recipient replied to email');
+        // 4. If recipient replied, cancel any pending unanswered follow-up sequences & campaign
+        $campaign = FollowupCampaign::findByThreadId($thread->id);
+        if ($thread->reply_count > 0 || $thread->followup_count > 0 || $campaign) {
+            if ($campaign) {
+                $campaign->markReplied();
+            }
+            \App\Core\Database::execute(
+                "UPDATE scheduled_jobs SET status = 'cancelled', last_error = 'Recipient replied to email', processed_at = :now WHERE thread_id = :tid AND job_type = 'follow_up' AND status = 'pending'",
+                ['tid' => $thread->id, 'now' => date('Y-m-d H:i:s')]
+            );
             $thread->update([
                 'next_followup_at' => null,
             ]);
-            logger("Recipient replied in thread {$threadId}. Preparing next reply step.", 'info', $this->account->user_id, $this->account->id);
+            logger("Recipient replied in thread {$threadId}. Follow-up campaign stopped.", 'info', $this->account->user_id, $this->account->id);
         }
 
         // Check if thread automation is stopped manually
@@ -478,7 +488,7 @@ class AutomationEngine {
     }
 
     /**
-     * Schedule next follow-up step after a reply has been sent
+     * Schedule next follow-up step after a reply or previous follow-up has been sent
      */
     public function scheduleNextFollowupStep(EmailThread $thread, int $completedStepNumber = 0): ?ScheduledJob {
         if (!$this->settings || !$this->settings->followup_enabled) {
@@ -490,15 +500,46 @@ class AutomationEngine {
             return null;
         }
 
+        $allTemplates = FollowupTemplate::findByAccountId($this->account->id);
+
+        // Get or create unique FollowupCampaign for this thread
+        $campaign = FollowupCampaign::getOrCreate(
+            $this->account->user_id,
+            $this->account->id,
+            $thread->id,
+            $thread->gmail_thread_id,
+            [
+                'message_id' => $thread->last_processed_message_id,
+                'sender_email' => $thread->sender_email,
+                'recipient_email' => $this->account->gmail_email,
+                'subject' => $thread->subject,
+                'total_steps' => count($allTemplates),
+            ]
+        );
+
+        if ($campaign->campaign_status === 'replied' || $campaign->campaign_status === 'stopped' || $campaign->campaign_status === 'cancelled') {
+            return null;
+        }
+
         $nextTemplate = FollowupTemplate::findNextStep($this->account->id, $completedStepNumber);
         if (!$nextTemplate || empty(trim(strip_tags($nextTemplate->message)))) {
             // Sequence completed or template missing/empty
+            $campaign->markCompleted();
             $thread->update(['automation_status' => 'completed', 'next_followup_at' => null]);
             return null;
         }
 
+        $usage = $this->account->getTodayUsage();
         $delaySeconds = $nextTemplate->calculateDelaySeconds();
-        $scheduledAt = $this->calculateNextAllowedSendTime(false, $delaySeconds);
+
+        // Check if daily follow quota was already counted for this campaign
+        // New campaign (not counted yet today) vs Existing campaign in sequence
+        if ($campaign->daily_follow_counted === 0 && $usage['followup_count'] >= ($this->settings->daily_followup_limit ?? 100)) {
+            // Limit reached for NEW campaigns today -> postpone step 1 to next day allowed window
+            $scheduledAt = $this->calculateNextAllowedSendTime(true);
+        } else {
+            $scheduledAt = $this->calculateNextAllowedSendTime(false, $delaySeconds);
+        }
 
         $renderedMessage = $this->renderVariables($nextTemplate->message, [
             'sender_email' => $thread->sender_email,
@@ -512,6 +553,7 @@ class AutomationEngine {
             'thread_id' => $thread->id,
             'job_type' => 'follow_up',
             'payload' => [
+                'campaign_id' => $campaign->id,
                 'recipient_email' => $thread->sender_email,
                 'recipient_name' => $thread->sender_name,
                 'subject' => $thread->subject,
@@ -525,9 +567,26 @@ class AutomationEngine {
             'max_attempts' => 3,
         ]);
 
+        FollowupJob::create([
+            'campaign_id' => $campaign->id,
+            'gmail_account_id' => $this->account->id,
+            'thread_id' => $thread->id,
+            'followup_step' => $nextTemplate->step_number,
+            'template_id' => $nextTemplate->id,
+            'message' => $renderedMessage,
+            'scheduled_at' => $scheduledAt,
+            'status' => 'pending',
+        ]);
+
+        $campaign->update([
+            'current_step' => $nextTemplate->step_number,
+            'next_step_at' => $scheduledAt,
+            'campaign_status' => 'active',
+        ]);
+
         $thread->update(['next_followup_at' => $scheduledAt]);
 
-        logger("Scheduled Follow-up Step #{$nextTemplate->step_number} for thread {$thread->gmail_thread_id} at {$scheduledAt}", 'info', $this->account->user_id, $this->account->id);
+        logger("Scheduled Follow-up Step #{$nextTemplate->step_number} (Campaign #{$campaign->id}) for thread {$thread->gmail_thread_id} at {$scheduledAt}", 'info', $this->account->user_id, $this->account->id);
 
         return $job;
     }

@@ -105,7 +105,13 @@ class EmailThread {
         return ScheduledJob::findPendingByThreadId($this->id);
     }
 
+    public function getFollowupCampaign(): ?FollowupCampaign {
+        return FollowupCampaign::findByThreadId($this->id);
+    }
+
     public function delete(): bool {
+        Database::execute("DELETE FROM followup_jobs WHERE thread_id = :id", ['id' => $this->id]);
+        Database::execute("DELETE FROM followup_campaigns WHERE thread_id = :id", ['id' => $this->id]);
         Database::execute("DELETE FROM scheduled_jobs WHERE thread_id = :id", ['id' => $this->id]);
         Database::execute("DELETE FROM email_messages WHERE thread_id = :id", ['id' => $this->id]);
         return Database::execute("DELETE FROM email_threads WHERE id = :id", ['id' => $this->id]);

@@ -39,6 +39,10 @@ class GmailAccount {
         return array_map([self::class, 'fromRow'], $rows);
     }
 
+    public static function create(array $data): self {
+        return self::createOrUpdate($data);
+    }
+
     public static function createOrUpdate(array $data): self {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";

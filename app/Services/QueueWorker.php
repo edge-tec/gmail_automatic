@@ -9,6 +9,8 @@ use App\Models\EmailMessage;
 use App\Models\DailyUsage;
 use App\Models\SystemSetting;
 use App\Models\FollowupTemplate;
+use App\Models\FollowupCampaign;
+use App\Models\FollowupJob;
 use Exception;
 
 class QueueWorker {
@@ -91,7 +93,7 @@ class QueueWorker {
             }
 
             // Check if thread was replied by user or stopped manually
-            if ($thread->automation_status === 'replied') {
+            if ($job->job_type === 'follow_up' && $thread->automation_status === 'replied') {
                 $job->update([
                     'status' => 'cancelled',
                     'last_error' => 'Thread status is replied. Cancelled automatically.',
@@ -177,12 +179,24 @@ class QueueWorker {
                     return true;
                 }
 
+                $campaignId = (int)($payload['campaign_id'] ?? 0);
+                $campaign = $campaignId ? FollowupCampaign::find($campaignId) : FollowupCampaign::findByThreadId($thread->id);
+                if ($campaign && in_array($campaign->campaign_status, ['replied', 'stopped', 'cancelled'])) {
+                    $job->cancel("Campaign status is '{$campaign->campaign_status}'. Cancelled automatically.");
+                    echo "  ↳ Campaign status is {$campaign->campaign_status}. Job cancelled.\n";
+                    return true;
+                }
+
                 $templateId = (int)($payload['template_id'] ?? 0);
                 $stepNumber = (int)($payload['step_number'] ?? 1);
+                // Re-validate live template strictly from DB (Message edit/delete protection)
                 $template = $templateId ? FollowupTemplate::find($templateId) : FollowupTemplate::findNextStep($account->id, $stepNumber - 1);
 
                 if (!$template || $template->status !== 'active' || empty(trim(strip_tags($template->message)))) {
                     $job->cancel('Follow-up template is missing, disabled, or deleted. Automated email was not sent.');
+                    if ($campaign) {
+                        $campaign->cancelPendingJobs('Follow-up template missing or deleted');
+                    }
                     logger("Cancelled follow-up job #{$job->id}: Follow-up template is missing or disabled. Automated email was not sent.", 'warning', $account->user_id, $account->id);
                     echo "  ↳ Cancelled: Follow-up template is missing or disabled.\n";
                     return true;
@@ -195,7 +209,11 @@ class QueueWorker {
                     'date' => date('Y-m-d H:i:s'),
                 ]);
 
-                if ($usage['followup_count'] >= ($settings->daily_followup_limit ?? 100)) {
+                // Check Daily Follow limit only if this unique campaign has NOT been counted today
+                $todayDate = date('Y-m-d');
+                $isCampaignCountedToday = $campaign && $campaign->daily_follow_counted === 1 && $campaign->counted_date === $todayDate;
+
+                if (!$isCampaignCountedToday && $usage['followup_count'] >= ($settings->daily_followup_limit ?? 100)) {
                     $nextTime = $engine->calculateNextAllowedSendTime(true);
                     $job->update([
                         'status' => 'pending',
@@ -236,8 +254,8 @@ class QueueWorker {
                 'sender' => $account->gmail_email,
                 'recipient' => $recipientEmail,
                 'subject' => 'Re: ' . preg_replace('/^Re:\s*/i', '', $subject),
-                'snippet' => substr($body, 0, 150),
-                'message_body' => $body,
+                'snippet' => substr(strip_tags($finalBody), 0, 150),
+                'message_body' => $finalBody,
                 'sent_at' => $sentAt,
                 'status' => 'sent',
             ]);
@@ -260,11 +278,31 @@ class QueueWorker {
 
             } elseif ($job->job_type === 'follow_up') {
                 $stepNumber = (int)($payload['step_number'] ?? 1);
+                $campaignId = (int)($payload['campaign_id'] ?? 0);
+                $campaign = $campaignId ? FollowupCampaign::find($campaignId) : FollowupCampaign::findByThreadId($thread->id);
+
+                if ($campaign) {
+                    // Mark unique campaign counted for daily follow quota (1 per conversation)
+                    $campaign->markCountedForToday($account->id);
+                    $campaign->update([
+                        'current_step' => $stepNumber,
+                        'last_sent_at' => $sentAt,
+                    ]);
+
+                    // Update corresponding followup_job status
+                    $fJob = FollowupJob::findByCampaignAndStep($campaign->id, $stepNumber);
+                    if ($fJob) {
+                        $fJob->update(['status' => 'sent', 'sent_at' => $sentAt]);
+                    }
+                }
+
+                // Always increment actual follow-up messages sent count
+                DailyUsage::incrementFollowupMessage($account->id);
+
                 $thread->update([
                     'followup_count' => $thread->followup_count + 1,
                     'last_outgoing_at' => $sentAt,
                 ]);
-                DailyUsage::incrementFollowup($account->id);
 
                 // Schedule subsequent follow-up step
                 $engine = new AutomationEngine($account);
