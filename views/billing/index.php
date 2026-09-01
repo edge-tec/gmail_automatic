@@ -34,8 +34,27 @@
                     </div>
                 </div>
 
+                <!-- Paid Subscription Active Status Bar -->
+                <?php if ($user->hasActiveSubscription() && $user->role !== 'admin'): ?>
+                <?php 
+                    $expiresAt = $user->subscription_expires_at ? strtotime($user->subscription_expires_at) : strtotime('+30 days');
+                    $startedAt = $user->subscription_started_at ? strtotime($user->subscription_started_at) : ($expiresAt - (30 * 86400));
+                    $totalDuration = max(86400, $expiresAt - $startedAt);
+                    $remainingSec = max(0, $expiresAt - time());
+                    $remainingDays = ceil($remainingSec / 86400);
+                    $percentLeft = max(5, min(100, round(($remainingSec / $totalDuration) * 100)));
+                ?>
+                <div class="bg-success bg-opacity-10 p-3 rounded-3 border border-success border-opacity-25 mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold text-success small"><i class="fa-solid fa-circle-check me-1"></i> Active Paid Subscription</span>
+                        <span class="fw-bold text-dark small"><?= $remainingDays ?> Days Remaining (Renews / Expires: <?= date('d M Y', $expiresAt) ?>)</span>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: <?= $percentLeft ?>%"></div>
+                    </div>
+                </div>
                 <!-- Free Trial Status Bar if Active -->
-                <?php if ($user->isTrialActive()): ?>
+                <?php elseif ($user->isTrialActive()): ?>
                 <?php 
                     $totalTrialSeconds = $user->trial_days * 86400;
                     $remainingSeconds = max(0, strtotime($user->trial_ends_at) - time());

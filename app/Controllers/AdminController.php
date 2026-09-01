@@ -190,6 +190,14 @@ class AdminController {
             'trial_status' => $trialStatus,
         ];
 
+        if ($subscriptionStatus === 'active') {
+            if (empty($user->subscription_expires_at) || ($plan && $user->plan_id !== $plan->id)) {
+                $dataToUpdate['subscription_started_at'] = $user->subscription_started_at ?: date('Y-m-d H:i:s');
+                $dataToUpdate['subscription_expires_at'] = date('Y-m-d H:i:s', strtotime('+1 month'));
+                $dataToUpdate['trial_status'] = 'converted';
+            }
+        }
+
         if ($resetTrial) {
             $dataToUpdate['trial_used'] = 0;
             $dataToUpdate['trial_status'] = 'not_started';

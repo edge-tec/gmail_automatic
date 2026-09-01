@@ -107,6 +107,15 @@ class DatabaseSanitizer {
                      OR payload LIKE '%Thank you for reaching out%'
                      OR payload LIKE '%received your message%')"
             );
+
+            // 3. Ensure active subscribed users have valid 1-month expiry dates and converted trial status
+            $oneMonthAhead = date('Y-m-d H:i:s', strtotime('+1 month'));
+            Database::execute(
+                "UPDATE users 
+                 SET subscription_expires_at = :exp, trial_status = 'converted'
+                 WHERE subscription_status = 'active' AND (subscription_expires_at IS NULL OR subscription_expires_at = '')",
+                ['exp' => $oneMonthAhead]
+            );
         } catch (\Throwable $e) {
             // Silently ignore if database error
         }

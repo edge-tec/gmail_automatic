@@ -169,6 +169,9 @@ class User {
      * Check if user's free trial is currently active
      */
     public function isTrialActive(): bool {
+        if ($this->hasActiveSubscription()) {
+            return false;
+        }
         if ($this->trial_status === 'active' && $this->trial_ends_at) {
             return strtotime($this->trial_ends_at) > time();
         }
