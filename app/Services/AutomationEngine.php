@@ -121,6 +121,15 @@ class AutomationEngine {
 
         // 8. Check Account Auto Reply Settings
         if (!$this->settings || !$this->settings->auto_reply_enabled) {
+            // If auto-reply is disabled, but follow-up is enabled, schedule follow-up campaign step 1
+            if ($this->settings && $this->settings->followup_enabled && $thread->reply_count === 0 && $thread->followup_count === 0) {
+                $job = $this->scheduleNextFollowupStep($thread, 0);
+                return [
+                    'status' => 'followup_scheduled',
+                    'job_id' => $job?->id,
+                    'reason' => 'Auto reply disabled; follow-up sequence initiated'
+                ];
+            }
             return ['status' => 'skipped', 'reason' => 'Auto reply disabled for account'];
         }
 
@@ -253,7 +262,14 @@ class AutomationEngine {
     public function calculateNextAllowedSendTime(bool $forceTomorrow = false, int $delaySeconds = 0): string {
         $appTz = new \DateTimeZone(date_default_timezone_get());
         $userTzStr = $this->settings->timezone ?? date_default_timezone_get();
-        $userTz = new \DateTimeZone($userTzStr);
+        if (empty($userTzStr)) {
+            $userTzStr = date_default_timezone_get();
+        }
+        try {
+            $userTz = new \DateTimeZone($userTzStr);
+        } catch (\Throwable $e) {
+            $userTz = $appTz;
+        }
 
         $userNow = new \DateTime('now', $userTz);
 
@@ -266,8 +282,16 @@ class AutomationEngine {
         }
 
         $workingDays = array_map('trim', explode(',', $this->settings->working_days ?? 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'));
-        $startParts = explode(':', $this->settings->working_start ?? '00:00');
-        $endParts = explode(':', $this->settings->working_end ?? '23:59');
+        $workingDays = array_filter($workingDays);
+        if (empty($workingDays)) {
+            $workingDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+        }
+
+        $workingStart = !empty($this->settings->working_start) ? $this->settings->working_start : '00:00';
+        $workingEnd = !empty($this->settings->working_end) ? $this->settings->working_end : '23:59';
+
+        $startParts = explode(':', $workingStart);
+        $endParts = explode(':', $workingEnd);
 
         $startHour = (int)($startParts[0] ?? 0);
         $startMin = (int)($startParts[1] ?? 0);

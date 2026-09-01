@@ -83,10 +83,11 @@ class FollowupTemplate {
 
     public function calculateDelaySeconds(): int {
         return match ($this->delay_unit) {
-            'minutes' => $this->delay_value * 60,
-            'hours' => $this->delay_value * 3600,
-            'days' => $this->delay_value * 86400,
-            default => $this->delay_value * 86400,
+            'seconds' => (int)$this->delay_value,
+            'minutes' => (int)($this->delay_value * 60),
+            'hours' => (int)($this->delay_value * 3600),
+            'days' => (int)($this->delay_value * 86400),
+            default => (int)($this->delay_value * 86400),
         };
     }
 

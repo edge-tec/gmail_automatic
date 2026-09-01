@@ -113,6 +113,15 @@ class AutomationSetting {
                 ksort($result);
                 return $result;
             }
+        } elseif (!empty(trim(strip_tags($this->reply_message)))) {
+            // Raw text or HTML string stored directly
+            return [
+                1 => [
+                    'message' => $this->reply_message,
+                    'delay_value' => (int)$this->reply_delay,
+                    'delay_unit' => 'seconds'
+                ]
+            ];
         }
 
         return [];
