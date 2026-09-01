@@ -43,7 +43,7 @@
 
 <div class="card shadow-sm border-0">
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+        <table class="table table-hover align-middle mb-0" style="min-width: 820px;">
             <thead class="table-light">
                 <tr>
                     <th class="py-3">ID</th>
