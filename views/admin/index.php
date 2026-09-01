@@ -94,6 +94,55 @@
     </div>
 </div>
 
+<!-- Auto-Reply Duplicate Traffic Protection Stats -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold mb-0 text-dark">
+            <i class="fa-solid fa-shield-halved text-success me-2"></i> Auto-Reply Duplicate Traffic Protection Analytics
+        </h6>
+        <span class="badge bg-success-subtle text-success border border-success-subtle">1 Reply Per Unique Traffic</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 text-center">
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="p-2 border rounded-3 bg-light">
+                    <div class="text-muted small fw-semibold">Unique Traffic Today</div>
+                    <div class="fs-4 fw-bold text-primary mt-1"><?= $uniqueTrafficToday ?></div>
+                    <div class="text-muted" style="font-size: 0.75rem;">Distinct senders</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="p-2 border rounded-3 bg-light">
+                    <div class="text-muted small fw-semibold">Auto Replies Today</div>
+                    <div class="fs-4 fw-bold text-success mt-1"><?= $autoRepliesToday ?></div>
+                    <div class="text-muted" style="font-size: 0.75rem;">Replies sent</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-lg-3">
+                <div class="p-2 border rounded-3 bg-light">
+                    <div class="text-muted small fw-semibold">Duplicate Traffic Blocked</div>
+                    <div class="fs-4 fw-bold text-warning mt-1"><?= $duplicateEmailsPrevented ?></div>
+                    <div class="text-muted" style="font-size: 0.75rem;">Redundant emails skipped</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-6 col-lg-2">
+                <div class="p-2 border rounded-3 bg-light">
+                    <div class="text-muted small fw-semibold">Pending Replies</div>
+                    <div class="fs-4 fw-bold text-info mt-1"><?= $pendingAutoReplies ?></div>
+                    <div class="text-muted" style="font-size: 0.75rem;">In queue/processing</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="p-2 border rounded-3 bg-light">
+                    <div class="text-muted small fw-semibold">Failed Auto Replies</div>
+                    <div class="fs-4 fw-bold text-danger mt-1"><?= $failedAutoReplies ?></div>
+                    <div class="text-muted" style="font-size: 0.75rem;">Delivery failures</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Follow-up System & Duplicate Protection Stats -->
 <div class="card shadow-sm border-0 mb-4">
     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">

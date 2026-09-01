@@ -11,6 +11,7 @@ use App\Models\SystemSetting;
 use App\Models\FollowupTemplate;
 use App\Models\FollowupCampaign;
 use App\Models\FollowupJob;
+use App\Models\AutoReplyRecipient;
 use Exception;
 
 class QueueWorker {
@@ -141,11 +142,22 @@ class QueueWorker {
                     return true;
                 }
 
+                // Final concurrency check: verify recipient has not already been replied to
+                $replyRecipient = AutoReplyRecipient::findByAccountAndSender($account->id, $recipientEmail);
+                if ($replyRecipient && $replyRecipient->reply_status === 'replied') {
+                    $job->cancel('Auto-reply already sent to this recipient.');
+                    echo "  ↳ Skipped: Auto-reply already sent to {$recipientEmail}.\n";
+                    return true;
+                }
+
                 // Strictly fetch latest live user-configured message from database for this step
                 $stepNumber = (int)($payload['reply_step'] ?? 1);
                 $liveTemplate = $settings->getReplyMessageForStep($stepNumber);
 
                 if (empty(trim(strip_tags($liveTemplate)))) {
+                    if ($replyRecipient) {
+                        $replyRecipient->markCancelled();
+                    }
                     $job->cancel('Message content is missing. Automated email was not sent.');
                     logger("Cancelled auto-reply job #{$job->id}: Message content is missing for Step #{$stepNumber}. Automated email was not sent.", 'warning', $account->user_id, $account->id);
                     echo "  ↳ Cancelled: Message content is missing for Step #{$stepNumber}.\n";
@@ -159,7 +171,7 @@ class QueueWorker {
                     'date' => date('Y-m-d H:i:s'),
                 ]);
 
-                // Check daily limit only for NEW leads/traffic (reply_count == 0); multi-turn replies to existing leads count as 1
+                // Check daily limit for unique traffic sources (1 reply per unique lead/traffic)
                 if ($thread->reply_count === 0 && $usage['reply_count'] >= ($settings->daily_reply_limit ?? 100)) {
                     // Reschedule for tomorrow
                     $nextTime = $engine->calculateNextAllowedSendTime(true);
@@ -262,10 +274,16 @@ class QueueWorker {
 
             // Update thread counters & timestamps
             if ($job->job_type === 'auto_reply') {
-                // Only increment daily quota when initiating reply with a lead (first reply)
-                if ($thread->reply_count === 0) {
-                    DailyUsage::incrementReply($account->id);
+                if (isset($replyRecipient) && $replyRecipient) {
+                    $replyRecipient->markReplied();
+                } else {
+                    $rec = AutoReplyRecipient::findByAccountAndSender($account->id, $recipientEmail);
+                    if ($rec) {
+                        $rec->markReplied();
+                    }
                 }
+
+                DailyUsage::incrementReply($account->id);
 
                 $thread->update([
                     'reply_count' => $thread->reply_count + 1,

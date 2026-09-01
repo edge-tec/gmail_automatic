@@ -41,6 +41,16 @@ class DashboardController {
         // Recent activity logs
         $recentLogs = ActivityLog::getLatest(10, $user->id);
 
+        $uniqueTrafficReplied = (int)(Database::first(
+            "SELECT COUNT(*) as c FROM auto_reply_recipients WHERE user_id = :uid AND reply_status = 'replied'",
+            ['uid' => $user->id]
+        )['c'] ?? 0);
+
+        $duplicateSkippedCount = (int)(Database::first(
+            "SELECT COUNT(*) as c FROM activity_logs WHERE user_id = :uid AND (message LIKE '%Duplicate%' OR message LIKE '%duplicate%')",
+            ['uid' => $user->id]
+        )['c'] ?? 0);
+
         return View::render('dashboard/index', [
             'user' => $user,
             'accounts' => $accounts,
@@ -50,6 +60,8 @@ class DashboardController {
             'totalThreadsCount' => $totalThreadsCount,
             'recentThreads' => $recentThreads,
             'recentLogs' => $recentLogs,
+            'uniqueTrafficReplied' => $uniqueTrafficReplied,
+            'duplicateSkippedCount' => $duplicateSkippedCount,
         ]);
     }
 }

@@ -18,6 +18,7 @@ use App\Models\DailyUsage;
 use App\Models\ActivityLog;
 use App\Models\FollowupCampaign;
 use App\Models\FollowupJob;
+use App\Models\AutoReplyRecipient;
 use App\Models\SystemSetting;
 use App\Services\MailService;
 
@@ -34,9 +35,15 @@ class AdminController {
         
         $todayCampaignsCount = FollowupCampaign::countTodayCampaigns();
         $todayFollowupMessages = (int)(Database::first("SELECT SUM(followup_messages_count) as c FROM daily_usage WHERE usage_date = :dt", ['dt' => date('Y-m-d')])['c'] ?? 0);
-        $duplicateEmailsPrevented = (int)(Database::first("SELECT COUNT(*) as c FROM activity_logs WHERE message LIKE '%Duplicate email prevented%'")['c'] ?? 0);
+        $duplicateEmailsPrevented = (int)(Database::first("SELECT COUNT(*) as c FROM activity_logs WHERE message LIKE '%Duplicate%' OR message LIKE '%duplicate%'")['c'] ?? 0);
         $activeFollowupCampaigns = FollowupCampaign::countActive();
         $cancelledFollowupCampaigns = FollowupCampaign::countCancelled();
+
+        // Auto-Reply Duplicate Traffic Stats
+        $uniqueTrafficToday = AutoReplyRecipient::countUniqueTrafficTodayAdmin();
+        $autoRepliesToday = (int)(Database::first("SELECT SUM(reply_count) as c FROM daily_usage WHERE usage_date = :dt", ['dt' => date('Y-m-d')])['c'] ?? 0);
+        $pendingAutoReplies = AutoReplyRecipient::countPendingAdmin();
+        $failedAutoReplies = (int)(Database::first("SELECT COUNT(*) as c FROM scheduled_jobs WHERE job_type = 'auto_reply' AND status = 'failed'")['c'] ?? 0);
 
         $pendingJobs = (int)(Database::first("SELECT COUNT(*) as c FROM scheduled_jobs WHERE status = 'pending'")['c'] ?? 0);
         $failedJobs = (int)(Database::first("SELECT COUNT(*) as c FROM scheduled_jobs WHERE status = 'failed'")['c'] ?? 0);
@@ -70,6 +77,10 @@ class AdminController {
             'duplicateEmailsPrevented' => $duplicateEmailsPrevented,
             'activeFollowupCampaigns' => $activeFollowupCampaigns,
             'cancelledFollowupCampaigns' => $cancelledFollowupCampaigns,
+            'uniqueTrafficToday' => $uniqueTrafficToday,
+            'autoRepliesToday' => $autoRepliesToday,
+            'pendingAutoReplies' => $pendingAutoReplies,
+            'failedAutoReplies' => $failedAutoReplies,
             'pendingJobs' => $pendingJobs,
             'failedJobs' => $failedJobs,
             'totalRevenue' => $totalRevenue,

@@ -9,6 +9,7 @@ use App\Models\EmailMessage;
 use App\Models\FollowupTemplate;
 use App\Models\FollowupCampaign;
 use App\Models\FollowupJob;
+use App\Models\AutoReplyRecipient;
 use App\Models\ScheduledJob;
 use App\Models\DailyUsage;
 use App\Models\SystemSetting;
@@ -149,10 +150,35 @@ class AutomationEngine {
             $scheduledAt = $this->calculateNextAllowedSendTime(false, $stepDelay);
         }
 
+        // 9.5. Auto-Reply Duplicate Traffic Protection: 1 Auto Reply per Unique Traffic Source per Gmail Account
+        $claimResult = null;
+        if ($thread->reply_count === 0) {
+            $claimResult = AutoReplyRecipient::claimOrGet(
+                $this->account->user_id,
+                $this->account->id,
+                $senderEmail,
+                $msgId,
+                $threadId
+            );
+
+            if (!$claimResult['is_eligible']) {
+                $reason = "Duplicate traffic: Auto-reply already sent or queued for {$senderEmail} on this account";
+                logger("Skipped incoming email: {$reason}", 'info', $this->account->user_id, $this->account->id);
+                return [
+                    'status' => 'skipped',
+                    'reason' => $reason,
+                    'is_duplicate_traffic' => true,
+                ];
+            }
+        }
+
         // 10. Prepare Reply Message for Step #$nextReplyStep with Template Variables
         $templateMessage = $ruleDecision['custom_message'] ?? $this->settings->getReplyMessageForStep($nextReplyStep);
         $cleanCheck = trim(strip_tags($templateMessage));
         if (empty($cleanCheck)) {
+            if ($claimResult && isset($claimResult['recipient']) && $claimResult['recipient']) {
+                $claimResult['recipient']->markCancelled();
+            }
             logger("Message content is missing for Step #{$nextReplyStep}. Automated email was not sent.", 'warning', $this->account->user_id, $this->account->id);
             return ['status' => 'skipped', 'reason' => "Message content is missing for Step #{$nextReplyStep}. Automated email was not sent."];
         }

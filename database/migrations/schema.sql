@@ -256,6 +256,25 @@ CREATE TABLE IF NOT EXISTS followup_jobs (
     INDEX idx_fj_acc (gmail_account_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS auto_reply_recipients (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    gmail_account_id INT NOT NULL,
+    normalized_sender_email VARCHAR(255) NOT NULL,
+    first_message_id VARCHAR(191) NULL,
+    first_thread_id VARCHAR(191) NULL,
+    reply_sent_at DATETIME NULL,
+    reply_status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, processing, replied, skipped_duplicate, failed, cancelled
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_acc_sender_reply (gmail_account_id, normalized_sender_email),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (gmail_account_id) REFERENCES gmail_accounts(id) ON DELETE CASCADE,
+    INDEX idx_arr_user (user_id),
+    INDEX idx_arr_acc (gmail_account_id),
+    INDEX idx_arr_status (reply_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS activity_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NULL,
