@@ -27,12 +27,29 @@ class AutoReplyRecipient {
         return strtolower(trim($clean));
     }
 
+    public static function ensureSchema(): void {
+        static $ensured = false;
+        if ($ensured) return;
+        $ensured = true;
+
+        $driver = config('database.default', 'mysql');
+        $recipientCols = [
+            'reply_sequence_step' => ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+            'reply_sequence_total' => ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1'),
+            'reply_sequence_status' => "VARCHAR(50) NOT NULL DEFAULT 'active'",
+            'reply_sequence_completed_at' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
+        ];
+        \App\Core\DatabaseSanitizer::ensureTableColumns('auto_reply_recipients', $recipientCols);
+    }
+
     public static function find(int $id): ?self {
+        self::ensureSchema();
         $row = Database::first("SELECT * FROM auto_reply_recipients WHERE id = :id LIMIT 1", ['id' => $id]);
         return $row ? self::fromRow($row) : null;
     }
 
     public static function findByAccountAndSender(int $accountId, string $senderEmail): ?self {
+        self::ensureSchema();
         $normalized = self::normalizeEmail($senderEmail);
         $row = Database::first(
             "SELECT * FROM auto_reply_recipients WHERE gmail_account_id = :acc AND normalized_sender_email = :sender LIMIT 1",
@@ -64,6 +81,7 @@ class AutoReplyRecipient {
         ?string $msgId = null,
         ?string $threadId = null
     ): array {
+        self::ensureSchema();
         $normalized = self::normalizeEmail($senderEmail);
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";

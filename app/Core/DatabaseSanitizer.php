@@ -47,13 +47,7 @@ class DatabaseSanitizer {
                     'remember_token_expires_at' => 'DATETIME NULL',
                 ];
 
-                foreach ($userCols as $col => $type) {
-                    try {
-                        Database::execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS {$col} {$type}");
-                    } catch (\Throwable $t) {
-                        // Ignore if column already exists
-                    }
-                }
+                self::ensureTableColumns('users', $userCols);
 
                 $paymentCols = [
                     'gateway' => "VARCHAR(50) NOT NULL DEFAULT 'stripe'",
@@ -64,25 +58,13 @@ class DatabaseSanitizer {
                     'admin_notes' => "TEXT NULL",
                 ];
 
-                foreach ($paymentCols as $col => $type) {
-                    try {
-                        Database::execute("ALTER TABLE payments ADD COLUMN IF NOT EXISTS {$col} {$type}");
-                    } catch (\Throwable $t) {
-                        // Ignore if column already exists
-                    }
-                }
+                self::ensureTableColumns('payments', $paymentCols);
 
                 $dailyCols = [
                     'followup_messages_count' => 'INT NOT NULL DEFAULT 0',
                 ];
 
-                foreach ($dailyCols as $col => $type) {
-                    try {
-                        Database::execute("ALTER TABLE daily_usage ADD COLUMN IF NOT EXISTS {$col} {$type}");
-                    } catch (\Throwable $t) {
-                        // Ignore if column already exists
-                    }
-                }
+                self::ensureTableColumns('daily_usage', $dailyCols);
 
                 $recipientCols = [
                     'reply_sequence_step' => 'INT NOT NULL DEFAULT 0',
@@ -91,26 +73,15 @@ class DatabaseSanitizer {
                     'reply_sequence_completed_at' => 'DATETIME NULL',
                 ];
 
-                foreach ($recipientCols as $col => $type) {
-                    try {
-                        Database::execute("ALTER TABLE auto_reply_recipients ADD COLUMN IF NOT EXISTS {$col} {$type}");
-                    } catch (\Throwable $t) {
-                        // Ignore if column already exists
-                    }
-                }
+                self::ensureTableColumns('auto_reply_recipients', $recipientCols);
             } else {
-                try {
-                    Database::execute("ALTER TABLE auto_reply_recipients ADD COLUMN reply_sequence_step INTEGER NOT NULL DEFAULT 0");
-                } catch (\Throwable $t) {}
-                try {
-                    Database::execute("ALTER TABLE auto_reply_recipients ADD COLUMN reply_sequence_total INTEGER NOT NULL DEFAULT 1");
-                } catch (\Throwable $t) {}
-                try {
-                    Database::execute("ALTER TABLE auto_reply_recipients ADD COLUMN reply_sequence_status VARCHAR(50) NOT NULL DEFAULT 'active'");
-                } catch (\Throwable $t) {}
-                try {
-                    Database::execute("ALTER TABLE auto_reply_recipients ADD COLUMN reply_sequence_completed_at DATETIME NULL");
-                } catch (\Throwable $t) {}
+                $recipientColsSqlite = [
+                    'reply_sequence_step' => 'INTEGER NOT NULL DEFAULT 0',
+                    'reply_sequence_total' => 'INTEGER NOT NULL DEFAULT 1',
+                    'reply_sequence_status' => "VARCHAR(50) NOT NULL DEFAULT 'active'",
+                    'reply_sequence_completed_at' => 'DATETIME NULL',
+                ];
+                self::ensureTableColumns('auto_reply_recipients', $recipientColsSqlite);
             }
 
             // Ensure skipped_email_logs table exists
@@ -475,4 +446,35 @@ class DatabaseSanitizer {
             // Silently ignore if database error
         }
     }
+
+    /**
+     * Inspect table columns and add any missing columns safely across MySQL 5.7+, MariaDB, and SQLite
+     */
+    public static function ensureTableColumns(string $table, array $columns): void {
+        $driver = config('database.default', 'mysql');
+        try {
+            if ($driver === 'mysql') {
+                $rows = Database::query("SHOW COLUMNS FROM `{$table}`");
+                $existingCols = array_map(fn($r) => strtolower($r['Field'] ?? $r['field'] ?? ''), $rows);
+                foreach ($columns as $col => $type) {
+                    if (!in_array(strtolower($col), $existingCols)) {
+                        try {
+                            Database::execute("ALTER TABLE `{$table}` ADD COLUMN `{$col}` {$type}");
+                        } catch (\Throwable $t) {}
+                    }
+                }
+            } else {
+                $rows = Database::query("PRAGMA table_info(`{$table}`)");
+                $existingCols = array_map(fn($r) => strtolower($r['name'] ?? ''), $rows);
+                foreach ($columns as $col => $type) {
+                    if (!in_array(strtolower($col), $existingCols)) {
+                        try {
+                            Database::execute("ALTER TABLE `{$table}` ADD COLUMN `{$col}` {$type}");
+                        } catch (\Throwable $t) {}
+                    }
+                }
+            }
+        } catch (\Throwable $e) {}
+    }
 }
+

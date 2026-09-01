@@ -14,7 +14,20 @@ class DailyUsage {
     public ?string $created_at = null;
     public ?string $updated_at = null;
 
+    public static function ensureSchema(): void {
+        static $ensured = false;
+        if ($ensured) return;
+        $ensured = true;
+
+        $driver = config('database.default', 'mysql');
+        $cols = [
+            'followup_messages_count' => ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+        ];
+        \App\Core\DatabaseSanitizer::ensureTableColumns('daily_usage', $cols);
+    }
+
     public static function getOrCreate(int $accountId, ?string $date = null): array {
+        self::ensureSchema();
         $date = $date ?? date('Y-m-d');
         $row = Database::first(
             "SELECT * FROM daily_usage WHERE gmail_account_id = :acc AND usage_date = :dt LIMIT 1",
