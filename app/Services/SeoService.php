@@ -12,10 +12,12 @@ class SeoService {
      * Get Base Site URL normalized
      */
     public static function getSiteUrl(): string {
-        $customUrl = SeoSetting::get('site_url');
-        if (!empty($customUrl)) {
-            return rtrim($customUrl, '/');
-        }
+        try {
+            $customUrl = SeoSetting::get('site_url');
+            if (!empty($customUrl)) {
+                return rtrim($customUrl, '/');
+            }
+        } catch (\Throwable $t) {}
         return rtrim(url('/'), '/');
     }
 
@@ -23,7 +25,11 @@ class SeoService {
      * Get Site Name
      */
     public static function getSiteName(): string {
-        return SeoSetting::get('site_name') ?: config('app.name', 'Gmail Auto Reply & Follow-up');
+        try {
+            return SeoSetting::get('site_name') ?: config('app.name', 'Gmail Auto Reply & Follow-up');
+        } catch (\Throwable $t) {
+            return config('app.name', 'Gmail Auto Reply & Follow-up');
+        }
     }
 
     /**
@@ -86,15 +92,26 @@ class SeoService {
             ];
         }
 
-        // 2. Lookup Page-Level SEO from Database
-        $page = SeoPage::findByRoute($cleanPath);
+        $page = null;
+        $defaultTitle = 'Gmail Auto Reply & Follow-up Automation Software';
+        $defaultDesc = 'Scale your business response speed with official Gmail API auto reply, multi-step sequential follow-ups, and duplicate traffic protection.';
+        $defaultKeywords = 'Gmail auto reply, Gmail automation, email follow up, Gmail API software';
+        $defaultOgImage = url('/img/og-preview.png');
+        $defaultTwitterCard = 'summary_large_image';
 
-        // Global SEO Fallbacks
-        $defaultTitle = SeoSetting::get('default_title', 'Gmail Auto Reply & Follow-up Automation Software');
-        $defaultDesc = SeoSetting::get('default_description', 'Scale your business response speed with official Gmail API auto reply, multi-step sequential follow-ups, and duplicate traffic protection.');
-        $defaultKeywords = SeoSetting::get('default_keywords', 'Gmail auto reply, Gmail automation, email follow up, Gmail API software');
-        $defaultOgImage = SeoSetting::get('default_og_image', url('/img/og-preview.png'));
-        $defaultTwitterCard = SeoSetting::get('default_twitter_card', 'summary_large_image');
+        try {
+            // 2. Lookup Page-Level SEO from Database
+            $page = SeoPage::findByRoute($cleanPath);
+
+            // Global SEO Fallbacks from Settings
+            $defaultTitle = SeoSetting::get('default_title', $defaultTitle);
+            $defaultDesc = SeoSetting::get('default_description', $defaultDesc);
+            $defaultKeywords = SeoSetting::get('default_keywords', $defaultKeywords);
+            $defaultOgImage = SeoSetting::get('default_og_image', $defaultOgImage);
+            $defaultTwitterCard = SeoSetting::get('default_twitter_card', $defaultTwitterCard);
+        } catch (\Throwable $t) {
+            // Safe fallback if DB down
+        }
 
         $title = $customOverride['title'] ?? ($page?->seo_title ?: $defaultTitle);
         $description = $customOverride['description'] ?? ($page?->meta_description ?: $defaultDesc);
@@ -113,7 +130,10 @@ class SeoService {
         $twitterCard = $customOverride['twitter_card'] ?? ($page?->twitter_card ?: $defaultTwitterCard);
 
         // Schema JSON-LD Generation
-        $schemaJson = self::buildStructuredData($cleanPath, $page, $customOverride);
+        $schemaJson = '';
+        try {
+            $schemaJson = self::buildStructuredData($cleanPath, $page, $customOverride);
+        } catch (\Throwable $t) {}
 
         return [
             'title' => $title . ($cleanPath !== '/' && !str_contains($title, $siteName) ? ' | ' . $siteName : ''),

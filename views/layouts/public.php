@@ -185,11 +185,13 @@
                     </ul>
                 </div>
                 <div class="col-6 col-md-3 col-lg-2">
-                    <h6 class="text-white fw-bold mb-3 small text-uppercase tracking-wider">Legal</h6>
+                    <h6 class="text-white fw-bold mb-3 small text-uppercase tracking-wider">Legal &amp; Safety</h6>
                     <ul class="list-unstyled d-flex flex-column gap-2 small">
                         <li><a href="<?= url('/privacy') ?>">Privacy Policy</a></li>
                         <li><a href="<?= url('/terms') ?>">Terms of Service</a></li>
-                        <li><a href="<?= url('/login') ?>">Member Login</a></li>
+                        <li><a href="<?= url('/google-api-disclosure') ?>">Google API Disclosure</a></li>
+                        <li><a href="<?= url('/zero-fallback-policy') ?>">Zero-Fallback Policy</a></li>
+                        <li><a href="<?= url('/data-security') ?>">Data Security</a></li>
                     </ul>
                 </div>
                 <div class="col-6 col-md-3 col-lg-2">

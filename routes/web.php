@@ -33,6 +33,9 @@ $router->get('/robots.txt', 'PublicPageController@robots');
 // Public Legal Pages
 $router->get('/privacy', 'LegalController@privacy');
 $router->get('/terms', 'LegalController@terms');
+$router->get('/google-api-disclosure', 'LegalController@googleApiDisclosure');
+$router->get('/zero-fallback-policy', 'LegalController@zeroFallbackPolicy');
+$router->get('/data-security', 'LegalController@dataSecurity');
 
 // Webhook Routes (Exempt from CSRF)
 $router->post('/webhook/gmail/pubsub', 'WebhookController@handlePubSub');

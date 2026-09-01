@@ -998,11 +998,11 @@
                 <div class="col-6 col-md-3 col-lg-2">
                     <div class="footer-heading">Legal &amp; Safety</div>
                     <ul class="list-unstyled d-flex flex-column gap-2 mb-0">
-                        <li><a href="https://2xbets.net/privacy" class="footer-link">Privacy Policy</a></li>
-                        <li><a href="https://2xbets.net/terms" class="footer-link">Terms of Service</a></li>
-                        <li><a href="https://2xbets.net/privacy" class="footer-link">Google API Disclosure</a></li>
-                        <li><a href="https://2xbets.net/terms" class="footer-link">Zero-Fallback Policy</a></li>
-                        <li><a href="https://2xbets.net/privacy" class="footer-link">Data Security</a></li>
+                        <li><a href="<?= url('/privacy') ?>" class="footer-link">Privacy Policy</a></li>
+                        <li><a href="<?= url('/terms') ?>" class="footer-link">Terms of Service</a></li>
+                        <li><a href="<?= url('/google-api-disclosure') ?>" class="footer-link">Google API Disclosure</a></li>
+                        <li><a href="<?= url('/zero-fallback-policy') ?>" class="footer-link">Zero-Fallback Policy</a></li>
+                        <li><a href="<?= url('/data-security') ?>" class="footer-link">Data Security</a></li>
                     </ul>
                 </div>
 
@@ -1028,9 +1028,11 @@
                 </div>
 
                 <div class="d-flex flex-wrap justify-content-center align-items-center gap-3 small">
-                    <a href="https://2xbets.net/privacy" class="text-light text-decoration-none fw-semibold">Privacy Policy</a>
+                    <a href="<?= url('/privacy') ?>" class="text-light text-decoration-none fw-semibold">Privacy Policy</a>
                     <span style="color: rgba(255,255,255,0.2);">&bull;</span>
-                    <a href="https://2xbets.net/terms" class="text-light text-decoration-none fw-semibold">Terms of Service</a>
+                    <a href="<?= url('/terms') ?>" class="text-light text-decoration-none fw-semibold">Terms of Service</a>
+                    <span style="color: rgba(255,255,255,0.2);">&bull;</span>
+                    <a href="<?= url('/google-api-disclosure') ?>" class="text-light text-decoration-none fw-semibold">API Disclosure</a>
                     <span style="color: rgba(255,255,255,0.2);">&bull;</span>
                     <a href="mailto:support@2xbets.net" class="text-light text-decoration-none fw-semibold">Support</a>
                 </div>
