@@ -34,6 +34,8 @@ class DatabaseSanitizer {
                     'email_verified_at' => 'DATETIME NULL',
                     'verification_token' => 'VARCHAR(191) NULL',
                     'verification_token_expires_at' => 'DATETIME NULL',
+                    'remember_token' => 'VARCHAR(191) NULL',
+                    'remember_token_expires_at' => 'DATETIME NULL',
                 ];
 
                 foreach ($userCols as $col => $type) {
@@ -73,6 +75,12 @@ class DatabaseSanitizer {
                     }
                 }
             } else {
+                try {
+                    Database::execute("ALTER TABLE users ADD COLUMN remember_token VARCHAR(191) NULL");
+                } catch (\Throwable $t) {}
+                try {
+                    Database::execute("ALTER TABLE users ADD COLUMN remember_token_expires_at DATETIME NULL");
+                } catch (\Throwable $t) {}
                 try {
                     Database::execute("ALTER TABLE daily_usage ADD COLUMN followup_messages_count INTEGER NOT NULL DEFAULT 0");
                 } catch (\Throwable $t) {

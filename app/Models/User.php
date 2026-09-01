@@ -26,6 +26,8 @@ class User {
     public ?string $email_verified_at = null;
     public ?string $verification_token = null;
     public ?string $verification_token_expires_at = null;
+    public ?string $remember_token = null;
+    public ?string $remember_token_expires_at = null;
     public ?string $created_at = null;
     public ?string $updated_at = null;
 
@@ -241,6 +243,8 @@ class User {
         $user->email_verified_at = $row['email_verified_at'] ?? null;
         $user->verification_token = $row['verification_token'] ?? null;
         $user->verification_token_expires_at = $row['verification_token_expires_at'] ?? null;
+        $user->remember_token = $row['remember_token'] ?? null;
+        $user->remember_token_expires_at = $row['remember_token_expires_at'] ?? null;
         $user->created_at = $row['created_at'] ?? null;
         $user->updated_at = $row['updated_at'] ?? null;
         return $user;

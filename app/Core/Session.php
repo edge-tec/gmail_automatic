@@ -17,32 +17,34 @@ class Session {
                 @mkdir($sessionSavePath, 0777, true);
             }
             if (is_dir($sessionSavePath) && is_writable($sessionSavePath)) {
-                session_save_path($sessionSavePath);
+                @session_save_path($sessionSavePath);
             }
 
-            ini_set('session.gc_maxlifetime', (string)$lifetime);
-            ini_set('session.cookie_lifetime', (string)$lifetime);
-            ini_set('session.cookie_httponly', '1');
-            ini_set('session.use_only_cookies', '1');
-            ini_set('session.cookie_samesite', 'Lax');
+            @ini_set('session.gc_maxlifetime', (string)$lifetime);
+            @ini_set('session.cookie_lifetime', (string)$lifetime);
+            @ini_set('session.cookie_httponly', '1');
+            @ini_set('session.use_only_cookies', '1');
+            @ini_set('session.cookie_samesite', 'Lax');
 
             $isSecure = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
                         (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
 
             if ($isSecure) {
-                ini_set('session.cookie_secure', '1');
+                @ini_set('session.cookie_secure', '1');
             }
 
-            session_set_cookie_params([
-                'lifetime' => $lifetime,
-                'path' => '/',
-                'domain' => '',
-                'secure' => $isSecure,
-                'httponly' => true,
-                'samesite' => 'Lax'
-            ]);
+            if (!headers_sent()) {
+                session_set_cookie_params([
+                    'lifetime' => $lifetime,
+                    'path' => '/',
+                    'domain' => '',
+                    'secure' => $isSecure,
+                    'httponly' => true,
+                    'samesite' => 'Lax'
+                ]);
+            }
 
-            session_start();
+            @session_start();
         }
     }
 

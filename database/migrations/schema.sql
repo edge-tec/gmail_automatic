@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS users (
     email_verified_at DATETIME NULL,
     verification_token VARCHAR(191) NULL,
     verification_token_expires_at DATETIME NULL,
+    remember_token VARCHAR(191) NULL,
+    remember_token_expires_at DATETIME NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
