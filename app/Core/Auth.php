@@ -64,4 +64,44 @@ class Auth {
         $user = self::user();
         return $user !== null && $user->role === 'admin';
     }
+
+    /**
+     * Admin Impersonation Helpers
+     */
+    public static function impersonate(User $targetUser): void {
+        Session::start();
+        $currentAdminId = self::id();
+        if ($currentAdminId && !Session::has('impersonator_admin_id')) {
+            Session::set('impersonator_admin_id', $currentAdminId);
+        }
+        self::$user = null;
+        Session::set('user_id', $targetUser->id);
+    }
+
+    public static function leaveImpersonation(): ?User {
+        Session::start();
+        $adminId = Session::get('impersonator_admin_id');
+        if ($adminId) {
+            Session::remove('impersonator_admin_id');
+            self::$user = null;
+            $admin = User::find((int)$adminId);
+            if ($admin) {
+                Session::set('user_id', $admin->id);
+                self::$user = $admin;
+                return $admin;
+            }
+        }
+        return null;
+    }
+
+    public static function isImpersonating(): bool {
+        Session::start();
+        return Session::has('impersonator_admin_id');
+    }
+
+    public static function getImpersonatorAdmin(): ?User {
+        Session::start();
+        $adminId = Session::get('impersonator_admin_id');
+        return $adminId ? User::find((int)$adminId) : null;
+    }
 }

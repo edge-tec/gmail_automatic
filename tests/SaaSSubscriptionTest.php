@@ -260,4 +260,37 @@ class SaaSSubscriptionTest extends TestCase {
         $this->assertNotNull($j7);
         $this->assertEquals('password_reset', $j7->template_slug);
     }
+
+    public function testAdminCanImpersonateUserWithoutPassword(): void {
+        $admin = User::create([
+            'name' => 'Super Admin',
+            'email' => 'admin_' . uniqid() . '@test.com',
+            'password' => password_hash('AdminPass@123', PASSWORD_BCRYPT),
+            'role' => 'admin',
+        ]);
+
+        $targetUser = User::create([
+            'name' => 'Regular Customer',
+            'email' => 'customer_' . uniqid() . '@test.com',
+            'password' => password_hash('CustomerPass@123', PASSWORD_BCRYPT),
+            'role' => 'user',
+        ]);
+
+        // Login as Admin
+        \App\Core\Auth::login($admin);
+        $this->assertEquals($admin->id, \App\Core\Auth::id());
+        $this->assertFalse(\App\Core\Auth::isImpersonating());
+
+        // Impersonate customer without password
+        \App\Core\Auth::impersonate($targetUser);
+        $this->assertEquals($targetUser->id, \App\Core\Auth::id());
+        $this->assertTrue(\App\Core\Auth::isImpersonating());
+
+        // Leave impersonation and return to admin
+        $returnedAdmin = \App\Core\Auth::leaveImpersonation();
+        $this->assertNotNull($returnedAdmin);
+        $this->assertEquals($admin->id, $returnedAdmin->id);
+        $this->assertEquals($admin->id, \App\Core\Auth::id());
+        $this->assertFalse(\App\Core\Auth::isImpersonating());
+    }
 }

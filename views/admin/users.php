@@ -78,7 +78,17 @@
                             <?php endif; ?>
                         </td>
                         <td class="text-end">
-                            <div class="d-inline-flex gap-1">
+                            <div class="d-inline-flex gap-1 align-items-center">
+                                <?php if ($u->id !== auth_user()->id): ?>
+                                    <!-- Login as User (Impersonate without password) -->
+                                    <form action="<?= url("/admin/users/{$u->id}/impersonate") ?>" method="POST" class="d-inline">
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="btn btn-sm btn-outline-primary fw-semibold" title="Login directly into this user's account without password" onclick="return confirm('Log in as <?= e($u->name) ?> (<?= e($u->email) ?>)? You can return to Admin anytime.')">
+                                            <i class="fa-solid fa-right-to-bracket me-1"></i> Login
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+
                                 <!-- Edit User Button -->
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editUserModal<?= $u->id ?>" title="Edit User & Subscription">
                                     <i class="fa-solid fa-pen-to-square"></i>

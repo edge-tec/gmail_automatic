@@ -221,6 +221,30 @@ class AdminController {
         redirect('/admin/users');
     }
 
+    public function impersonateUser(Request $request, int $id): void {
+        $user = User::find($id);
+        if (!$user || $user->id === Auth::id()) {
+            flash('error', 'Cannot log in as this user account.');
+            redirect('/admin/users');
+            return;
+        }
+
+        $adminId = Auth::id();
+        Auth::impersonate($user);
+
+        logger("Admin #{$adminId} logged in as user #{$user->id} ({$user->email})", 'info', $user->id);
+        flash('success', "You are now logged in as [{$user->name}] ({$user->email}). You can switch back to your Admin account anytime using the top bar.");
+        redirect('/dashboard');
+    }
+
+    public function leaveImpersonation(Request $request): void {
+        $admin = Auth::leaveImpersonation();
+        if ($admin) {
+            flash('success', "Welcome back, {$admin->name}! You have returned to your Admin account.");
+        }
+        redirect('/admin/users');
+    }
+
     // --- Email Notification Logs & Resend ---
     public function emailLogs(Request $request): string {
         $status = $request->query('status');

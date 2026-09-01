@@ -187,6 +187,21 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
 
         <!-- Main Content Area -->
         <div class="main-content">
+            <?php if (\App\Core\Auth::isImpersonating()): ?>
+            <div class="bg-warning text-dark py-2 px-4 d-flex justify-content-between align-items-center fw-bold shadow-sm flex-wrap gap-2" style="position: sticky; top: 0; z-index: 1060; border-bottom: 2px solid #ca8a04;">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-user-secret fs-5"></i>
+                    <span>Admin Mode: You are logged into user account <u><?= e(auth_user()->name ?? 'User') ?></u> (<?= e(auth_user()->email ?? '') ?>)</span>
+                </div>
+                <form action="<?= url('/admin/impersonate/leave') ?>" method="POST" class="m-0">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-dark btn-sm fw-bold">
+                        <i class="fa-solid fa-arrow-right-from-bracket me-1"></i> Switch Back to Admin
+                    </button>
+                </form>
+            </div>
+            <?php endif; ?>
+
             <!-- Top Navbar -->
             <nav class="top-navbar d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center gap-3">

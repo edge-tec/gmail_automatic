@@ -87,6 +87,9 @@ $router->post('/admin/users/create', 'AdminController@createUser', [AdminMiddlew
 $router->post('/admin/users/{id}/update', 'AdminController@updateUser', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/users/{id}/toggle', 'AdminController@toggleUserStatus', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/users/{id}/delete', 'AdminController@deleteUser', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/users/{id}/impersonate', 'AdminController@impersonateUser', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/impersonate/leave', 'AdminController@leaveImpersonation', [AuthMiddleware::class]);
+$router->get('/admin/impersonate/leave', 'AdminController@leaveImpersonation', [AuthMiddleware::class]);
 
 // Admin Subscription & Trial Controls
 $router->get('/admin/plans', 'AdminController@plans', [AdminMiddleware::class]);
