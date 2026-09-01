@@ -636,5 +636,204 @@ class ReplySequenceAndFollowupCampaignTest extends TestCase {
         $this->assertEquals('scheduled', $resFresh['status'], 'Sender must be treated as new traffic after admin clear');
         $this->assertEquals(1, $resFresh['reply_step'], 'Sequence must start from Reply #1 again');
     }
+
+    /**
+     * Test 20: Same Traffic Across Multiple Connected Gmail Accounts Maintains One Authoritative Sequence
+     */
+    public function testSameSenderAcrossMultipleConnectedGmailAccountsMaintainsOneGlobalSequence(): void {
+        // Create 4 connected accounts for the same user
+        $accA = $this->account;
+        $accB = GmailAccount::create([
+            'user_id' => $this->user->id,
+            'gmail_email' => 'account_b_' . uniqid() . '@gmail.com',
+            'google_user_id' => 'gid_b_' . uniqid(),
+            'access_token' => 'mock_token',
+            'status' => 'connected',
+        ]);
+        $accC = GmailAccount::create([
+            'user_id' => $this->user->id,
+            'gmail_email' => 'account_c_' . uniqid() . '@gmail.com',
+            'google_user_id' => 'gid_c_' . uniqid(),
+            'access_token' => 'mock_token',
+            'status' => 'connected',
+        ]);
+        $accD = GmailAccount::create([
+            'user_id' => $this->user->id,
+            'gmail_email' => 'account_d_' . uniqid() . '@gmail.com',
+            'google_user_id' => 'gid_d_' . uniqid(),
+            'access_token' => 'mock_token',
+            'status' => 'connected',
+        ]);
+
+        $replySteps = [
+            1 => ['message' => 'Reply Message 1', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            2 => ['message' => 'Reply Message 2', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            3 => ['message' => 'Reply Message 3', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            4 => ['message' => 'Reply Message 4', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            5 => ['message' => 'Reply Message 5', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+        ];
+
+        foreach ([$accA, $accB, $accC, $accD] as $acc) {
+            $s = AutomationSetting::createDefault($acc->id);
+            $s->update([
+                'auto_reply_enabled' => 1,
+                'reply_message' => json_encode($replySteps),
+                'max_reply_per_thread' => 5,
+                'daily_reply_limit' => 50,
+            ]);
+        }
+
+        $engineA = new AutomationEngine($accA);
+        $engineB = new AutomationEngine($accB);
+        $engineC = new AutomationEngine($accC);
+        $engineD = new AutomationEngine($accD);
+
+        $sender = 'multi_acc_lead_' . uniqid() . '@test.com';
+
+        // 1. Email 1 -> Account A -> Reply #1
+        $r1 = $engineA->processIncomingMessage([
+            'message_id' => 'msg_multi_1_' . uniqid(),
+            'thread_id' => 'th_multi_1_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Multi Lead',
+            'subject' => 'Inquiry to Acc A',
+            'snippet' => 'Text A',
+            'body' => 'Text A',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $r1['status']);
+        $this->assertEquals(1, $r1['reply_step']);
+        $this->worker->run(true);
+
+        // 2. Email 2 -> Account B -> Reply #2 (MUST NOT BE REPLY #1)
+        $r2 = $engineB->processIncomingMessage([
+            'message_id' => 'msg_multi_2_' . uniqid(),
+            'thread_id' => 'th_multi_2_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Multi Lead',
+            'subject' => 'Inquiry to Acc B',
+            'snippet' => 'Text B',
+            'body' => 'Text B',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $r2['status']);
+        $this->assertEquals(2, $r2['reply_step'], 'Email to Acc B must receive Reply #2');
+        $this->worker->run(true);
+
+        // 3. Email 3 -> Account C -> Reply #3 (MUST NOT BE REPLY #1)
+        $r3 = $engineC->processIncomingMessage([
+            'message_id' => 'msg_multi_3_' . uniqid(),
+            'thread_id' => 'th_multi_3_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Multi Lead',
+            'subject' => 'Inquiry to Acc C',
+            'snippet' => 'Text C',
+            'body' => 'Text C',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $r3['status']);
+        $this->assertEquals(3, $r3['reply_step'], 'Email to Acc C must receive Reply #3');
+        $this->worker->run(true);
+
+        // 4. Email 4 -> Account A -> Reply #4
+        $r4 = $engineA->processIncomingMessage([
+            'message_id' => 'msg_multi_4_' . uniqid(),
+            'thread_id' => 'th_multi_4_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Multi Lead',
+            'subject' => 'Inquiry to Acc A again',
+            'snippet' => 'Text A2',
+            'body' => 'Text A2',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $r4['status']);
+        $this->assertEquals(4, $r4['reply_step']);
+        $this->worker->run(true);
+
+        // 5. Email 5 -> Account D -> Reply #5
+        $r5 = $engineD->processIncomingMessage([
+            'message_id' => 'msg_multi_5_' . uniqid(),
+            'thread_id' => 'th_multi_5_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Multi Lead',
+            'subject' => 'Inquiry to Acc D',
+            'snippet' => 'Text D',
+            'body' => 'Text D',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $r5['status']);
+        $this->assertEquals(5, $r5['reply_step']);
+        $this->worker->run(true);
+
+        // 6. Email 6 -> Account B -> DUPLICATE / SKIP (ALL 5 REPLIES COMPLETED)
+        $r6 = $engineB->processIncomingMessage([
+            'message_id' => 'msg_multi_6_' . uniqid(),
+            'thread_id' => 'th_multi_6_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Multi Lead',
+            'subject' => 'Inquiry to Acc B again',
+            'snippet' => 'Text B2',
+            'body' => 'Text B2',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $r6['status'], 'Email 6 must be skipped as duplicate');
+        $this->assertTrue($r6['is_duplicate_traffic']);
+    }
+
+    /**
+     * Test 21: Existing Duplicate Sequence Reconciliation
+     */
+    public function testReconciliationMergesLegacyDuplicateRecordsIntoOneAuthoritativeSequence(): void {
+        $sender = 'reconcile_lead_' . uniqid() . '@test.com';
+
+        // Insert legacy rows simulating previous multi-account bugs
+        Database::execute("INSERT INTO auto_reply_recipients (user_id, gmail_account_id, normalized_sender_email, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status) VALUES (:uid, 101, :sender, 1, 5, 'active', 'replied')", ['uid' => $this->user->id, 'sender' => $sender]);
+        Database::execute("INSERT INTO auto_reply_recipients (user_id, gmail_account_id, normalized_sender_email, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status) VALUES (:uid, 102, :sender, 3, 5, 'active', 'replied')", ['uid' => $this->user->id, 'sender' => $sender]);
+        Database::execute("INSERT INTO auto_reply_recipients (user_id, gmail_account_id, normalized_sender_email, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status) VALUES (:uid, 103, :sender, 2, 5, 'active', 'replied')", ['uid' => $this->user->id, 'sender' => $sender]);
+
+        // Run reconciliation
+        AutoReplyRecipient::reconcileExistingDuplicates();
+
+        // Verify only 1 record exists and has max step = 3
+        $rows = Database::query("SELECT * FROM auto_reply_recipients WHERE user_id = :uid AND normalized_sender_email = :sender", ['uid' => $this->user->id, 'sender' => $sender]);
+        $this->assertCount(1, $rows, 'Only one authoritative record must remain');
+        $this->assertEquals(3, (int)$rows[0]['reply_sequence_step'], 'Highest completed step (3) must be preserved');
+    }
+
+    /**
+     * Test 22: Exact Gmail Message ID Deduplication
+     */
+    public function testExactGmailMessageIdDeduplicationIsSeparateFromSequence(): void {
+        $engine = new AutomationEngine($this->account);
+        $sameMsgId = 'msg_exact_duplicate_' . uniqid();
+        $sender = 'exact_lead_' . uniqid() . '@test.com';
+
+        // Process message first time
+        $r1 = $engine->processIncomingMessage([
+            'message_id' => $sameMsgId,
+            'thread_id' => 'th_exact_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Exact Lead',
+            'subject' => 'Hello',
+            'snippet' => 'World',
+            'body' => 'World',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('scheduled', $r1['status']);
+
+        // Process same message ID again
+        $r2 = $engine->processIncomingMessage([
+            'message_id' => $sameMsgId,
+            'thread_id' => 'th_exact_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Exact Lead',
+            'subject' => 'Hello',
+            'snippet' => 'World',
+            'body' => 'World',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+        $this->assertEquals('skipped', $r2['status']);
+        $this->assertEquals('Message already processed', $r2['reason']);
+    }
 }
 

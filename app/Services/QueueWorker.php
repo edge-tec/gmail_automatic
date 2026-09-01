@@ -180,8 +180,8 @@ class QueueWorker {
                 $stepNumber = (int)($payload['reply_step'] ?? 1);
                 $totalSteps = (int)($payload['total_steps'] ?? $settings->getTotalConfiguredReplySteps());
 
-                // Concurrency check: verify this step hasn't already been sent to this recipient
-                $replyRecipient = AutoReplyRecipient::findByAccountAndSender($account->id, $recipientEmail);
+                // Concurrency check: verify this step hasn't already been sent to this global traffic identity
+                $replyRecipient = AutoReplyRecipient::findByUserAndSender($account->user_id, $recipientEmail);
                 if ($replyRecipient && $replyRecipient->reply_sequence_step >= $stepNumber) {
                     $job->cancel("Auto-reply Step #{$stepNumber} already sent to this recipient.");
                     echo "  ↳ Skipped: Auto-reply Step #{$stepNumber} already sent to {$recipientEmail}.\n";
@@ -313,14 +313,12 @@ class QueueWorker {
                 $stepNumber = (int)($payload['reply_step'] ?? 1);
                 $totalSteps = (int)($payload['total_steps'] ?? $settings->getTotalConfiguredReplySteps());
 
-                if (isset($replyRecipient) && $replyRecipient) {
+                $replyRecipient = AutoReplyRecipient::findByUserAndSender($account->user_id, $recipientEmail);
+                if ($replyRecipient) {
                     $replyRecipient->recordStepSent($stepNumber, $totalSteps, $sentAt);
-                } else {
-                    $rec = AutoReplyRecipient::findByAccountAndSender($account->id, $recipientEmail);
-                    if ($rec) {
-                        $rec->recordStepSent($stepNumber, $totalSteps, $sentAt);
-                    }
                 }
+
+                logger("[QueueWorker] Traffic: {$recipientEmail} | Step #{$stepNumber} sent successfully via {$account->gmail_email} | Sequence: {$stepNumber}/{$totalSteps}", 'info', $account->user_id, $account->id);
 
                 DailyUsage::incrementReply($account->id);
 

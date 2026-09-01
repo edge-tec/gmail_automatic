@@ -27,6 +27,9 @@ class AutoReplyRecipient {
         return strtolower(trim($clean));
     }
 
+    /**
+     * Ensure database columns, reconcile legacy duplicate records, and maintain user-scoped unique index
+     */
     public static function ensureSchema(): void {
         static $ensured = false;
         if ($ensured) return;
@@ -40,6 +43,116 @@ class AutoReplyRecipient {
             'reply_sequence_completed_at' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
         ];
         \App\Core\DatabaseSanitizer::ensureTableColumns('auto_reply_recipients', $recipientCols);
+
+        // Reconcile any existing duplicate rows before enforcing unique constraint
+        self::reconcileExistingDuplicates();
+
+        // Ensure user-scoped unique constraint uk_user_sender_reply exists
+        try {
+            if ($driver === 'mysql') {
+                // Drop legacy per-account unique key if present
+                $indexes = Database::query("SHOW INDEX FROM auto_reply_recipients");
+                $indexNames = array_map(fn($i) => $i['Key_name'] ?? $i['key_name'] ?? '', $indexes);
+                if (in_array('uk_acc_sender_reply', $indexNames)) {
+                    try {
+                        Database::execute("ALTER TABLE auto_reply_recipients DROP INDEX uk_acc_sender_reply");
+                    } catch (\Throwable $t) {}
+                }
+                if (!in_array('uk_user_sender_reply', $indexNames)) {
+                    try {
+                        Database::execute("ALTER TABLE auto_reply_recipients ADD UNIQUE KEY uk_user_sender_reply (user_id, normalized_sender_email)");
+                    } catch (\Throwable $t) {}
+                }
+            } else {
+                try {
+                    Database::execute("CREATE UNIQUE INDEX IF NOT EXISTS uk_user_sender_reply ON auto_reply_recipients (user_id, normalized_sender_email)");
+                } catch (\Throwable $t) {}
+            }
+        } catch (\Throwable $t) {}
+    }
+
+    /**
+     * Reconcile legacy duplicate records for the same traffic identity (user_id, normalized_sender_email)
+     */
+    public static function reconcileExistingDuplicates(): void {
+        try {
+            $duplicates = Database::query(
+                "SELECT user_id, normalized_sender_email, COUNT(*) as cnt 
+                 FROM auto_reply_recipients 
+                 GROUP BY user_id, normalized_sender_email 
+                 HAVING cnt > 1"
+            );
+
+            foreach ($duplicates as $dup) {
+                $uid = (int)$dup['user_id'];
+                $sender = $dup['normalized_sender_email'];
+
+                $records = Database::query(
+                    "SELECT * FROM auto_reply_recipients 
+                     WHERE user_id = :uid AND normalized_sender_email = :sender 
+                     ORDER BY reply_sequence_step DESC, reply_sent_at DESC, id ASC",
+                    ['uid' => $uid, 'sender' => $sender]
+                );
+
+                if (count($records) <= 1) continue;
+
+                $primary = $records[0];
+                $maxStep = 0;
+                $maxTotal = 1;
+                $latestSentAt = null;
+                $latestCompletedAt = null;
+                $hasCompleted = false;
+                $idsToDelete = [];
+
+                foreach ($records as $idx => $r) {
+                    $s = (int)($r['reply_sequence_step'] ?? 0);
+                    $tot = (int)($r['reply_sequence_total'] ?? 1);
+                    if ($s > $maxStep) $maxStep = $s;
+                    if ($tot > $maxTotal) $maxTotal = $tot;
+                    if (!empty($r['reply_sent_at']) && (!$latestSentAt || $r['reply_sent_at'] > $latestSentAt)) {
+                        $latestSentAt = $r['reply_sent_at'];
+                    }
+                    if (!empty($r['reply_sequence_completed_at']) && (!$latestCompletedAt || $r['reply_sequence_completed_at'] > $latestCompletedAt)) {
+                        $latestCompletedAt = $r['reply_sequence_completed_at'];
+                    }
+                    if (($r['reply_sequence_status'] ?? '') === 'completed' || $s >= $tot) {
+                        $hasCompleted = true;
+                    }
+
+                    if ($idx > 0) {
+                        $idsToDelete[] = (int)$r['id'];
+                    }
+                }
+
+                $finalStatus = ($hasCompleted || $maxStep >= $maxTotal) ? 'completed' : 'active';
+                $finalReplyStatus = ($finalStatus === 'completed') ? 'replied' : ($maxStep > 0 ? 'active' : 'pending');
+
+                Database::execute(
+                    "UPDATE auto_reply_recipients SET 
+                        reply_sequence_step = :step,
+                        reply_sequence_total = :tot,
+                        reply_sequence_status = :seq_status,
+                        reply_status = :rep_status,
+                        reply_sent_at = :sent_at,
+                        reply_sequence_completed_at = :comp_at
+                     WHERE id = :id",
+                    [
+                        'step' => $maxStep,
+                        'tot' => $maxTotal,
+                        'seq_status' => $finalStatus,
+                        'rep_status' => $finalReplyStatus,
+                        'sent_at' => $latestSentAt,
+                        'comp_at' => $latestCompletedAt,
+                        'id' => (int)$primary['id'],
+                    ]
+                );
+
+                if (!empty($idsToDelete)) {
+                    $idList = implode(',', $idsToDelete);
+                    Database::execute("DELETE FROM auto_reply_recipients WHERE id IN ({$idList})");
+                }
+            }
+        } catch (\Throwable $t) {}
     }
 
     public static function find(int $id): ?self {
@@ -48,9 +161,29 @@ class AutoReplyRecipient {
         return $row ? self::fromRow($row) : null;
     }
 
+    /**
+     * Look up sequence state by traffic identity (user_id + normalized_sender_email)
+     */
+    public static function findByUserAndSender(int $userId, string $senderEmail): ?self {
+        self::ensureSchema();
+        $normalized = self::normalizeEmail($senderEmail);
+        $row = Database::first(
+            "SELECT * FROM auto_reply_recipients WHERE user_id = :uid AND normalized_sender_email = :sender LIMIT 1",
+            ['uid' => $userId, 'sender' => $normalized]
+        );
+        return $row ? self::fromRow($row) : null;
+    }
+
+    /**
+     * Backward-compatible helper that resolves account to user
+     */
     public static function findByAccountAndSender(int $accountId, string $senderEmail): ?self {
         self::ensureSchema();
         $normalized = self::normalizeEmail($senderEmail);
+        $account = GmailAccount::find($accountId);
+        if ($account) {
+            return self::findByUserAndSender($account->user_id, $normalized);
+        }
         $row = Database::first(
             "SELECT * FROM auto_reply_recipients WHERE gmail_account_id = :acc AND normalized_sender_email = :sender LIMIT 1",
             ['acc' => $accountId, 'sender' => $normalized]
@@ -59,19 +192,15 @@ class AutoReplyRecipient {
     }
 
     /**
-     * Atomically claims or evaluates a sender's Reply Sequence.
+     * Atomically claims or evaluates a sender's global Reply Sequence for the user's automation.
      * 
-     * Rule:
-     * - Until the configured Reply Sequence (Reply #1 to #N) is successfully sent, incoming emails are NOT duplicate.
-     * - Only after Reply #N has been sent or queued does the sequence become COMPLETED and duplicate protection activates.
-     * 
-     * Returns:
-     * [
-     *    'recipient' => AutoReplyRecipient,
-     *    'next_step' => int,
-     *    'is_eligible' => bool,
-     *    'is_duplicate' => bool
-     * ]
+     * Rules:
+     * - ONE sequence per traffic/sender across all connected Gmail accounts.
+     * - Email #1 -> Step 1
+     * - Email #2 -> Step 2
+     * - Email #N -> Step N
+     * - Email #(N+1) -> DUPLICATE TRAFFIC (SKIP)
+     * - Successful delivery is required to advance the completed step counter.
      */
     public static function claimOrGetForSequence(
         int $userId,
@@ -87,73 +216,91 @@ class AutoReplyRecipient {
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
         $totalConfiguredSteps = max(1, $totalConfiguredSteps);
 
-        try {
-            Database::execute(
-                "INSERT INTO auto_reply_recipients 
-                (user_id, gmail_account_id, normalized_sender_email, first_message_id, first_thread_id, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status, created_at)
-                VALUES 
-                (:uid, :acc, :sender, :mid, :tid, 0, :total, 'active', 'pending', {$now})",
-                [
-                    'uid' => $userId,
-                    'acc' => $accountId,
-                    'sender' => $normalized,
-                    'mid' => $msgId,
-                    'tid' => $threadId,
-                    'total' => $totalConfiguredSteps,
-                ]
-            );
+        // 1. Check existing record for this user and sender
+        $existing = self::findByUserAndSender($userId, $normalized);
 
-            $id = (int)Database::lastInsertId();
-            $recipient = self::find($id);
+        if (!$existing) {
+            try {
+                Database::execute(
+                    "INSERT INTO auto_reply_recipients 
+                    (user_id, gmail_account_id, normalized_sender_email, first_message_id, first_thread_id, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status, created_at)
+                    VALUES 
+                    (:uid, :acc, :sender, :mid, :tid, 0, :total, 'active', 'pending', {$now})",
+                    [
+                        'uid' => $userId,
+                        'acc' => $accountId,
+                        'sender' => $normalized,
+                        'mid' => $msgId,
+                        'tid' => $threadId,
+                        'total' => $totalConfiguredSteps,
+                    ]
+                );
+
+                $id = (int)Database::lastInsertId();
+                $recipient = self::find($id);
+
+                logger("Traffic: {$senderEmail} | User: {$userId} | Sequence ID: {$id} | Current Step: 0 | Selected Reply: #1 | Total: {$totalConfiguredSteps} | Decision: NEW_TRAFFIC_SEQUENCE", 'info', $userId, $accountId);
+
+                return [
+                    'recipient' => $recipient,
+                    'next_step' => 1,
+                    'is_eligible' => true,
+                    'is_duplicate' => false,
+                ];
+            } catch (\Throwable $e) {
+                // Concurrent insert happened, fetch existing
+                $existing = self::findByUserAndSender($userId, $normalized);
+            }
+        }
+
+        if (!$existing) {
             return [
-                'recipient' => $recipient,
-                'next_step' => 1,
-                'is_eligible' => true,
-                'is_duplicate' => false,
+                'recipient' => null,
+                'next_step' => 0,
+                'is_eligible' => false,
+                'is_duplicate' => true,
             ];
-        } catch (\Throwable $e) {
-            // Recipient record already exists
-            $existing = self::findByAccountAndSender($accountId, $normalized);
-            if (!$existing) {
-                return [
-                    'recipient' => null,
-                    'next_step' => 0,
-                    'is_eligible' => false,
-                    'is_duplicate' => true,
-                ];
-            }
+        }
 
-            // Sync latest total steps if user increased sequence configuration
-            if ($totalConfiguredSteps > $existing->reply_sequence_total) {
-                $existing->update(['reply_sequence_total' => $totalConfiguredSteps]);
-                $existing->reply_sequence_total = $totalConfiguredSteps;
-            }
+        // Update latest account ID on the recipient record for activity reference
+        $existing->update(['gmail_account_id' => $accountId]);
 
-            // Determine highest step already scheduled in pending jobs for this recipient & account
-            $queuedStep = self::getHighestQueuedStep($accountId, $normalized);
+        // Sync latest total steps if user increased sequence configuration
+        if ($totalConfiguredSteps > $existing->reply_sequence_total) {
+            $existing->update([
+                'reply_sequence_total' => $totalConfiguredSteps,
+                'reply_sequence_status' => ($existing->reply_sequence_step >= $totalConfiguredSteps) ? 'completed' : 'active',
+            ]);
+            $existing->reply_sequence_total = $totalConfiguredSteps;
+        }
 
-            // Determine next step
-            $highestStepInFlight = max($existing->reply_sequence_step, $queuedStep);
-            $nextStep = $highestStepInFlight + 1;
+        // Determine highest step already scheduled in pending/processing jobs for this user across all accounts
+        $queuedStep = self::getHighestQueuedStep($userId, $normalized);
 
-            // Check if sequence is completed
-            if ($nextStep > $totalConfiguredSteps || ($existing->reply_sequence_status === 'completed' && $existing->reply_sequence_step >= $totalConfiguredSteps)) {
-                return [
-                    'recipient' => $existing,
-                    'next_step' => $nextStep,
-                    'is_eligible' => false,
-                    'is_duplicate' => true,
-                ];
-            }
+        // Determine next step
+        $highestStepInFlight = max($existing->reply_sequence_step, $queuedStep);
+        $nextStep = $highestStepInFlight + 1;
 
-            // Sequence is still active!
+        // Check if sequence is completed
+        if ($nextStep > $totalConfiguredSteps || ($existing->reply_sequence_status === 'completed' && $existing->reply_sequence_step >= $totalConfiguredSteps)) {
+            logger("Traffic: {$senderEmail} | User: {$userId} | Sequence ID: {$existing->id} | Status: COMPLETED | Completed Step: {$existing->reply_sequence_step}/{$totalConfiguredSteps} | Decision: DUPLICATE_TRAFFIC", 'info', $userId, $accountId);
             return [
                 'recipient' => $existing,
                 'next_step' => $nextStep,
-                'is_eligible' => true,
-                'is_duplicate' => false,
+                'is_eligible' => false,
+                'is_duplicate' => true,
             ];
         }
+
+        // Sequence is still active!
+        logger("Traffic: {$senderEmail} | User: {$userId} | Sequence ID: {$existing->id} | Current Step: {$existing->reply_sequence_step} | In-Flight: {$highestStepInFlight} | Selected Reply: #{$nextStep} | Total: {$totalConfiguredSteps} | Decision: ACTIVE_SEQUENCE", 'info', $userId, $accountId);
+
+        return [
+            'recipient' => $existing,
+            'next_step' => $nextStep,
+            'is_eligible' => true,
+            'is_duplicate' => false,
+        ];
     }
 
     /**
@@ -169,13 +316,14 @@ class AutoReplyRecipient {
     }
 
     /**
-     * Finds highest pending/queued step number in scheduled_jobs for this recipient
+     * Finds highest pending/queued step number in scheduled_jobs for this user and sender across all accounts
      */
-    public static function getHighestQueuedStep(int $accountId, string $normalizedSenderEmail): int {
+    public static function getHighestQueuedStep(int $userId, string $normalizedSenderEmail): int {
         $jobs = Database::query(
-            "SELECT payload FROM scheduled_jobs 
-             WHERE gmail_account_id = :acc AND job_type = 'auto_reply' AND status IN ('pending', 'processing')",
-            ['acc' => $accountId]
+            "SELECT sj.payload FROM scheduled_jobs sj
+             JOIN gmail_accounts ga ON ga.id = sj.gmail_account_id
+             WHERE ga.user_id = :uid AND sj.job_type = 'auto_reply' AND sj.status IN ('pending', 'processing')",
+            ['uid' => $userId]
         );
 
         $maxStep = 0;
@@ -282,19 +430,23 @@ class AutoReplyRecipient {
     }
 
     public static function countUniqueTrafficToday(int $accountId): int {
+        $account = GmailAccount::find($accountId);
+        $userId = $account ? $account->user_id : 0;
         $driver = config('database.default', 'mysql');
         $todayCond = $driver === 'mysql' ? "DATE(created_at) = CURDATE()" : "date(created_at) = date('now')";
         $row = Database::first(
-            "SELECT COUNT(DISTINCT normalized_sender_email) as total FROM auto_reply_recipients WHERE gmail_account_id = :acc AND {$todayCond}",
-            ['acc' => $accountId]
+            "SELECT COUNT(DISTINCT normalized_sender_email) as total FROM auto_reply_recipients WHERE user_id = :uid AND {$todayCond}",
+            ['uid' => $userId]
         );
         return (int)($row['total'] ?? 0);
     }
 
     public static function countRepliedForAccount(int $accountId): int {
+        $account = GmailAccount::find($accountId);
+        $userId = $account ? $account->user_id : 0;
         $row = Database::first(
-            "SELECT COUNT(*) as total FROM auto_reply_recipients WHERE gmail_account_id = :acc AND reply_status IN ('replied', 'active')",
-            ['acc' => $accountId]
+            "SELECT COUNT(*) as total FROM auto_reply_recipients WHERE user_id = :uid AND reply_status IN ('replied', 'active')",
+            ['uid' => $userId]
         );
         return (int)($row['total'] ?? 0);
     }
@@ -327,7 +479,7 @@ class AutoReplyRecipient {
         $m = new self();
         $m->id = (int)$row['id'];
         $m->user_id = (int)$row['user_id'];
-        $m->gmail_account_id = (int)$row['gmail_account_id'];
+        $m->gmail_account_id = (int)($row['gmail_account_id'] ?? 0);
         $m->normalized_sender_email = $row['normalized_sender_email'];
         $m->first_message_id = $row['first_message_id'] ?? null;
         $m->first_thread_id = $row['first_thread_id'] ?? null;

@@ -273,7 +273,7 @@ CREATE TABLE IF NOT EXISTS auto_reply_recipients (
     reply_status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, processing, active, completed, replied, cancelled, failed
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_acc_sender_reply (gmail_account_id, normalized_sender_email),
+    UNIQUE KEY uk_user_sender_reply (user_id, normalized_sender_email),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (gmail_account_id) REFERENCES gmail_accounts(id) ON DELETE CASCADE,
     INDEX idx_arr_user (user_id),
