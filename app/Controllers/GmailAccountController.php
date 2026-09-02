@@ -225,6 +225,15 @@ class GmailAccountController {
                 'last_error' => null,
             ]);
 
+            // Immediately execute any scheduled jobs that are ready
+            try {
+                $worker = new \App\Services\QueueWorker();
+                $worker->run(true, 50);
+            } catch (\Throwable $workerEx) {
+                // Log worker exception without crashing sync response
+                logger("Queue execution after sync: " . $workerEx->getMessage(), 'warning', $account->user_id, $account->id);
+            }
+
             flash('success', "Sync complete! Found and processed {$newCount} new email(s).");
 
         } catch (\Throwable $e) {

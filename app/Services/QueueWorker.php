@@ -330,6 +330,8 @@ class QueueWorker {
                     $replyRecipient->recordStepSent($stepNumber, $totalSteps, $sentAt, $account->id);
                 }
 
+                DailyUsage::incrementReplyMessage($account->id);
+
                 logger("[QueueWorker] Traffic: {$recipientEmail} | Step #{$stepNumber} sent successfully via {$account->gmail_email} | Sequence: {$stepNumber}/{$totalSteps}", 'info', $account->user_id, $account->id);
 
                 $thread->update([
