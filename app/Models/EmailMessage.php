@@ -20,12 +20,27 @@ class EmailMessage {
     public int $is_historical = 0;
     public ?string $created_at = null;
 
+    private static bool $schemaEnsured = false;
+
+    public static function ensureSchema(): void {
+        if (self::$schemaEnsured) return;
+        self::$schemaEnsured = true;
+
+        $driver = config('database.default', 'mysql');
+        $messageCols = [
+            'is_historical' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+        ];
+        \App\Core\DatabaseSanitizer::ensureTableColumns('email_messages', $messageCols);
+    }
+
     public static function find(int $id): ?self {
+        self::ensureSchema();
         $row = Database::first("SELECT * FROM email_messages WHERE id = :id LIMIT 1", ['id' => $id]);
         return $row ? self::fromRow($row) : null;
     }
 
     public static function findByAccountAndMessageId(int $accountId, string $msgId): ?self {
+        self::ensureSchema();
         $row = Database::first(
             "SELECT * FROM email_messages WHERE gmail_account_id = :acc AND gmail_message_id = :mid LIMIT 1",
             ['acc' => $accountId, 'mid' => $msgId]
@@ -34,6 +49,7 @@ class EmailMessage {
     }
 
     public static function findByThreadId(int $threadId): array {
+        self::ensureSchema();
         $rows = Database::query(
             "SELECT * FROM email_messages WHERE thread_id = :tid ORDER BY COALESCE(received_at, sent_at, created_at) ASC",
             ['tid' => $threadId]
@@ -42,6 +58,7 @@ class EmailMessage {
     }
 
     public static function create(array $data): ?self {
+        self::ensureSchema();
         // Prevent duplicate creation
         $existing = self::findByAccountAndMessageId($data['gmail_account_id'], $data['gmail_message_id']);
         if ($existing) {

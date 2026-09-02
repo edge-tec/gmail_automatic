@@ -24,22 +24,43 @@ class GmailAccount {
     public ?string $created_at = null;
     public ?string $updated_at = null;
 
+    private static bool $schemaEnsured = false;
+
+    public static function ensureSchema(): void {
+        if (self::$schemaEnsured) return;
+        self::$schemaEnsured = true;
+
+        $driver = config('database.default', 'mysql');
+        $accountCols = [
+            'connected_at' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
+            'initial_sync_completed' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+            'initial_history_id' => 'VARCHAR(191) NULL',
+            'initial_sync_at' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
+            'baseline_message_date' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
+        ];
+        \App\Core\DatabaseSanitizer::ensureTableColumns('gmail_accounts', $accountCols);
+    }
+
     public static function find(int $id): ?self {
+        self::ensureSchema();
         $row = Database::first("SELECT * FROM gmail_accounts WHERE id = :id LIMIT 1", ['id' => $id]);
         return $row ? self::fromRow($row) : null;
     }
 
     public static function findByEmail(string $email): ?self {
+        self::ensureSchema();
         $row = Database::first("SELECT * FROM gmail_accounts WHERE gmail_email = :email LIMIT 1", ['email' => $email]);
         return $row ? self::fromRow($row) : null;
     }
 
     public static function findByUserId(int $userId): array {
+        self::ensureSchema();
         $rows = Database::query("SELECT * FROM gmail_accounts WHERE user_id = :uid ORDER BY id DESC", ['uid' => $userId]);
         return array_map([self::class, 'fromRow'], $rows);
     }
 
     public static function allActive(): array {
+        self::ensureSchema();
         $rows = Database::query("SELECT * FROM gmail_accounts WHERE status = 'connected' ORDER BY id ASC");
         return array_map([self::class, 'fromRow'], $rows);
     }
@@ -49,6 +70,7 @@ class GmailAccount {
     }
 
     public static function createOrUpdate(array $data): self {
+        self::ensureSchema();
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
         $nowDate = date('Y-m-d H:i:s');
@@ -81,15 +103,33 @@ class GmailAccount {
         $sql = "INSERT INTO gmail_accounts (user_id, gmail_email, google_user_id, access_token, refresh_token, token_expires_at, status, connected_at, initial_sync_completed, created_at)
                 VALUES (:user_id, :gmail_email, :google_user_id, :access_token, :refresh_token, :token_expires_at, :status, {$now}, 0, {$now})";
 
-        Database::execute($sql, [
-            'user_id' => $data['user_id'],
-            'gmail_email' => $data['gmail_email'],
-            'google_user_id' => $data['google_user_id'] ?? null,
-            'access_token' => $encryptedAccess,
-            'refresh_token' => $encryptedRefresh,
-            'token_expires_at' => $data['token_expires_at'] ?? null,
-            'status' => $data['status'] ?? 'connected',
-        ]);
+        try {
+            Database::execute($sql, [
+                'user_id' => $data['user_id'],
+                'gmail_email' => $data['gmail_email'],
+                'google_user_id' => $data['google_user_id'] ?? null,
+                'access_token' => $encryptedAccess,
+                'refresh_token' => $encryptedRefresh,
+                'token_expires_at' => $data['token_expires_at'] ?? null,
+                'status' => $data['status'] ?? 'connected',
+            ]);
+        } catch (\Throwable $e) {
+            if (str_contains($e->getMessage(), 'Unknown column') || str_contains($e->getMessage(), 'no such column')) {
+                self::$schemaEnsured = false;
+                self::ensureSchema();
+                Database::execute($sql, [
+                    'user_id' => $data['user_id'],
+                    'gmail_email' => $data['gmail_email'],
+                    'google_user_id' => $data['google_user_id'] ?? null,
+                    'access_token' => $encryptedAccess,
+                    'refresh_token' => $encryptedRefresh,
+                    'token_expires_at' => $data['token_expires_at'] ?? null,
+                    'status' => $data['status'] ?? 'connected',
+                ]);
+            } else {
+                throw $e;
+            }
+        }
 
         $id = (int)Database::lastInsertId();
 
@@ -100,17 +140,31 @@ class GmailAccount {
     }
 
     public function update(array $data): bool {
+        self::ensureSchema();
         $fields = [];
         $params = ['id' => $this->id];
         foreach ($data as $key => $val) {
-            $fields[] = "{$key} = :{$key}";
+            $fields[] = "`{$key}` = :{$key}";
             $params[$key] = $val;
+            if (property_exists($this, $key)) {
+                $this->$key = $val;
+            }
         }
 
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
-        $sql = "UPDATE gmail_accounts SET " . implode(', ', $fields) . ", updated_at = {$now} WHERE id = :id";
-        return Database::execute($sql, $params);
+        $sql = "UPDATE `gmail_accounts` SET " . implode(', ', $fields) . ", `updated_at` = {$now} WHERE `id` = :id";
+        
+        try {
+            return Database::execute($sql, $params);
+        } catch (\Throwable $e) {
+            if (str_contains($e->getMessage(), 'Unknown column') || str_contains($e->getMessage(), 'no such column')) {
+                self::$schemaEnsured = false;
+                self::ensureSchema();
+                return Database::execute($sql, $params);
+            }
+            throw $e;
+        }
     }
 
     public function getDecryptedAccessToken(): ?string {
