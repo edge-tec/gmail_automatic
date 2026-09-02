@@ -114,4 +114,35 @@ class SessionAuthTest extends TestCase {
         $loggedOutUser = User::find($user->id);
         $this->assertNull($loggedOutUser->remember_token);
     }
+
+    public function testUserRegistrationWithTrialAndNotifications(): void {
+        $email = 'reg_' . uniqid() . '@test.com';
+        $request = new \App\Core\Request(
+            'POST',
+            '/register',
+            [],
+            [],
+            [],
+            [
+                'name' => 'John Doe',
+                'email' => $email,
+                'password' => 'SecretPassword123',
+                'password_confirmation' => 'SecretPassword123',
+                'start_trial' => '1',
+            ]
+        );
+
+        $controller = new \App\Controllers\AuthController();
+        
+        // Execute registration - should not throw 500 Class not found exception
+        $controller->register($request);
+
+        $user = User::findByEmail($email);
+        $this->assertNotNull($user);
+        $this->assertEquals('John Doe', $user->name);
+        $this->assertEquals('trialing', $user->trial_status);
+        $this->assertTrue($user->isTrialActive());
+        $this->assertTrue(Auth::check());
+        $this->assertEquals($user->id, Auth::id());
+    }
 }

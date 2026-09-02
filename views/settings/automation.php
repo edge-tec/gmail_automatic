@@ -374,12 +374,19 @@ document.addEventListener('DOMContentLoaded', function() {
         ['clean']
     ];
 
+    function isQuillEmpty(quill) {
+        if (!quill) return true;
+        const text = quill.getText().trim();
+        if (text.length > 0) return false;
+        const media = quill.root.querySelector('img, svg, video, audio, iframe, table');
+        return media === null;
+    }
+
     function syncQuillToHidden(step) {
         const quill = quillInstances[step];
         const hiddenInput = document.getElementById(`hidden_message_${step}`);
         if (quill && hiddenInput) {
-            const text = quill.getText().trim();
-            hiddenInput.value = text.length > 0 ? quill.root.innerHTML : '';
+            hiddenInput.value = !isQuillEmpty(quill) ? quill.root.innerHTML : '';
         }
     }
 

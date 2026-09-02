@@ -11,6 +11,7 @@ use App\Models\GmailAccount;
 use App\Models\EmailJob;
 use App\Models\SystemSetting;
 use App\Services\StripeService;
+use App\Services\EmailNotificationService;
 use Exception;
 
 class BillingController {

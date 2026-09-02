@@ -8,6 +8,7 @@ use App\Core\View;
 use App\Models\User;
 use App\Models\EmailJob;
 use App\Models\SystemSetting;
+use App\Services\EmailNotificationService;
 
 class AuthController {
     public function showLogin(): string {

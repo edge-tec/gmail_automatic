@@ -121,6 +121,15 @@ class FollowupController {
         $delayUnit = $request->input('delay_unit', $step->delay_unit);
         $status = $request->input('status', 'active');
 
+        $isMeaningful = !empty(trim(strip_tags($message))) || !empty(trim(strip_tags($message, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>')));
+        $isPlaceholder = in_array($message, ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+
+        if (!$isMeaningful || $isPlaceholder) {
+            flash('error', 'Follow-up message cannot be empty.');
+            redirect("/settings/followups/{$step->gmail_account_id}");
+            return;
+        }
+
         $step->update([
             'name' => $name,
             'message' => $message,
