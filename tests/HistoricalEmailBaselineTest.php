@@ -250,4 +250,24 @@ class HistoricalEmailBaselineTest extends TestCase {
         $this->assertEquals('cancelled', $freshJob->status);
         $this->assertStringContainsString('historical baseline', $freshJob->last_error);
     }
+
+    public function testHistoryIdExpirationDoesNotProcessHistoricalInboxAsNew(): void {
+        // Set an invalid/expired historyId on the account
+        $this->account->update([
+            'history_id' => '999999999_expired',
+        ]);
+
+        $service = new \App\Services\GmailService($this->account);
+
+        // Fetch changes - with expired historyId, it gracefully re-establishes baseline without triggering replies
+        $messages = $service->fetchNewIncomingMessages();
+
+        $this->assertIsArray($messages);
+        // The return must be empty list so old messages are never dispatched as new
+        $this->assertCount(0, $messages);
+
+        // Ensure zero scheduled jobs created
+        $pendingJobs = Database::query("SELECT * FROM scheduled_jobs WHERE gmail_account_id = :acc AND status = 'pending'", ['acc' => $this->account->id]);
+        $this->assertCount(0, $pendingJobs);
+    }
 }

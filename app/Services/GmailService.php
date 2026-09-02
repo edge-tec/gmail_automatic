@@ -281,6 +281,89 @@ class GmailService {
     }
 
     /**
+     * Production-grade Delta Synchronization using Gmail History API (messageAdded) + Baseline fallback
+     * 
+     * Architecture:
+     * 1. If history_id is set: queries users_history->listUsersHistory('me', ['startHistoryId' => $historyId, 'historyTypes' => ['messageAdded'], 'labelId' => 'INBOX'])
+     * 2. Extracts genuinely newly added incoming messages since the baseline.
+     * 3. If historyId is expired/404: Re-establishes baseline, indexes current inbox as historical, and NEVER triggers auto-replies on recovered inbox.
+     * 4. Updates stored history_id to the latest valid historyId.
+     */
+    public function fetchNewIncomingMessages(int $maxResults = 50): array {
+        if (!$this->account) {
+            return [];
+        }
+
+        // If baseline has never been completed, establish baseline first
+        if ($this->account->initial_sync_completed === 0 || empty($this->account->history_id)) {
+            $this->initializeBaselineSync();
+            return [];
+        }
+
+        $gmail = $this->getGmail();
+        $startHistoryId = $this->account->history_id;
+
+        try {
+            $params = [
+                'startHistoryId' => $startHistoryId,
+                'historyTypes' => ['messageAdded'],
+                'labelId' => 'INBOX',
+                'maxResults' => $maxResults,
+            ];
+
+            $response = $gmail->users_history->listUsersHistory('me', $params);
+            $histories = $response->getHistory() ?? [];
+            $newHistoryId = $response->getHistoryId();
+
+            $newMessages = [];
+            $seenMessageIds = [];
+
+            foreach ($histories as $history) {
+                $messagesAdded = $history->getMessagesAdded() ?? [];
+                foreach ($messagesAdded as $added) {
+                    $msg = $added->getMessage();
+                    if (!$msg) continue;
+                    $msgId = $msg->getId();
+                    if (!$msgId || isset($seenMessageIds[$msgId])) continue;
+                    $seenMessageIds[$msgId] = true;
+
+                    // Skip if already in database (idempotent)
+                    $exists = \App\Models\EmailMessage::findByAccountAndMessageId($this->account->id, $msgId);
+                    if ($exists) continue;
+
+                    $msgData = $this->getMessage($msgId);
+                    if ($msgData) {
+                        $newMessages[] = $msgData;
+                    }
+                }
+            }
+
+            if ($newHistoryId) {
+                $this->account->update([
+                    'history_id' => $newHistoryId,
+                    'last_sync_at' => date('Y-m-d H:i:s'),
+                    'last_error' => null,
+                ]);
+            }
+
+            return $newMessages;
+
+        } catch (\Throwable $e) {
+            $msg = $e->getMessage();
+            // Handle HTTP 404 / expired historyId or invalid historyId
+            if (str_contains($msg, '404') || str_contains($msg, 'historyId') || str_contains($msg, 'Invalid historyId') || str_contains($msg, 'notFound')) {
+                logger("HistoryId #{$startHistoryId} expired or invalid for {$this->account->gmail_email}. Re-establishing baseline to protect historical inbox.", 'warning', $this->account->user_id, $this->account->id);
+                // Re-establish baseline without triggering replies
+                $this->initializeBaselineSync();
+                return [];
+            }
+
+            $this->handleScopeOrAuthError($e, "fetch history changes");
+            return [];
+        }
+    }
+
+    /**
      * List incoming unread messages or recent messages from INBOX
      */
     public function listInboxMessages(int $maxResults = 20, ?string $query = 'label:INBOX'): array {

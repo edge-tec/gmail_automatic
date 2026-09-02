@@ -220,22 +220,23 @@ class GmailAccountController {
 
             $engine = new \App\Services\AutomationEngine($account);
 
-            $messages = $service->listInboxMessages(15, 'label:INBOX');
+            $messages = $service->fetchNewIncomingMessages(20);
+            if (empty($messages)) {
+                $rawList = $service->listInboxMessages(15, 'label:INBOX');
+                foreach ($rawList as $msgItem) {
+                    $msgId = is_object($msgItem) ? $msgItem->getId() : ($msgItem['id'] ?? null);
+                    if (!$msgId || \App\Models\EmailMessage::findByAccountAndMessageId($account->id, $msgId)) continue;
+                    $mD = $service->getMessage($msgId);
+                    if ($mD) $messages[] = $mD;
+                }
+            }
+
             $newCount = 0;
 
-            foreach ($messages as $msgItem) {
-                $msgId = is_object($msgItem) ? $msgItem->getId() : ($msgItem['id'] ?? null);
-                if (!$msgId) continue;
-
-                $exists = \App\Models\EmailMessage::findByAccountAndMessageId($account->id, $msgId);
-                if ($exists) continue;
-
-                $msgData = $service->getMessage($msgId);
-                if ($msgData) {
-                    $res = $engine->processIncomingMessage($msgData);
-                    if ($res['status'] !== 'skipped' || ($res['reason'] ?? '') !== 'Historical email received before Gmail account connection') {
-                        $newCount++;
-                    }
+            foreach ($messages as $msgData) {
+                $res = $engine->processIncomingMessage($msgData);
+                if ($res['status'] !== 'skipped' || ($res['reason'] ?? '') !== 'Historical email received before Gmail account connection') {
+                    $newCount++;
                 }
             }
 
