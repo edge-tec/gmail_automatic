@@ -301,8 +301,9 @@ class AutomationEngine {
 
         // 10. Prepare Reply Message for Step #$nextReplyStep with Template Variables
         $templateMessage = $ruleDecision['custom_message'] ?? $this->settings->getReplyMessageForStep($nextReplyStep);
-        $cleanCheck = trim(strip_tags($templateMessage));
-        if (empty($cleanCheck)) {
+        $cleanCheck = trim(strip_tags($templateMessage, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
+        $isPlaceholder = in_array(trim($templateMessage), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+        if (empty($cleanCheck) || $isPlaceholder) {
             logger("Message content is missing for Step #{$nextReplyStep}. Automated email was not sent.", 'warning', $this->account->user_id, $this->account->id);
             return ['status' => 'skipped', 'reason' => "Message content is missing for Step #{$nextReplyStep}. Automated email was not sent."];
         }
@@ -688,7 +689,10 @@ class AutomationEngine {
         }
 
         $nextTemplate = FollowupTemplate::findNextStep($this->account->id, $completedStepNumber);
-        if (!$nextTemplate || empty(trim(strip_tags($nextTemplate->message)))) {
+        $nextMsg = $nextTemplate ? $nextTemplate->message : '';
+        $cleanCheck = trim(strip_tags($nextMsg, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
+        $isPlaceholder = in_array(trim($nextMsg), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+        if (!$nextTemplate || empty($cleanCheck) || $isPlaceholder) {
             // Sequence completed or template missing/empty
             $campaign->markCompleted();
             $thread->update(['automation_status' => 'completed', 'next_followup_at' => null]);

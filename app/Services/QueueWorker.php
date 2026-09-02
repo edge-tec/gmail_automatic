@@ -190,7 +190,9 @@ class QueueWorker {
 
                 $liveTemplate = $settings->getReplyMessageForStep($stepNumber);
 
-                if (empty(trim(strip_tags($liveTemplate)))) {
+                $liveClean = trim(strip_tags($liveTemplate, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
+                $liveIsPlaceholder = in_array(trim($liveTemplate), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+                if (empty($liveClean) || $liveIsPlaceholder) {
                     if ($replyRecipient) {
                         $replyRecipient->markCancelled();
                     }
@@ -244,8 +246,11 @@ class QueueWorker {
                 $stepNumber = (int)($payload['step_number'] ?? 1);
                 // Re-validate live template strictly from DB (Message edit/delete protection)
                 $template = $templateId ? FollowupTemplate::find($templateId) : FollowupTemplate::findNextStep($account->id, $stepNumber - 1);
+                $tplMsg = $template ? $template->message : '';
+                $tplClean = trim(strip_tags($tplMsg, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
+                $tplIsPlaceholder = in_array(trim($tplMsg), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
 
-                if (!$template || $template->status !== 'active' || empty(trim(strip_tags($template->message)))) {
+                if (!$template || $template->status !== 'active' || empty($tplClean) || $tplIsPlaceholder) {
                     $job->cancel('Follow-up template is missing, disabled, or deleted. Automated email was not sent.');
                     if ($campaign) {
                         $campaign->cancelPendingJobs('Follow-up template missing or deleted');
@@ -278,7 +283,9 @@ class QueueWorker {
                 }
             }
 
-            if (empty(trim(strip_tags($finalBody)))) {
+            $finalClean = trim(strip_tags($finalBody, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
+            $finalIsPlaceholder = in_array(trim($finalBody), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+            if (empty($finalClean) || $finalIsPlaceholder) {
                 $job->cancel('Message content is missing. Automated email was not sent.');
                 logger("Blocked automated email: Message content is empty. Job #{$job->id} cancelled.", 'warning', $account->user_id, $account->id);
                 return true;

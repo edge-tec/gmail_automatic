@@ -91,8 +91,9 @@ class AutomationSettingsController {
                 $stepNum = (int)$step;
                 if (is_array($stepData)) {
                     $msg = trim($stepData['message'] ?? '');
-                    $textOnly = trim(strip_tags($msg));
-                    if (!empty($textOnly)) {
+                    $isMeaningful = !empty(trim(strip_tags($msg))) || !empty(trim(strip_tags($msg, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>')));
+                    $isPlaceholder = in_array($msg, ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+                    if ($isMeaningful && !$isPlaceholder) {
                         $cleanSteps[$stepNum] = [
                             'message' => $msg,
                             'delay_value' => max(0, (int)($stepData['delay_value'] ?? 0)),
@@ -121,10 +122,12 @@ class AutomationSettingsController {
             $cleanMessages = [];
             foreach ($replyMessagesInput as $step => $msg) {
                 $stepNum = (int)$step;
-                $textOnly = trim(strip_tags($msg));
-                if (!empty($textOnly)) {
+                $msgStr = trim($msg);
+                $isMeaningful = !empty(trim(strip_tags($msgStr))) || !empty(trim(strip_tags($msgStr, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>')));
+                $isPlaceholder = in_array($msgStr, ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+                if ($isMeaningful && !$isPlaceholder) {
                     $cleanMessages[$stepNum] = [
-                        'message' => trim($msg),
+                        'message' => $msgStr,
                         'delay_value' => 0,
                         'delay_unit' => 'seconds'
                     ];
@@ -145,7 +148,9 @@ class AutomationSettingsController {
             }
         } else {
             $rawMsg = trim($request->input('reply_message', ''));
-            $replyMessage = !empty(trim(strip_tags($rawMsg))) ? $rawMsg : null;
+            $isMeaningful = !empty(trim(strip_tags($rawMsg))) || !empty(trim(strip_tags($rawMsg, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>')));
+            $isPlaceholder = in_array($rawMsg, ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+            $replyMessage = ($isMeaningful && !$isPlaceholder) ? $rawMsg : null;
         }
 
         $autoReplyEnabled = (bool)$request->input('auto_reply_enabled', 0);
@@ -202,7 +207,9 @@ class AutomationSettingsController {
                         if (is_array($payload) && isset($payload['reply_step'])) {
                             $step = (int)$payload['reply_step'];
                             $latestStepMsg = $updatedSettings->getReplyMessageForStep($step);
-                            if (empty(trim(strip_tags($latestStepMsg)))) {
+                            $isMeaningful = !empty(trim(strip_tags($latestStepMsg))) || !empty(trim(strip_tags($latestStepMsg, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>')));
+                            $isPlaceholder = in_array(trim($latestStepMsg), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+                            if (!$isMeaningful || $isPlaceholder) {
                                 // Message for this step was deleted by user -> cancel job immediately
                                 \App\Core\Database::execute(
                                     "UPDATE scheduled_jobs SET status = 'cancelled', last_error = :err WHERE id = :id",

@@ -1083,5 +1083,55 @@ class ReplySequenceAndFollowupCampaignTest extends TestCase {
         $this->assertEquals(1, $usage['reply_count'], '1 traffic sequence must consume only 1 daily reply count');
         $this->assertEquals(3, $usage['reply_messages_count'], '3 actual outgoing messages recorded');
     }
+
+    /**
+     * Test large rich-text reply messages with embedded base64 images exceeding standard TEXT 64KB limit
+     */
+    public function testLargeRichTextReplyMessageWithImages(): void {
+        // Generate a 120KB payload with rich text and base64 image data
+        $largeBase64Image = '<p>Hello!</p><p><img src="data:image/png;base64,' . str_repeat('A', 120000) . '"></p>';
+        $replySteps = [
+            1 => ['message' => $largeBase64Image, 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            2 => ['message' => '<p>Second step with <a href="https://example.com">Link</a></p>', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+        ];
+
+        $encoded = json_encode($replySteps, JSON_UNESCAPED_UNICODE);
+        $this->assertGreaterThan(100000, strlen($encoded));
+
+        $updated = $this->settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => $encoded,
+            'max_reply_per_thread' => 3,
+            'daily_reply_limit' => 50,
+        ]);
+        $this->assertTrue($updated);
+
+        $this->settings = AutomationSetting::findByAccountId($this->account->id);
+        $this->assertNotNull($this->settings);
+        $this->assertEquals(2, $this->settings->getTotalConfiguredReplySteps());
+        $this->assertEquals($largeBase64Image, $this->settings->getReplyMessageForStep(1));
+
+        // Ensure automation engine and queue worker can process the message without issue
+        $sender = 'large_img_lead_' . uniqid() . '@test.com';
+        $engine = new AutomationEngine($this->account);
+        $res = $engine->processIncomingMessage([
+            'message_id' => 'msg_large_img_' . uniqid(),
+            'thread_id' => 'th_large_img_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'Rich Text Lead',
+            'subject' => 'Product Inquiry',
+            'snippet' => 'Interested in your software',
+            'body' => 'Interested in your software',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->assertEquals('scheduled', $res['status']);
+        $this->worker->run(true);
+
+        $recipient = AutoReplyRecipient::findByUserAndSender($this->account->user_id, $sender);
+        $this->assertNotNull($recipient);
+        $this->assertEquals(1, $recipient->reply_sequence_step);
+    }
 }
+
 

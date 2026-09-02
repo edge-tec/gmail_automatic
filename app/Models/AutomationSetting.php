@@ -31,6 +31,11 @@ class AutomationSetting {
             'require_recipient_reply_before_next_reply' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
         ];
         \App\Core\DatabaseSanitizer::ensureTableColumns('automation_settings', $cols);
+        if ($driver === 'mysql') {
+            try {
+                Database::execute("ALTER TABLE `automation_settings` MODIFY COLUMN `reply_message` LONGTEXT NULL");
+            } catch (\Throwable $t) {}
+        }
     }
 
     public static function findByAccountId(int $accountId): ?self {
@@ -129,7 +134,7 @@ class AutomationSetting {
                 ksort($result);
                 return $result;
             }
-        } elseif (!empty(trim(strip_tags($this->reply_message)))) {
+        } elseif (!empty(trim(strip_tags($this->reply_message))) || !empty(trim(strip_tags($this->reply_message, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>')))) {
             // Raw text or HTML string stored directly
             return [
                 1 => [
@@ -146,7 +151,9 @@ class AutomationSetting {
     public function getTotalConfiguredReplySteps(): int {
         $steps = $this->getReplyStepsData();
         if (empty($steps)) {
-            if (!empty($this->reply_message) && !empty(trim(strip_tags($this->reply_message)))) {
+            $hasContent = !empty($this->reply_message) && (!empty(trim(strip_tags($this->reply_message))) || !empty(trim(strip_tags($this->reply_message, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'))));
+            $isPlaceholder = in_array(trim((string)$this->reply_message), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+            if ($hasContent && !$isPlaceholder) {
                 return 1;
             }
             return 0;
@@ -169,7 +176,9 @@ class AutomationSetting {
         // 1. Direct step match
         if (isset($steps[$step])) {
             $msg = trim($steps[$step]['message'] ?? '');
-            if (!empty($msg) && $msg !== '<p><br></p>') {
+            $isMeaningful = !empty(trim(strip_tags($msg))) || !empty(trim(strip_tags($msg, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>')));
+            $isPlaceholder = in_array($msg, ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+            if ($isMeaningful && !$isPlaceholder) {
                 return $steps[$step]['message'];
             }
         }

@@ -84,6 +84,27 @@ class DatabaseSanitizer {
                 ];
 
                 self::ensureTableColumns('auto_reply_recipients', $recipientCols);
+
+                // Ensure columns with large text / rich content / JSON / base64 images use LONGTEXT to prevent 1406 truncation errors
+                $longtextCols = [
+                    'automation_settings' => ['reply_message' => 'LONGTEXT NULL'],
+                    'activity_logs' => ['message' => 'LONGTEXT NOT NULL', 'context_json' => 'LONGTEXT NULL'],
+                    'scheduled_jobs' => ['payload' => 'LONGTEXT NULL', 'last_error' => 'LONGTEXT NULL'],
+                    'followup_jobs' => ['message' => 'LONGTEXT NULL', 'last_error' => 'LONGTEXT NULL'],
+                    'email_messages' => ['snippet' => 'LONGTEXT NULL', 'message_body' => 'LONGTEXT NULL'],
+                    'skipped_email_logs' => ['snippet' => 'LONGTEXT NULL'],
+                    'gmail_accounts' => ['access_token' => 'LONGTEXT NULL', 'refresh_token' => 'LONGTEXT NULL', 'last_error' => 'LONGTEXT NULL'],
+                    'system_settings' => ['setting_value' => 'LONGTEXT NULL'],
+                    'payments' => ['admin_notes' => 'LONGTEXT NULL'],
+                    'email_jobs' => ['last_error' => 'LONGTEXT NULL'],
+                ];
+                foreach ($longtextCols as $table => $cols) {
+                    foreach ($cols as $col => $type) {
+                        try {
+                            Database::execute("ALTER TABLE `{$table}` MODIFY COLUMN `{$col}` {$type}");
+                        } catch (\Throwable $t) {}
+                    }
+                }
             } else {
                 $settingColsSqlite = [
                     'require_recipient_reply_before_next_reply' => 'INTEGER NOT NULL DEFAULT 0',

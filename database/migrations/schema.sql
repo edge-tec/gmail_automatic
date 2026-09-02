@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS system_settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     setting_key VARCHAR(191) NOT NULL UNIQUE,
-    setting_value TEXT NULL,
+    setting_value LONGTEXT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -43,13 +43,13 @@ CREATE TABLE IF NOT EXISTS gmail_accounts (
     user_id INT NOT NULL,
     gmail_email VARCHAR(255) NOT NULL,
     google_user_id VARCHAR(191) NULL,
-    access_token TEXT NULL,
-    refresh_token TEXT NULL,
+    access_token LONGTEXT NULL,
+    refresh_token LONGTEXT NULL,
     token_expires_at DATETIME NULL,
     history_id VARCHAR(100) NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'connected',
     last_sync_at DATETIME NULL,
-    last_error TEXT NULL,
+    last_error LONGTEXT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS automation_settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     gmail_account_id INT NOT NULL UNIQUE,
     auto_reply_enabled TINYINT(1) NOT NULL DEFAULT 1,
-    reply_message TEXT NULL,
+    reply_message LONGTEXT NULL,
     max_reply_per_thread INT NOT NULL DEFAULT 3,
     daily_reply_limit INT NOT NULL DEFAULT 100,
     reply_delay INT NOT NULL DEFAULT 0, -- delay in seconds
