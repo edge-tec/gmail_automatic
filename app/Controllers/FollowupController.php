@@ -65,11 +65,21 @@ class FollowupController {
         $nextStepNum = count($existingSteps) + 1;
 
         $name = trim($request->input('name', "Follow-up #{$nextStepNum}"));
-        $message = trim($request->input('message', ''));
+        $rawMessage = trim($request->input('message', ''));
+        if (strlen($rawMessage) > 10 * 1024 * 1024) {
+            flash('error', 'Follow-up message exceeds the maximum allowed size (10 MB).');
+            redirect("/settings/followups/{$account->id}");
+            return;
+        }
+
+        $message = \App\Controllers\AutomationSettingsController::sanitizeRichText($rawMessage);
         $delayValue = max(1, (int)$request->input('delay_value', 2));
         $delayUnit = $request->input('delay_unit', 'days');
 
-        if (empty($message)) {
+        $isMeaningful = !empty(trim(strip_tags($message))) || !empty(trim(strip_tags($message, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>')));
+        $isPlaceholder = in_array($message, ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+
+        if (!$isMeaningful || $isPlaceholder) {
             flash('error', 'Follow-up message cannot be empty.');
             redirect("/settings/followups/{$account->id}");
             return;
@@ -99,7 +109,14 @@ class FollowupController {
         }
 
         $name = trim($request->input('name', $step->name));
-        $message = trim($request->input('message', $step->message));
+        $rawMessage = trim($request->input('message', $step->message));
+        if (strlen($rawMessage) > 10 * 1024 * 1024) {
+            flash('error', 'Follow-up message exceeds the maximum allowed size (10 MB).');
+            redirect("/settings/followups/{$step->gmail_account_id}");
+            return;
+        }
+
+        $message = \App\Controllers\AutomationSettingsController::sanitizeRichText($rawMessage);
         $delayValue = max(1, (int)$request->input('delay_value', $step->delay_value));
         $delayUnit = $request->input('delay_unit', $step->delay_unit);
         $status = $request->input('status', 'active');

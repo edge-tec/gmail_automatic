@@ -280,6 +280,14 @@ class GmailService {
         ?string $inReplyToMessageIdHeader = null,
         ?string $referencesHeader = null
     ): array {
+        // Enforce Google Gmail API RFC 2822 payload size limit (25 MB) early to prevent memory exhaustion
+        $maxMimeSize = 25 * 1024 * 1024;
+        $bodyLen = strlen($bodyText);
+        if ($bodyLen > $maxMimeSize) {
+            $formattedMB = round($bodyLen / (1024 * 1024), 2);
+            throw new \Exception("Message payload ({$formattedMB} MB) exceeds Google Gmail API maximum limit (25 MB). Send aborted.");
+        }
+
         $cleanBody = trim(strip_tags($bodyText, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
         $isPlaceholder = in_array(trim($bodyText), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
         if (empty($cleanBody) || $isPlaceholder) {
@@ -329,6 +337,14 @@ class GmailService {
         }
 
         $rawMime = implode("\r\n", $replyHeaders) . "\r\n\r\n" . $formattedBody;
+
+        // Enforce Google Gmail API RFC 2822 payload size limit (25 MB)
+        $maxMimeSize = 25 * 1024 * 1024;
+        $mimeSize = strlen($rawMime);
+        if ($mimeSize > $maxMimeSize) {
+            $formattedMB = round($mimeSize / (1024 * 1024), 2);
+            throw new \Exception("Message payload ({$formattedMB} MB) exceeds Google Gmail API maximum limit (25 MB). Send aborted.");
+        }
 
         $msg = new GoogleMessage();
         $msg->setRaw($this->encodeBase64Url($rawMime));

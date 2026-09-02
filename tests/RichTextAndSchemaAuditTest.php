@@ -332,4 +332,83 @@ class RichTextAndSchemaAuditTest extends TestCase {
         ]);
         $this->assertTrue($updated);
     }
+
+    /**
+     * Test J: 10MB payload safeguard and 25MB Gmail API RFC 2822 payload limit check.
+     */
+    public function testJ_PayloadLimitAndGmailAPILimitEnforcement(): void {
+        // Test Gmail API 25MB check
+        $gmailService = new \App\Services\GmailService($this->account);
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('exceeds Google Gmail API maximum limit (25 MB)');
+
+        // Generate synthetic oversized payload (>25MB)
+        $oversizedMimeBody = str_repeat('OVERSIZED_CHUNK_', 1700000);
+        $this->assertGreaterThan(26000000, strlen($oversizedMimeBody));
+
+        $gmailService->sendThreadReply(
+            'lead_oversize@test.com',
+            'Oversized Subject',
+            $oversizedMimeBody,
+            'thread_oversize_123'
+        );
+    }
+
+    /**
+     * Test K: Production Smoke Test - End-to-end rich text with formatting, links, Bengali, emojis, and inline image.
+     */
+    public function testK_ProductionSmokeTestCompletePipeline(): void {
+        $logoBase64 = 'data:image/png;base64,' . base64_encode('SMOKE_TEST_PNG_BYTE_STREAM');
+        $smokeHtml = '<h2>স্বাগতম! 🎉 Welcome to Our Service</h2><p>Dear <strong>{{sender_name}}</strong>,</p><p>We have received your project details regarding <em>{{subject}}</em> on {{date}}. <a href="https://example.com/demo" target="_blank">Access Portal</a></p><p><img src="' . $logoBase64 . '" alt="Official Logo"></p>';
+
+        $this->settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => json_encode([
+                1 => ['message' => $smokeHtml, 'delay_value' => 0, 'delay_unit' => 'seconds']
+            ], JSON_UNESCAPED_UNICODE),
+        ]);
+
+        $this->account = GmailAccount::find($this->account->id);
+        $sender = 'smoke_recipient_' . uniqid() . '@company.com';
+        $engine = new AutomationEngine($this->account);
+        $result = $engine->processIncomingMessage([
+            'message_id' => 'msg_smoke_' . uniqid(),
+            'thread_id' => 'th_smoke_' . uniqid(),
+            'sender_email' => $sender,
+            'sender_name' => 'John Doe',
+            'subject' => 'Project Kickoff',
+            'snippet' => 'Let us start the project',
+            'body' => 'Let us start the project',
+            'date' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->assertEquals('scheduled', $result['status']);
+        $this->assertNotEmpty($result['job_id']);
+
+        $job = ScheduledJob::find($result['job_id']);
+        $this->assertNotNull($job);
+
+        // Process job
+        $success = $this->worker->processJob($job);
+        $this->assertTrue($success);
+
+        // Verify scheduled job marked completed
+        $refreshedJob = ScheduledJob::find($job->id);
+        $this->assertEquals('completed', $refreshedJob->status);
+
+        // Verify outgoing message recorded in email_messages
+        $messages = \App\Core\Database::query(
+            "SELECT * FROM email_messages WHERE recipient = :to AND direction = 'outgoing' ORDER BY id DESC LIMIT 1",
+            ['to' => $sender]
+        );
+        $this->assertNotEmpty($messages);
+        $recordedBody = $messages[0]['message_body'];
+
+        $this->assertStringContainsString('স্বাগতম!', $recordedBody);
+        $this->assertStringContainsString('🎉', $recordedBody);
+        $this->assertStringContainsString('John Doe', $recordedBody);
+        $this->assertStringContainsString('Project Kickoff', $recordedBody);
+        $this->assertStringContainsString($logoBase64, $recordedBody);
+        $this->assertStringContainsString('https://example.com/demo', $recordedBody);
+    }
 }
