@@ -270,4 +270,145 @@ class HistoricalEmailBaselineTest extends TestCase {
         $pendingJobs = Database::query("SELECT * FROM scheduled_jobs WHERE gmail_account_id = :acc AND status = 'pending'", ['acc' => $this->account->id]);
         $this->assertCount(0, $pendingJobs);
     }
+
+    public function testClearLeadsResetsSequenceToStep1ForGenuinelyNewMessageWhileHistoricalEmailsRemainProtected(): void {
+        $engine = new AutomationEngine($this->account);
+        $sender = 'repeat_lead_' . uniqid() . '@example.com';
+        $threadId = 'thread_repeat_' . uniqid();
+
+        // Configure multi-step sequence template
+        $settings = $this->account->getSettings();
+        $settings->update([
+            'auto_reply_enabled' => 1,
+            'reply_message' => json_encode([
+                1 => ['message' => 'Step 1 Message', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+                2 => ['message' => 'Step 2 Message', 'delay_value' => 0, 'delay_unit' => 'seconds'],
+            ]),
+        ]);
+
+        // 1. Sender had a pre-connection historical email
+        $histMsgId = 'hist_msg_' . uniqid();
+        $histRes = $engine->processIncomingMessage([
+            'message_id' => $histMsgId,
+            'id' => $histMsgId,
+            'thread_id' => $threadId,
+            'sender_email' => $sender,
+            'sender_name' => 'Repeat Lead',
+            'subject' => 'Old Topic',
+            'snippet' => 'Old snippet',
+            'body' => 'Old body',
+            'date' => date('Y-m-d H:i:s', strtotime($this->account->connected_at) - 86400),
+            'in_reply_to' => null,
+            'is_reply' => false,
+        ]);
+        $this->assertEquals('skipped', $histRes['status']);
+
+        // 2. Sender sends Email #1 after connection -> Gets Step 1
+        $newMsg1Id = 'new_msg_1_' . uniqid();
+        $res1 = $engine->processIncomingMessage([
+            'message_id' => $newMsg1Id,
+            'id' => $newMsg1Id,
+            'thread_id' => $threadId,
+            'sender_email' => $sender,
+            'sender_name' => 'Repeat Lead',
+            'subject' => 'Hello',
+            'snippet' => 'Question 1',
+            'body' => 'Question 1',
+            'date' => date('Y-m-d H:i:s', strtotime($this->account->connected_at) + 60),
+            'in_reply_to' => null,
+            'is_reply' => false,
+        ]);
+        $this->assertEquals('scheduled', $res1['status']);
+        $this->assertEquals(1, $res1['reply_step']);
+
+        // Worker executes Step 1
+        $worker = new QueueWorker();
+        $worker->run(true, 10);
+
+        $rec = AutoReplyRecipient::findByUserAndSender($this->user->id, $sender);
+        $this->assertNotNull($rec);
+        $this->assertEquals(1, $rec->reply_sequence_step);
+
+        // 3. Sender sends Email #2 -> Gets Step 2
+        $newMsg2Id = 'new_msg_2_' . uniqid();
+        $res2 = $engine->processIncomingMessage([
+            'message_id' => $newMsg2Id,
+            'id' => $newMsg2Id,
+            'thread_id' => $threadId,
+            'sender_email' => $sender,
+            'sender_name' => 'Repeat Lead',
+            'subject' => 'Hello again',
+            'snippet' => 'Question 2',
+            'body' => 'Question 2',
+            'date' => date('Y-m-d H:i:s', strtotime($this->account->connected_at) + 120),
+            'in_reply_to' => null,
+            'is_reply' => false,
+        ]);
+        $this->assertEquals('scheduled', $res2['status']);
+        $this->assertEquals(2, $res2['reply_step']);
+
+        $worker->run(true, 10);
+        $rec = AutoReplyRecipient::findByUserAndSender($this->user->id, $sender);
+        $this->assertEquals(2, $rec->reply_sequence_step);
+
+        // 4. User Clears Lead History (only resets sender duplicate/sequence state)
+        Database::execute("DELETE FROM auto_reply_recipients WHERE user_id = :uid", ['uid' => $this->user->id]);
+        Database::execute("DELETE FROM skipped_email_logs WHERE user_id = :uid", ['uid' => $this->user->id]);
+
+        // 5. Verify historical email from before connection is STILL permanently protected!
+        $recheckHist = $engine->processIncomingMessage([
+            'message_id' => $histMsgId,
+            'id' => $histMsgId,
+            'thread_id' => $threadId,
+            'sender_email' => $sender,
+            'sender_name' => 'Repeat Lead',
+            'subject' => 'Old Topic',
+            'snippet' => 'Old snippet',
+            'body' => 'Old body',
+            'date' => date('Y-m-d H:i:s', strtotime($this->account->connected_at) - 86400),
+            'in_reply_to' => null,
+            'is_reply' => false,
+        ]);
+        $this->assertEquals('skipped', $recheckHist['status']);
+        $this->assertStringContainsString('Historical email', $recheckHist['reason']);
+
+        // 6. Verify already processed Msg 1 and Msg 2 are STILL idempotent duplicates and do not re-send!
+        $recheckMsg1 = $engine->processIncomingMessage([
+            'message_id' => $newMsg1Id,
+            'id' => $newMsg1Id,
+            'thread_id' => $threadId,
+            'sender_email' => $sender,
+            'sender_name' => 'Repeat Lead',
+            'subject' => 'Hello',
+            'snippet' => 'Question 1',
+            'body' => 'Question 1',
+            'date' => date('Y-m-d H:i:s', strtotime($this->account->connected_at) + 60),
+            'in_reply_to' => null,
+            'is_reply' => false,
+        ]);
+        $this->assertEquals('duplicate', $recheckMsg1['status']);
+
+        // 7. Genuinely NEW Email #3 arrives (new message ID, after baseline) -> MUST trigger NEW TRAFFIC and send Reply #1!
+        $newMsg3Id = 'new_msg_3_' . uniqid();
+        $res3 = $engine->processIncomingMessage([
+            'message_id' => $newMsg3Id,
+            'id' => $newMsg3Id,
+            'thread_id' => $threadId,
+            'sender_email' => $sender,
+            'sender_name' => 'Repeat Lead',
+            'subject' => 'Fresh Inquiry',
+            'snippet' => 'Question 3',
+            'body' => 'Question 3',
+            'date' => date('Y-m-d H:i:s', strtotime($this->account->connected_at) + 300),
+            'in_reply_to' => null,
+            'is_reply' => false,
+        ]);
+        $this->assertEquals('scheduled', $res3['status']);
+        $this->assertEquals(1, $res3['reply_step'], 'After clearing leads, a genuinely new incoming message must start fresh from Reply #1');
+
+        $worker->run(true, 10);
+        $freshRec = AutoReplyRecipient::findByUserAndSender($this->user->id, $sender);
+        $this->assertNotNull($freshRec);
+        $this->assertEquals(1, $freshRec->reply_sequence_step);
+    }
 }
