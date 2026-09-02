@@ -91,6 +91,18 @@ class GmailAccountController {
 
             $user = Auth::user();
 
+            $grantedScopes = $tokenData['raw_token']['scope'] ?? '';
+            $hasMailboxAccess = str_contains($grantedScopes, 'mail.google.com')
+                || str_contains($grantedScopes, 'gmail.modify')
+                || str_contains($grantedScopes, 'gmail.readonly');
+
+            $status = 'connected';
+            $lastError = null;
+            if (!$hasMailboxAccess && !empty($grantedScopes)) {
+                $status = 'needs_reauth';
+                $lastError = 'Action Required: Gmail permissions were not granted during Google sign-in. Please reconnect and check all Gmail permission checkboxes on Google\'s consent screen.';
+            }
+
             $account = GmailAccount::createOrUpdate([
                 'user_id' => $user->id,
                 'gmail_email' => $tokenData['email'],
@@ -98,11 +110,17 @@ class GmailAccountController {
                 'access_token' => $tokenData['access_token'],
                 'refresh_token' => $tokenData['refresh_token'],
                 'token_expires_at' => $tokenData['token_expires_at'],
+                'status' => $status,
+                'last_error' => $lastError,
             ]);
 
-            logger("Connected Gmail Account: {$tokenData['email']}", 'success', $user->id, $account->id);
+            logger("Connected Gmail Account: {$tokenData['email']} (Status: {$status})", 'success', $user->id, $account->id);
 
-            flash('success', "Gmail account [{$tokenData['email']}] connected successfully!");
+            if ($status === 'needs_reauth') {
+                flash('warning', "Gmail account [{$tokenData['email']}] connected, but Gmail mailbox permissions were unchecked during sign-in. Please click 'Reconnect & Grant Permissions' and check all permission checkboxes on Google's consent screen.");
+            } else {
+                flash('success', "Gmail account [{$tokenData['email']}] connected successfully with full permissions!");
+            }
             redirect('/accounts');
 
         } catch (\Throwable $e) {

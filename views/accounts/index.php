@@ -47,6 +47,10 @@
                                     <span class="badge bg-success-subtle text-success border border-success-subtle">
                                         <i class="fa-solid fa-circle-check me-1"></i> Connected
                                     </span>
+                                <?php elseif ($acc->status === 'needs_reauth'): ?>
+                                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
+                                        <i class="fa-solid fa-triangle-exclamation me-1"></i> Permissions Required
+                                    </span>
                                 <?php else: ?>
                                     <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
                                         <i class="fa-solid fa-circle-xmark me-1"></i> Disconnected
@@ -68,10 +72,17 @@
                     </form>
                 </div>
 
-                <?php if ($acc->last_error): ?>
-                <div class="alert alert-warning py-2 px-3 small d-flex align-items-center gap-2 mb-3">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <div class="text-truncate"><?= e($acc->last_error) ?></div>
+                <?php if ($acc->status === 'needs_reauth' || $acc->last_error): ?>
+                <div class="alert alert-warning py-2 px-3 small mb-3">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-triangle-exclamation text-warning flex-shrink-0"></i>
+                            <div><?= e($acc->last_error ?: 'Google authorization permissions required.') ?></div>
+                        </div>
+                        <a href="<?= url('/accounts/connect') ?>" class="btn btn-sm btn-warning text-dark fw-semibold">
+                            <i class="fa-brands fa-google me-1"></i> Reconnect & Grant Permissions
+                        </a>
+                    </div>
                 </div>
                 <?php endif; ?>
 

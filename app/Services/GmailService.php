@@ -144,6 +144,29 @@ class GmailService {
         return $this->gmailService;
     }
 
+    private function handleScopeOrAuthError(\Throwable $e, string $actionName): void {
+        $msg = $e->getMessage();
+        if ($this->account) {
+            if (str_contains($msg, 'ACCESS_TOKEN_SCOPE_INSUFFICIENT') || str_contains($msg, 'insufficient authentication scopes') || str_contains($msg, 'insufficientPermissions')) {
+                $friendlyError = "Action Required: Insufficient Gmail Permissions. Please reconnect this account and make sure to check all Gmail permission checkboxes on Google's authorization screen.";
+                $this->account->update([
+                    'status' => 'needs_reauth',
+                    'last_error' => $friendlyError,
+                ]);
+                logger("Gmail Account {$this->account->gmail_email} needs re-authorization: Insufficient OAuth scopes for {$actionName}.", 'warning', $this->account->user_id, $this->account->id);
+                return;
+            }
+
+            if (str_contains($msg, 'invalid_grant') || str_contains($msg, 'Token has been expired or revoked')) {
+                $this->account->update([
+                    'status' => 'needs_reauth',
+                    'last_error' => "Google token revoked or expired. Please reconnect this account.",
+                ]);
+            }
+        }
+        logger("Failed to {$actionName}: {$msg}", 'error', $this->account?->user_id, $this->account?->id);
+    }
+
     /**
      * List incoming unread messages or recent messages from INBOX
      */
@@ -158,7 +181,7 @@ class GmailService {
             $list = $gmail->users_messages->listUsersMessages('me', $params);
             return $list->getMessages() ?? [];
         } catch (\Throwable $e) {
-            logger("Failed to list Gmail messages: " . $e->getMessage(), 'error', null, $this->account?->id);
+            $this->handleScopeOrAuthError($e, "list Gmail messages");
             return [];
         }
     }
@@ -172,7 +195,7 @@ class GmailService {
             $msg = $gmail->users_messages->get('me', $messageId, ['format' => 'full']);
             return $this->parseMessage($msg);
         } catch (\Throwable $e) {
-            logger("Failed to get message {$messageId}: " . $e->getMessage(), 'error', null, $this->account?->id);
+            $this->handleScopeOrAuthError($e, "get message {$messageId}");
             return null;
         }
     }
