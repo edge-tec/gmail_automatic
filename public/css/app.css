@@ -248,15 +248,20 @@ body {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: var(--radius-sm);
-    padding: 0.85rem 1rem;
-    font-size: 0.92rem;
-    line-height: 1.6;
+    padding: 1rem 1.25rem;
+    font-size: 0.94rem;
+    line-height: 1.7;
     color: var(--text-main);
     word-break: break-word;
     overflow-wrap: anywhere;
-    max-height: 480px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    min-height: auto;
+    overflow: visible;
+}
+
+.followup-message-preview p,
+.rich-text-preview p {
+    margin-bottom: 0.85rem;
+    line-height: 1.7;
 }
 
 .followup-message-preview p:last-child,
@@ -271,12 +276,13 @@ body {
 .quill-editor-box img {
     max-width: 100% !important;
     height: auto !important;
-    max-height: 380px !important;
+    max-height: 420px !important;
     object-fit: contain !important;
     border-radius: var(--radius-sm);
-    display: inline-block;
-    margin: 0.5rem 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    display: block !important;
+    clear: both !important;
+    margin: 14px 0 !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
     border: 1px solid #e2e8f0;
 }
 

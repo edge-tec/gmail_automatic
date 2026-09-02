@@ -59,20 +59,24 @@
     transform: translateY(0);
 }
 
-/* Responsive message preview */
+/* Responsive message preview with clean text and image separation */
 .followup-message-preview {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    padding: 0.9rem 1.1rem;
-    font-size: 0.92rem;
-    line-height: 1.65;
+    padding: 1.1rem 1.25rem;
+    font-size: 0.94rem;
+    line-height: 1.7;
     color: #1e293b;
     word-break: break-word;
     overflow-wrap: anywhere;
-    max-height: 500px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    min-height: auto;
+    overflow: visible;
+}
+
+.followup-message-preview p {
+    margin-bottom: 0.85rem;
+    line-height: 1.7;
 }
 
 .followup-message-preview p:last-child {
@@ -84,12 +88,13 @@
 .quill-edit-box img {
     max-width: 100% !important;
     height: auto !important;
-    max-height: 380px !important;
+    max-height: 420px !important;
     object-fit: contain !important;
     border-radius: 8px;
-    display: inline-block;
-    margin: 8px 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    display: block !important;
+    clear: both !important;
+    margin: 16px 0 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     border: 1px solid #e2e8f0;
 }
 

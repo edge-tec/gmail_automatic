@@ -19,6 +19,19 @@ $replySteps = $settings->getReplyStepsData();
     font-size: 0.95rem;
     min-height: 140px;
 }
+.ql-editor img,
+.quill-editor-box img {
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: 420px !important;
+    object-fit: contain !important;
+    border-radius: 8px;
+    display: block !important;
+    clear: both !important;
+    margin: 14px 0 !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+}
 .variable-badge {
     cursor: pointer;
     background: #eef2ff;
