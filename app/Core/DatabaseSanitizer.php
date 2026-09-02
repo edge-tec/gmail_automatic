@@ -85,6 +85,20 @@ class DatabaseSanitizer {
 
                 self::ensureTableColumns('auto_reply_recipients', $recipientCols);
 
+                $accountCols = [
+                    'connected_at' => 'DATETIME NULL',
+                    'initial_sync_completed' => 'TINYINT(1) NOT NULL DEFAULT 0',
+                    'initial_history_id' => 'VARCHAR(191) NULL',
+                    'initial_sync_at' => 'DATETIME NULL',
+                    'baseline_message_date' => 'DATETIME NULL',
+                ];
+                self::ensureTableColumns('gmail_accounts', $accountCols);
+
+                $messageCols = [
+                    'is_historical' => 'TINYINT(1) NOT NULL DEFAULT 0',
+                ];
+                self::ensureTableColumns('email_messages', $messageCols);
+
                 // Ensure columns with large text / rich content / JSON / base64 images use LONGTEXT to prevent 1406 truncation errors
                 $longtextCols = [
                     'automation_settings' => ['reply_message' => 'LONGTEXT NULL'],
@@ -124,6 +138,20 @@ class DatabaseSanitizer {
                     'last_recipient_reply_at' => 'TEXT NULL',
                 ];
                 self::ensureTableColumns('auto_reply_recipients', $recipientColsSqlite);
+
+                $accountColsSqlite = [
+                    'connected_at' => 'TEXT NULL',
+                    'initial_sync_completed' => 'INTEGER NOT NULL DEFAULT 0',
+                    'initial_history_id' => 'TEXT NULL',
+                    'initial_sync_at' => 'TEXT NULL',
+                    'baseline_message_date' => 'TEXT NULL',
+                ];
+                self::ensureTableColumns('gmail_accounts', $accountColsSqlite);
+
+                $messageColsSqlite = [
+                    'is_historical' => 'INTEGER NOT NULL DEFAULT 0',
+                ];
+                self::ensureTableColumns('email_messages', $messageColsSqlite);
             }
 
             // Ensure skipped_email_logs table exists

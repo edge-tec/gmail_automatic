@@ -116,10 +116,19 @@ class GmailAccountController {
 
             logger("Connected Gmail Account: {$tokenData['email']} (Status: {$status})", 'success', $user->id, $account->id);
 
+            if ($status === 'connected') {
+                try {
+                    $service = new GmailService($account);
+                    $service->initializeBaselineSync();
+                } catch (\Throwable $baseEx) {
+                    logger("Initial baseline sync error: " . $baseEx->getMessage(), 'warning', $user->id, $account->id);
+                }
+            }
+
             if ($status === 'needs_reauth') {
                 flash('warning', "Gmail account [{$tokenData['email']}] connected, but Gmail mailbox permissions were unchecked during sign-in. Please click 'Reconnect & Grant Permissions' and check all permission checkboxes on Google's consent screen.");
             } else {
-                flash('success', "Gmail account [{$tokenData['email']}] connected successfully with full permissions!");
+                flash('success', "Gmail account [{$tokenData['email']}] connected successfully! Existing inbox messages indexed as historical baseline. Auto-replies will trigger on new incoming emails.");
             }
             redirect('/accounts');
 
@@ -201,6 +210,14 @@ class GmailAccountController {
 
         try {
             $service = new GmailService($account);
+
+            if ($account->initial_sync_completed === 0) {
+                $baseResult = $service->initializeBaselineSync();
+                flash('success', "Initial baseline established! Indexed {$baseResult['indexed']} existing inbox email(s) as historical. Auto-replies will now run for new incoming emails.");
+                redirect('/accounts');
+                return;
+            }
+
             $engine = new \App\Services\AutomationEngine($account);
 
             $messages = $service->listInboxMessages(15, 'label:INBOX');
@@ -215,8 +232,10 @@ class GmailAccountController {
 
                 $msgData = $service->getMessage($msgId);
                 if ($msgData) {
-                    $engine->processIncomingMessage($msgData);
-                    $newCount++;
+                    $res = $engine->processIncomingMessage($msgData);
+                    if ($res['status'] !== 'skipped' || ($res['reason'] ?? '') !== 'Historical email received before Gmail account connection') {
+                        $newCount++;
+                    }
                 }
             }
 

@@ -13,6 +13,11 @@ class GmailAccount {
     public ?string $refresh_token = null;
     public ?string $token_expires_at = null;
     public ?string $history_id = null;
+    public ?string $connected_at = null;
+    public int $initial_sync_completed = 0;
+    public ?string $initial_history_id = null;
+    public ?string $initial_sync_at = null;
+    public ?string $baseline_message_date = null;
     public string $status;
     public ?string $last_sync_at = null;
     public ?string $last_error = null;
@@ -46,6 +51,7 @@ class GmailAccount {
     public static function createOrUpdate(array $data): self {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
+        $nowDate = date('Y-m-d H:i:s');
 
         $existing = self::findByEmail($data['gmail_email']);
         $encryptedRefresh = isset($data['refresh_token']) ? Encryption::encrypt($data['refresh_token']) : null;
@@ -56,8 +62,9 @@ class GmailAccount {
                 'user_id' => $data['user_id'],
                 'google_user_id' => $data['google_user_id'] ?? $existing->google_user_id,
                 'token_expires_at' => $data['token_expires_at'] ?? $existing->token_expires_at,
-                'status' => 'connected',
-                'last_error' => null,
+                'status' => $data['status'] ?? 'connected',
+                'last_error' => $data['last_error'] ?? null,
+                'connected_at' => $existing->connected_at ?: $nowDate,
             ];
 
             if ($encryptedAccess) {
@@ -71,8 +78,8 @@ class GmailAccount {
             return self::find($existing->id);
         }
 
-        $sql = "INSERT INTO gmail_accounts (user_id, gmail_email, google_user_id, access_token, refresh_token, token_expires_at, status, created_at)
-                VALUES (:user_id, :gmail_email, :google_user_id, :access_token, :refresh_token, :token_expires_at, 'connected', {$now})";
+        $sql = "INSERT INTO gmail_accounts (user_id, gmail_email, google_user_id, access_token, refresh_token, token_expires_at, status, connected_at, initial_sync_completed, created_at)
+                VALUES (:user_id, :gmail_email, :google_user_id, :access_token, :refresh_token, :token_expires_at, :status, {$now}, 0, {$now})";
 
         Database::execute($sql, [
             'user_id' => $data['user_id'],
@@ -81,6 +88,7 @@ class GmailAccount {
             'access_token' => $encryptedAccess,
             'refresh_token' => $encryptedRefresh,
             'token_expires_at' => $data['token_expires_at'] ?? null,
+            'status' => $data['status'] ?? 'connected',
         ]);
 
         $id = (int)Database::lastInsertId();
@@ -135,6 +143,11 @@ class GmailAccount {
         $acc->refresh_token = $row['refresh_token'] ?? null;
         $acc->token_expires_at = $row['token_expires_at'] ?? null;
         $acc->history_id = $row['history_id'] ?? null;
+        $acc->connected_at = $row['connected_at'] ?? null;
+        $acc->initial_sync_completed = (int)($row['initial_sync_completed'] ?? 0);
+        $acc->initial_history_id = $row['initial_history_id'] ?? null;
+        $acc->initial_sync_at = $row['initial_sync_at'] ?? null;
+        $acc->baseline_message_date = $row['baseline_message_date'] ?? null;
         $acc->status = $row['status'] ?? 'connected';
         $acc->last_sync_at = $row['last_sync_at'] ?? null;
         $acc->last_error = $row['last_error'] ?? null;

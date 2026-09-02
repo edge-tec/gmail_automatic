@@ -32,8 +32,8 @@ class AutomationEngine {
      */
     public function processIncomingMessage(array $msgData): array {
         $this->settings = $this->account->getSettings();
-        $msgId = $msgData['message_id'];
-        $threadId = $msgData['thread_id'];
+        $msgId = (string)($msgData['message_id'] ?? $msgData['id'] ?? '');
+        $threadId = (string)($msgData['thread_id'] ?? '');
         $senderEmail = strtolower(trim($msgData['sender_email']));
         $senderName = $msgData['sender_name'];
         $subject = $msgData['subject'];
@@ -45,11 +45,55 @@ class AutomationEngine {
             return ['status' => 'skipped', 'reason' => 'Self sent message'];
         }
 
-        // 1. Idempotency Check
+        // 0. Historical Pre-Connection Email Protection
+        // Strictly prevent auto-replies, leads, and follow-ups on emails received before account connection baseline
+        $connectedAt = $this->account->connected_at ?: ($this->account->initial_sync_at ?: $this->account->created_at);
+        $baselineDate = $this->account->baseline_message_date ?: $connectedAt;
+        $msgDateUnix = strtotime($date);
+        $connectedUnix = $connectedAt ? strtotime($connectedAt) : 0;
+        $baselineUnix = $baselineDate ? strtotime($baselineDate) : 0;
+
+        $effectiveCutoff = min(array_filter([$connectedUnix, $baselineUnix]) ?: [time()]);
+        $isHistorical = ($msgDateUnix > 0 && $effectiveCutoff > 0 && $msgDateUnix < ($effectiveCutoff - 10));
+
+        // 1. Idempotency & Historical Check
         $existingMsg = EmailMessage::findByAccountAndMessageId($this->account->id, $msgId);
         if ($existingMsg) {
+            if ($existingMsg->is_historical || $existingMsg->status === 'historical') {
+                return ['status' => 'skipped', 'reason' => 'Historical email received before Gmail account connection'];
+            }
             logger("Duplicate email prevented for account {$this->account->gmail_email} in thread {$threadId} (Message: {$msgId})", 'info', $this->account->user_id, $this->account->id);
             return ['status' => 'duplicate', 'message_id' => $msgId];
+        }
+
+        if ($isHistorical) {
+            $hThread = EmailThread::createOrGet($this->account->id, $threadId, [
+                'sender_email' => $senderEmail,
+                'sender_name' => $senderName,
+                'subject' => $subject,
+                'automation_status' => 'historical',
+            ]);
+
+            EmailMessage::create([
+                'thread_id' => $hThread->id,
+                'gmail_account_id' => $this->account->id,
+                'gmail_message_id' => $msgId,
+                'direction' => 'incoming',
+                'sender' => $senderEmail,
+                'recipient' => $this->account->gmail_email,
+                'subject' => $subject,
+                'snippet' => $msgData['snippet'] ?? '',
+                'message_body' => $body,
+                'received_at' => $date,
+                'status' => 'historical',
+                'is_historical' => 1,
+            ]);
+
+            logger("Ignored pre-existing historical email from {$senderEmail} in thread {$threadId} (received at {$date} before account connection at {$connectedAt})", 'info', $this->account->user_id, $this->account->id);
+            return [
+                'status' => 'skipped',
+                'reason' => 'Historical email received before Gmail account connection'
+            ];
         }
 
         // 2. Find or create EmailThread

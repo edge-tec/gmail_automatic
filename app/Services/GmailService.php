@@ -167,6 +167,118 @@ class GmailService {
         logger("Failed to {$actionName}: {$msg}", 'error', $this->account?->user_id, $this->account?->id);
     }
 
+    public function getProfile(): ?array {
+        try {
+            $gmail = $this->getGmail();
+            $profile = $gmail->users->getProfile('me');
+            return [
+                'emailAddress' => $profile->getEmailAddress(),
+                'messagesTotal' => $profile->getMessagesTotal(),
+                'threadsTotal' => $profile->getThreadsTotal(),
+                'historyId' => $profile->getHistoryId(),
+            ];
+        } catch (\Throwable $e) {
+            $this->handleScopeOrAuthError($e, "get Gmail user profile");
+            return null;
+        }
+    }
+
+    /**
+     * Initial synchronization baseline builder:
+     * Discovers all pre-existing emails in Gmail inbox and indexes them as 'historical'
+     * so that NO auto-replies, follow-ups, or leads are ever generated for emails received before account connection.
+     */
+    public function initializeBaselineSync(int $maxHistoricalMessages = 100): array {
+        if (!$this->account) {
+            return ['indexed' => 0, 'historyId' => null, 'baselineDate' => null];
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $profile = $this->getProfile();
+        $historyId = $profile['historyId'] ?? null;
+        $indexedCount = 0;
+        $latestHistoricalDate = null;
+
+        try {
+            $messages = $this->listInboxMessages($maxHistoricalMessages, 'label:INBOX');
+            foreach ($messages as $msgItem) {
+                $msgId = is_object($msgItem) ? $msgItem->getId() : ($msgItem['id'] ?? null);
+                if (!$msgId) continue;
+
+                $existing = \App\Models\EmailMessage::findByAccountAndMessageId($this->account->id, $msgId);
+                if ($existing) {
+                    if (!$existing->is_historical) {
+                        $existing->update(['is_historical' => 1, 'status' => 'historical']);
+                    }
+                    continue;
+                }
+
+                $msgData = $this->getMessage($msgId);
+                if (!$msgData) continue;
+
+                $senderEmail = strtolower(trim($msgData['sender_email']));
+                $senderName = $msgData['sender_name'];
+                $subject = $msgData['subject'];
+                $body = $msgData['body'] ?: $msgData['snippet'];
+                $msgDate = $msgData['date'];
+
+                if (!$latestHistoricalDate || strtotime($msgDate) > strtotime($latestHistoricalDate)) {
+                    $latestHistoricalDate = $msgDate;
+                }
+
+                // Create thread marked as historical baseline
+                $thread = \App\Models\EmailThread::createOrGet($this->account->id, $msgData['thread_id'], [
+                    'sender_email' => $senderEmail,
+                    'sender_name' => $senderName,
+                    'subject' => $subject,
+                    'automation_status' => 'historical',
+                ]);
+
+                // Create message record marked strictly as historical
+                \App\Models\EmailMessage::create([
+                    'thread_id' => $thread->id,
+                    'gmail_account_id' => $this->account->id,
+                    'gmail_message_id' => $msgId,
+                    'direction' => 'incoming',
+                    'sender' => $senderEmail,
+                    'recipient' => $this->account->gmail_email,
+                    'subject' => $subject,
+                    'snippet' => $msgData['snippet'] ?? '',
+                    'message_body' => $body,
+                    'received_at' => $msgDate,
+                    'status' => 'historical',
+                    'is_historical' => 1,
+                ]);
+
+                $indexedCount++;
+            }
+        } catch (\Throwable $e) {
+            logger("Baseline sync indexing error for {$this->account->gmail_email}: " . $e->getMessage(), 'warning', $this->account->user_id, $this->account->id);
+        }
+
+        $connectedAt = $this->account->connected_at ?: $now;
+        $baselineDate = $latestHistoricalDate ?: $connectedAt;
+
+        $this->account->update([
+            'connected_at' => $connectedAt,
+            'initial_sync_completed' => 1,
+            'initial_sync_at' => $now,
+            'initial_history_id' => $historyId,
+            'history_id' => $historyId,
+            'baseline_message_date' => $baselineDate,
+            'last_sync_at' => $now,
+            'last_error' => null,
+        ]);
+
+        logger("Authoritative baseline established for {$this->account->gmail_email}: {$indexedCount} pre-existing inbox message(s) indexed as historical (historyId: {$historyId}, baseline date: {$baselineDate}). Automated replies will strictly apply only to new incoming messages.", 'info', $this->account->user_id, $this->account->id);
+
+        return [
+            'indexed' => $indexedCount,
+            'historyId' => $historyId,
+            'baselineDate' => $baselineDate,
+        ];
+    }
+
     /**
      * List incoming unread messages or recent messages from INBOX
      */

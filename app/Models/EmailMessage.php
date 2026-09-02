@@ -17,6 +17,7 @@ class EmailMessage {
     public ?string $received_at = null;
     public ?string $sent_at = null;
     public string $status;
+    public int $is_historical = 0;
     public ?string $created_at = null;
 
     public static function find(int $id): ?self {
@@ -51,9 +52,9 @@ class EmailMessage {
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
         $sql = "INSERT INTO email_messages 
-                (thread_id, gmail_account_id, gmail_message_id, direction, sender, recipient, subject, snippet, message_body, received_at, sent_at, status, created_at)
+                (thread_id, gmail_account_id, gmail_message_id, direction, sender, recipient, subject, snippet, message_body, received_at, sent_at, status, is_historical, created_at)
                 VALUES 
-                (:tid, :acc, :mid, :dir, :sender, :recipient, :subject, :snippet, :body, :rec_at, :sent_at, :status, {$now})";
+                (:tid, :acc, :mid, :dir, :sender, :recipient, :subject, :snippet, :body, :rec_at, :sent_at, :status, :is_hist, {$now})";
 
         try {
             Database::execute($sql, [
@@ -69,6 +70,7 @@ class EmailMessage {
                 'rec_at' => $data['received_at'] ?? null,
                 'sent_at' => $data['sent_at'] ?? null,
                 'status' => $data['status'] ?? 'processed',
+                'is_hist' => !empty($data['is_historical']) ? 1 : 0,
             ]);
 
             $id = (int)Database::lastInsertId();
@@ -77,6 +79,21 @@ class EmailMessage {
             error_log("Failed to insert email_message: " . $e->getMessage());
             return self::findByAccountAndMessageId($data['gmail_account_id'], $data['gmail_message_id']);
         }
+    }
+
+    public function update(array $data): bool {
+        $fields = [];
+        $params = ['id' => $this->id];
+        foreach ($data as $key => $val) {
+            $fields[] = "{$key} = :{$key}";
+            $params[$key] = $val;
+            if (property_exists($this, $key)) {
+                $this->$key = $val;
+            }
+        }
+
+        $sql = "UPDATE email_messages SET " . implode(', ', $fields) . " WHERE id = :id";
+        return Database::execute($sql, $params);
     }
 
     public static function fromRow(array $row): self {
@@ -94,6 +111,7 @@ class EmailMessage {
         $m->received_at = $row['received_at'] ?? null;
         $m->sent_at = $row['sent_at'] ?? null;
         $m->status = $row['status'] ?? 'processed';
+        $m->is_historical = (int)($row['is_historical'] ?? 0);
         $m->created_at = $row['created_at'] ?? null;
         return $m;
     }

@@ -38,6 +38,15 @@ foreach ($accounts as $account) {
 
     try {
         $gmailService = new GmailService($account);
+
+        // If baseline has not been established yet for this account, run initial baseline synchronization
+        if ($account->initial_sync_completed === 0) {
+            echo "  ↳ Initial sync baseline not found. Establishing baseline for {$account->gmail_email}...\n";
+            $baseResult = $gmailService->initializeBaselineSync();
+            echo "  ✓ Baseline established: {$baseResult['indexed']} historical message(s) indexed. Auto-replies strictly ignored for pre-existing emails.\n";
+            continue;
+        }
+
         $engine = new AutomationEngine($account);
 
         // Fetch recent unread or inbox messages
