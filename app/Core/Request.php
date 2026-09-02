@@ -40,6 +40,18 @@ class Request {
         return $this->post[$key] ?? $this->get[$key] ?? $this->json[$key] ?? $default;
     }
 
+    public function query(string $key, mixed $default = null): mixed {
+        return $this->get[$key] ?? $default;
+    }
+
+    public function post(string $key, mixed $default = null): mixed {
+        return $this->post[$key] ?? $default;
+    }
+
+    public function has(string $key): bool {
+        return isset($this->post[$key]) || isset($this->get[$key]) || isset($this->json[$key]);
+    }
+
     public function all(): array {
         return array_merge($this->get, $this->post, $this->json);
     }

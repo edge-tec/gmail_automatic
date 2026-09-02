@@ -146,6 +146,38 @@ class DatabaseSanitizer {
                 created_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . "
             )");
 
+            // Ensure email_templates and email_jobs tables exist
+            Database::execute("CREATE TABLE IF NOT EXISTS email_templates (
+                id " . ($driver === 'mysql' ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT') . ",
+                slug VARCHAR(100) NOT NULL UNIQUE,
+                name VARCHAR(255) NOT NULL,
+                subject VARCHAR(500) NOT NULL,
+                body LONGTEXT NOT NULL,
+                available_vars TEXT NULL,
+                is_enabled " . ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1') . ",
+                created_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . ",
+                updated_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . "
+            )");
+
+            Database::execute("CREATE TABLE IF NOT EXISTS email_jobs (
+                id " . ($driver === 'mysql' ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT') . ",
+                user_id " . ($driver === 'mysql' ? 'INT NULL' : 'INTEGER NULL') . ",
+                recipient_email VARCHAR(255) NOT NULL,
+                recipient_name VARCHAR(255) NULL,
+                template_slug VARCHAR(100) NULL,
+                event_key VARCHAR(191) NULL UNIQUE,
+                subject VARCHAR(500) NOT NULL,
+                body LONGTEXT NOT NULL,
+                status VARCHAR(50) NOT NULL DEFAULT 'pending',
+                attempts " . ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0') . ",
+                max_attempts " . ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 3' : 'INTEGER NOT NULL DEFAULT 3') . ",
+                scheduled_at " . ($driver === 'mysql' ? 'DATETIME NOT NULL' : 'TEXT NOT NULL') . ",
+                sent_at " . ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL') . ",
+                last_error LONGTEXT NULL,
+                created_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . ",
+                updated_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . "
+            )");
+
 
             // 1. Purge any legacy default boilerplate from automation_settings table
             Database::execute(
