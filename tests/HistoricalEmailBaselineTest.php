@@ -164,4 +164,90 @@ class HistoricalEmailBaselineTest extends TestCase {
         $usage = DailyUsage::getOrCreate($this->account->id);
         $this->assertGreaterThanOrEqual(1, $usage['reply_messages_count']);
     }
+
+    public function testClearLeadsDoesNotCauseHistoricalEmailsToBeProcessed(): void {
+        $engine = new AutomationEngine($this->account);
+        $historicalDate = date('Y-m-d H:i:s', strtotime($this->account->connected_at) - 3600);
+
+        $msgId = 'hist_clear_test_' . uniqid();
+        $msgData = [
+            'message_id' => $msgId,
+            'id' => $msgId,
+            'thread_id' => 'thread_clear_' . uniqid(),
+            'sender_email' => 'clientbefore@example.com',
+            'sender_name' => 'Client Before',
+            'subject' => 'Past discussion',
+            'snippet' => 'Just following up on past discussion',
+            'body' => 'Just following up on past discussion',
+            'date' => $historicalDate,
+            'in_reply_to' => null,
+            'is_reply' => false,
+        ];
+
+        // 1. Process historical email
+        $res1 = $engine->processIncomingMessage($msgData);
+        $this->assertEquals('skipped', $res1['status']);
+
+        // 2. Simulate User clicking "Clear All Leads" or deleting database leads/messages
+        Database::execute("DELETE FROM auto_reply_recipients WHERE user_id = :uid", ['uid' => $this->user->id]);
+        Database::execute("DELETE FROM email_messages WHERE gmail_account_id = :acc", ['acc' => $this->account->id]);
+
+        // 3. Re-poll the same historical message after leads cleared
+        $res2 = $engine->processIncomingMessage($msgData);
+
+        // Assert still blocked based on authoritative connected_at baseline!
+        $this->assertEquals('skipped', $res2['status']);
+        $this->assertStringContainsString('Historical email', $res2['reason']);
+        $this->assertNull(AutoReplyRecipient::findByUserAndSender($this->user->id, 'clientbefore@example.com'));
+    }
+
+    public function testReconnectPreservesOriginalConnectedAtBaseline(): void {
+        $originalConnectedAt = $this->account->connected_at;
+        $this->assertNotEmpty($originalConnectedAt);
+
+        // Simulate reconnecting Google OAuth
+        $reconnected = GmailAccount::createOrUpdate([
+            'user_id' => $this->user->id,
+            'gmail_email' => $this->account->gmail_email,
+            'google_user_id' => 'goog_' . uniqid(),
+            'access_token' => 'new_access_token',
+            'refresh_token' => 'new_refresh_token',
+            'token_expires_at' => date('Y-m-d H:i:s', time() + 3600),
+            'status' => 'connected',
+        ]);
+
+        // Assert original connected_at was preserved
+        $this->assertEquals($originalConnectedAt, $reconnected->connected_at);
+        $this->assertEquals($this->account->id, $reconnected->id);
+    }
+
+    public function testQueueWorkerCancelsHistoricalThreadJobsBeforeSending(): void {
+        // Create a historical thread
+        $thread = \App\Models\EmailThread::createOrGet($this->account->id, 'hist_thread_' . uniqid(), [
+            'sender_email' => 'oldie@example.com',
+            'sender_name' => 'Oldie',
+            'subject' => 'Old topic',
+            'automation_status' => 'historical',
+        ]);
+
+        // Manually inject a scheduled job for this historical thread
+        $job = ScheduledJob::create([
+            'gmail_account_id' => $this->account->id,
+            'thread_id' => $thread->id,
+            'job_type' => 'auto_reply',
+            'payload' => json_encode(['reply_step' => 1, 'recipient_email' => 'oldie@example.com']),
+            'scheduled_at' => date('Y-m-d H:i:s', time() - 60),
+            'status' => 'pending',
+            'max_attempts' => 3,
+        ]);
+
+        $worker = new QueueWorker();
+        $processed = $worker->processJob($job);
+
+        // Worker should catch it and cancel without sending
+        $this->assertTrue($processed);
+        $freshJob = ScheduledJob::find($job->id);
+        $this->assertEquals('cancelled', $freshJob->status);
+        $this->assertStringContainsString('historical baseline', $freshJob->last_error);
+    }
 }

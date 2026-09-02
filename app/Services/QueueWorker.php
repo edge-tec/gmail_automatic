@@ -127,6 +127,17 @@ class QueueWorker {
                 throw new Exception("Email thread not found");
             }
 
+            // Guard: Immediately cancel if thread is historical baseline from before account connection
+            if ($thread->automation_status === 'historical') {
+                $job->update([
+                    'status' => 'cancelled',
+                    'last_error' => 'Thread is marked as historical baseline from before account connection.',
+                    'processed_at' => date('Y-m-d H:i:s'),
+                ]);
+                echo "  ↳ Historical thread from before account connection. Job cancelled.\n";
+                return true;
+            }
+
             // Check if thread was replied by user or stopped manually
             if ($job->job_type === 'follow_up' && $thread->automation_status === 'replied') {
                 $job->update([

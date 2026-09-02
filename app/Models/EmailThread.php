@@ -66,10 +66,12 @@ class EmailThread {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
+        $status = $data['automation_status'] ?? 'active';
+
         $sql = "INSERT INTO email_threads 
                 (gmail_account_id, gmail_thread_id, sender_email, sender_name, subject, reply_count, followup_count, automation_status, last_incoming_at, created_at)
                 VALUES 
-                (:acc, :tid, :email, :name, :subject, 0, 0, 'active', {$now}, {$now})";
+                (:acc, :tid, :email, :name, :subject, 0, 0, :status, {$now}, {$now})";
 
         Database::execute($sql, [
             'acc' => $accountId,
@@ -77,6 +79,7 @@ class EmailThread {
             'email' => $data['sender_email'],
             'name' => $data['sender_name'] ?? null,
             'subject' => $data['subject'] ?? null,
+            'status' => $status,
         ]);
 
         $id = (int)Database::lastInsertId();

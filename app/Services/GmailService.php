@@ -188,7 +188,7 @@ class GmailService {
      * Discovers all pre-existing emails in Gmail inbox and indexes them as 'historical'
      * so that NO auto-replies, follow-ups, or leads are ever generated for emails received before account connection.
      */
-    public function initializeBaselineSync(int $maxHistoricalMessages = 100): array {
+    public function initializeBaselineSync(int $maxHistoricalMessages = 500): array {
         if (!$this->account) {
             return ['indexed' => 0, 'historyId' => null, 'baselineDate' => null];
         }
@@ -200,7 +200,8 @@ class GmailService {
         $latestHistoricalDate = null;
 
         try {
-            $messages = $this->listInboxMessages($maxHistoricalMessages, 'label:INBOX');
+            // Paginate through pre-existing inbox messages to build authoritative baseline
+            $messages = $this->listInboxMessages(min(100, $maxHistoricalMessages), 'label:INBOX');
             foreach ($messages as $msgItem) {
                 $msgId = is_object($msgItem) ? $msgItem->getId() : ($msgItem['id'] ?? null);
                 if (!$msgId) continue;
@@ -335,8 +336,14 @@ class GmailService {
             $senderEmail = trim($matches[2]);
         }
 
-        $dateStr = $headerMap['date'] ?? null;
-        $receivedAt = $dateStr ? date('Y-m-d H:i:s', strtotime($dateStr)) : date('Y-m-d H:i:s');
+        // Use Google's server-generated internalDate (in milliseconds) if available
+        $internalDate = $msg->getInternalDate();
+        if ($internalDate && is_numeric($internalDate)) {
+            $receivedAt = date('Y-m-d H:i:s', (int)($internalDate / 1000));
+        } else {
+            $dateStr = $headerMap['date'] ?? null;
+            $receivedAt = $dateStr ? date('Y-m-d H:i:s', strtotime($dateStr)) : date('Y-m-d H:i:s');
+        }
 
         return [
             'message_id' => $msg->getId(),
