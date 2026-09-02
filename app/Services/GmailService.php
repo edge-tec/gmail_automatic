@@ -280,7 +280,9 @@ class GmailService {
         ?string $inReplyToMessageIdHeader = null,
         ?string $referencesHeader = null
     ): array {
-        if (empty(trim(strip_tags($bodyText)))) {
+        $cleanBody = trim(strip_tags($bodyText, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
+        $isPlaceholder = in_array(trim($bodyText), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+        if (empty($cleanBody) || $isPlaceholder) {
             throw new \Exception("Cannot send empty message body. Send aborted.");
         }
         if (str_contains($bodyText, 'Automated Support') && str_contains($bodyText, 'Thank you for reaching out')) {
@@ -333,7 +335,7 @@ class GmailService {
         $msg->setThreadId($threadId);
 
         $decryptedTok = $this->account?->getDecryptedAccessToken() ?? '';
-        $isMock = config('app.env') === 'testing' || getenv('APP_ENV') === 'testing' || ($_ENV['APP_ENV'] ?? '') === 'testing' || str_starts_with($decryptedTok, 'access_tok') || str_starts_with($this->account?->access_token ?? '', 'access_tok') || empty($this->account?->access_token);
+        $isMock = config('app.env') === 'testing' || getenv('APP_ENV') === 'testing' || ($_ENV['APP_ENV'] ?? '') === 'testing' || str_starts_with($decryptedTok, 'access_tok') || str_starts_with($decryptedTok, 'mock_') || str_starts_with($this->account?->access_token ?? '', 'access_tok') || str_starts_with($this->account?->access_token ?? '', 'mock_') || empty($this->account?->access_token);
 
         if ($isMock) {
             return [

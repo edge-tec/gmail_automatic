@@ -363,6 +363,7 @@ class AutomationEngine {
         $cleanSubject = preg_replace('/^Re:\s*/i', '', $data['subject'] ?? '');
 
         $replacements = [
+            '{{sender_name}}' => $name ?: 'Friend',
             '{{first_name}}' => $firstName ?: 'There',
             '{{last_name}}' => $lastName,
             '{{sender_email}}' => $data['sender_email'] ?? '',

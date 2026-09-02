@@ -99,11 +99,7 @@ class DatabaseSanitizer {
                     'email_jobs' => ['last_error' => 'LONGTEXT NULL'],
                 ];
                 foreach ($longtextCols as $table => $cols) {
-                    foreach ($cols as $col => $type) {
-                        try {
-                            Database::execute("ALTER TABLE `{$table}` MODIFY COLUMN `{$col}` {$type}");
-                        } catch (\Throwable $t) {}
-                    }
+                    self::ensureTableColumnTypes($table, $cols);
                 }
             } else {
                 $settingColsSqlite = [
@@ -518,6 +514,40 @@ class DatabaseSanitizer {
                             Database::execute("ALTER TABLE `{$table}` ADD COLUMN `{$col}` {$type}");
                         } catch (\Throwable $t) {}
                     }
+                }
+            }
+        } catch (\Throwable $e) {}
+    }
+
+    /**
+     * Safely upgrade existing column data types on MySQL/MariaDB only if they differ from the desired definition
+     */
+    public static function ensureTableColumnTypes(string $table, array $columnTypes): void {
+        $driver = config('database.default', 'mysql');
+        if ($driver !== 'mysql') {
+            return;
+        }
+
+        try {
+            $rows = Database::query("SHOW COLUMNS FROM `{$table}`");
+            $existingCols = [];
+            foreach ($rows as $r) {
+                $colName = strtolower($r['Field'] ?? $r['field'] ?? '');
+                $colType = strtolower($r['Type'] ?? $r['type'] ?? '');
+                $existingCols[$colName] = $colType;
+            }
+
+            foreach ($columnTypes as $col => $desiredDefinition) {
+                $colLower = strtolower($col);
+                if (isset($existingCols[$colLower])) {
+                    $currentType = $existingCols[$colLower];
+                    // Skip ALTER TABLE if the column is already longtext
+                    if (str_starts_with(strtolower($desiredDefinition), 'longtext') && $currentType === 'longtext') {
+                        continue;
+                    }
+                    try {
+                        Database::execute("ALTER TABLE `{$table}` MODIFY COLUMN `{$col}` {$desiredDefinition}");
+                    } catch (\Throwable $t) {}
                 }
             }
         } catch (\Throwable $e) {}

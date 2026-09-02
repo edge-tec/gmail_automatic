@@ -85,12 +85,21 @@ class AutomationSettingsController {
         $replyStepsInput = $request->input('reply_steps');
         $replyMessagesInput = $request->input('reply_messages');
 
+        // Maximum allowed payload size per single message step (10 MB)
+        $maxStepSize = 10 * 1024 * 1024;
+
         if (is_array($replyStepsInput)) {
             $cleanSteps = [];
             foreach ($replyStepsInput as $step => $stepData) {
                 $stepNum = (int)$step;
                 if (is_array($stepData)) {
-                    $msg = trim($stepData['message'] ?? '');
+                    $rawMsg = trim($stepData['message'] ?? '');
+                    if (strlen($rawMsg) > $maxStepSize) {
+                        flash('error', "Message for Step #{$stepNum} exceeds the maximum allowed size (10 MB).");
+                        redirect("/settings/automation/{$account->id}");
+                        return;
+                    }
+                    $msg = self::sanitizeRichText($rawMsg);
                     $isMeaningful = !empty(trim(strip_tags($msg))) || !empty(trim(strip_tags($msg, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>')));
                     $isPlaceholder = in_array($msg, ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
                     if ($isMeaningful && !$isPlaceholder) {
@@ -122,7 +131,13 @@ class AutomationSettingsController {
             $cleanMessages = [];
             foreach ($replyMessagesInput as $step => $msg) {
                 $stepNum = (int)$step;
-                $msgStr = trim($msg);
+                $rawMsg = trim($msg);
+                if (strlen($rawMsg) > $maxStepSize) {
+                    flash('error', "Message for Step #{$stepNum} exceeds the maximum allowed size (10 MB).");
+                    redirect("/settings/automation/{$account->id}");
+                    return;
+                }
+                $msgStr = self::sanitizeRichText($rawMsg);
                 $isMeaningful = !empty(trim(strip_tags($msgStr))) || !empty(trim(strip_tags($msgStr, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>')));
                 $isPlaceholder = in_array($msgStr, ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
                 if ($isMeaningful && !$isPlaceholder) {
@@ -148,9 +163,15 @@ class AutomationSettingsController {
             }
         } else {
             $rawMsg = trim($request->input('reply_message', ''));
-            $isMeaningful = !empty(trim(strip_tags($rawMsg))) || !empty(trim(strip_tags($rawMsg, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>')));
-            $isPlaceholder = in_array($rawMsg, ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
-            $replyMessage = ($isMeaningful && !$isPlaceholder) ? $rawMsg : null;
+            if (strlen($rawMsg) > $maxStepSize) {
+                flash('error', "Reply message exceeds the maximum allowed size (10 MB).");
+                redirect("/settings/automation/{$account->id}");
+                return;
+            }
+            $sanitized = self::sanitizeRichText($rawMsg);
+            $isMeaningful = !empty(trim(strip_tags($sanitized))) || !empty(trim(strip_tags($sanitized, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>')));
+            $isPlaceholder = in_array($sanitized, ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+            $replyMessage = ($isMeaningful && !$isPlaceholder) ? $sanitized : null;
         }
 
         $autoReplyEnabled = (bool)$request->input('auto_reply_enabled', 0);
@@ -262,5 +283,41 @@ class AutomationSettingsController {
         logger("Permanently deleted all auto-reply messages and cancelled all pending queue jobs for {$account->gmail_email}", 'info', $account->user_id, $account->id);
         flash('success', 'All auto-reply messages have been permanently deleted and all pending jobs cancelled.');
         redirect("/settings/automation/{$account->id}");
+    }
+
+    /**
+     * Sanitize rich-text HTML while preserving formatting, links, styles, and embedded Base64 images
+     */
+    public static function sanitizeRichText(string $html): string {
+        if (trim($html) === '') {
+            return '';
+        }
+
+        // 1. Remove dangerous executable tags and their inner contents
+        $html = preg_replace('#<(script|style|iframe|object|embed|applet|form|input|button|meta|link|base)[^>]*>.*?</\1>#is', '', $html);
+        $html = preg_replace('#<(script|style|iframe|object|embed|applet|form|input|button|meta|link|base)[^>]*>#is', '', $html);
+
+        // 2. Remove all inline DOM event handlers (onload, onerror, onclick, onmouseover, etc.)
+        $html = preg_replace('/(\s)on[a-zA-Z]+\s*=\s*(["\'][^"\']*["\']|[^\s>]+)/i', '', $html);
+
+        // 3. Neutralize dangerous URL schemes in href (javascript:, vbscript:, data:text/html)
+        $html = preg_replace_callback('/<a\s+([^>]*?)>/i', function ($matches) {
+            $attrs = $matches[1];
+            if (preg_match('/href\s*=\s*["\']?\s*(javascript|vbscript|data:(?!image\/)):/i', $attrs)) {
+                $attrs = preg_replace('/href\s*=\s*(["\'][^"\']*["\']|[^\s>]+)/i', 'href="#"', $attrs);
+            }
+            return "<a {$attrs}>";
+        }, $html);
+
+        // 4. Sanitize <img> tags: allow valid image data URIs or standard URLs, strip malicious schemes
+        $html = preg_replace_callback('/<img\s+([^>]*?)>/i', function ($matches) {
+            $attrs = $matches[1];
+            if (preg_match('/src\s*=\s*["\']?\s*(javascript|vbscript|data:(?!image\/[a-zA-Z0-9\+\-\.]+;base64,)):/i', $attrs)) {
+                return ''; // Strip malicious img
+            }
+            return "<img {$attrs}>";
+        }, $html);
+
+        return trim($html);
     }
 }

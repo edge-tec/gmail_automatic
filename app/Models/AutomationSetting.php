@@ -32,9 +32,9 @@ class AutomationSetting {
         ];
         \App\Core\DatabaseSanitizer::ensureTableColumns('automation_settings', $cols);
         if ($driver === 'mysql') {
-            try {
-                Database::execute("ALTER TABLE `automation_settings` MODIFY COLUMN `reply_message` LONGTEXT NULL");
-            } catch (\Throwable $t) {}
+            \App\Core\DatabaseSanitizer::ensureTableColumnTypes('automation_settings', [
+                'reply_message' => 'LONGTEXT NULL',
+            ]);
         }
     }
 
