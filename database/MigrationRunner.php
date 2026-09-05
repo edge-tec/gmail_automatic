@@ -17,7 +17,11 @@ class MigrationRunner {
             $statements = self::convertMysqlToSqlite($sql);
             foreach ($statements as $stmt) {
                 if (trim($stmt)) {
-                    $db->exec($stmt);
+                    try {
+                        $db->exec($stmt);
+                    } catch (\Throwable $e) {
+                        error_log("MigrationRunner SQLite statement notice: " . $e->getMessage());
+                    }
                 }
             }
         } else {
@@ -26,13 +30,21 @@ class MigrationRunner {
             $statements = array_filter(array_map('trim', explode(';', $cleanSql)));
             foreach ($statements as $stmt) {
                 if ($stmt) {
-                    $db->exec($stmt);
+                    try {
+                        $db->exec($stmt);
+                    } catch (\Throwable $e) {
+                        error_log("MigrationRunner statement notice: " . $e->getMessage());
+                    }
                 }
             }
         }
         
         // Run seeders
-        SeedData::run();
+        try {
+            SeedData::run();
+        } catch (\Throwable $e) {
+            error_log("MigrationRunner SeedData notice: " . $e->getMessage());
+        }
     }
 
     private static function convertMysqlToSqlite(string $sql): array {

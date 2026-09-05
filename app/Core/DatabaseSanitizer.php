@@ -21,7 +21,11 @@ class DatabaseSanitizer {
 
         try {
             // 0. Ensure schema migrations and seeds are up to date
-            \Database\MigrationRunner::run();
+            try {
+                \Database\MigrationRunner::run();
+            } catch (\Throwable $t) {
+                error_log("Notice: MigrationRunner non-critical error: " . $t->getMessage());
+            }
 
             // Safe ALTER for existing users table on MySQL
             $driver = config('database.default', 'mysql');
@@ -31,6 +35,7 @@ class DatabaseSanitizer {
                     'plan_type' => "VARCHAR(50) NOT NULL DEFAULT 'free'",
                     'subscription_status' => "VARCHAR(50) NOT NULL DEFAULT 'inactive'",
                     'gmail_limit' => 'INT NOT NULL DEFAULT 1',
+                    'can_bulk_send' => 'TINYINT(1) NOT NULL DEFAULT 0',
                     'trial_status' => "VARCHAR(50) NOT NULL DEFAULT 'not_started'",
                     'trial_started_at' => 'DATETIME NULL',
                     'trial_ends_at' => 'DATETIME NULL',

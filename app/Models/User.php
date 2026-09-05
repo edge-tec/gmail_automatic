@@ -56,12 +56,7 @@ class User {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
-        $sql = "INSERT INTO users 
-                (name, email, password, role, status, plan_id, plan_type, subscription_status, gmail_limit, can_bulk_send, trial_status, trial_used, verification_token, created_at) 
-                VALUES 
-                (:name, :email, :password, :role, :status, :pid, :ptype, :sub_status, :limit, :can_bulk, :t_status, :t_used, :v_tok, {$now})";
-
-        Database::execute($sql, [
+        $params = [
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => $data['password'],
@@ -75,7 +70,27 @@ class User {
             't_status' => $data['trial_status'] ?? 'not_started',
             't_used' => !empty($data['trial_used']) ? 1 : 0,
             'v_tok' => $data['verification_token'] ?? null,
-        ]);
+        ];
+
+        $sql = "INSERT INTO users 
+                (name, email, password, role, status, plan_id, plan_type, subscription_status, gmail_limit, can_bulk_send, trial_status, trial_used, verification_token, created_at) 
+                VALUES 
+                (:name, :email, :password, :role, :status, :pid, :ptype, :sub_status, :limit, :can_bulk, :t_status, :t_used, :v_tok, {$now})";
+
+        try {
+            Database::execute($sql, $params);
+        } catch (\Throwable $e) {
+            if (str_contains(strtolower($e->getMessage()), 'unknown column') || 
+                str_contains(strtolower($e->getMessage()), 'no such column') ||
+                $e->getCode() === '42S22') {
+                \App\Core\DatabaseSanitizer::ensureTableColumns('users', [
+                    'can_bulk_send' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+                ]);
+                Database::execute($sql, $params);
+            } else {
+                throw $e;
+            }
+        }
 
         $id = (int)Database::lastInsertId();
         return self::find($id);
@@ -92,7 +107,54 @@ class User {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
         $sql = "UPDATE users SET " . implode(', ', $fields) . ", updated_at = {$now} WHERE id = :id";
-        $ok = Database::execute($sql, $params);
+        
+        $ok = false;
+        try {
+            $ok = Database::execute($sql, $params);
+        } catch (\Throwable $e) {
+            if (str_contains(strtolower($e->getMessage()), 'unknown column') || 
+                str_contains(strtolower($e->getMessage()), 'no such column') ||
+                $e->getCode() === '42S22') {
+                
+                \App\Core\DatabaseSanitizer::ensureTableColumns('users', [
+                    'can_bulk_send' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+                    'plan_id' => ($driver === 'mysql' ? 'INT NULL' : 'INTEGER NULL'),
+                    'plan_type' => "VARCHAR(50) NOT NULL DEFAULT 'free'",
+                    'subscription_status' => "VARCHAR(50) NOT NULL DEFAULT 'inactive'",
+                    'gmail_limit' => ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1'),
+                    'trial_status' => "VARCHAR(50) NOT NULL DEFAULT 'not_started'",
+                    'trial_started_at' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
+                    'trial_ends_at' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
+                    'trial_days' => ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+                    'trial_used' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+                    'subscription_started_at' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
+                    'subscription_expires_at' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
+                ]);
+
+                try {
+                    $ok = Database::execute($sql, $params);
+                } catch (\Throwable $e2) {
+                    // Filter out can_bulk_send if table could not be altered
+                    $safeData = $data;
+                    unset($safeData['can_bulk_send']);
+                    $safeFields = [];
+                    $safeParams = ['id' => $this->id];
+                    foreach ($safeData as $key => $val) {
+                        $safeFields[] = "{$key} = :{$key}";
+                        $safeParams[$key] = $val;
+                    }
+                    if (!empty($safeFields)) {
+                        $sqlRetry = "UPDATE users SET " . implode(', ', $safeFields) . ", updated_at = {$now} WHERE id = :id";
+                        $ok = Database::execute($sqlRetry, $safeParams);
+                    } else {
+                        $ok = true;
+                    }
+                }
+            } else {
+                throw $e;
+            }
+        }
+
         if ($ok) {
             foreach ($data as $key => $val) {
                 if (property_exists($this, $key)) {

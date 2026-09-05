@@ -139,23 +139,28 @@ class AdminController {
 
         $plan = $planId ? Plan::find($planId) : null;
 
-        $user = User::create([
-            'name' => $name,
-            'email' => $email,
-            'password' => password_hash($password, PASSWORD_BCRYPT),
-            'role' => in_array($role, ['user', 'admin']) ? $role : 'user',
-            'status' => in_array($status, ['active', 'suspended']) ? $status : 'active',
-            'plan_id' => $plan ? $plan->id : null,
-            'plan_type' => $plan ? $plan->slug : 'free',
-            'subscription_status' => $plan ? 'active' : 'inactive',
-            'gmail_limit' => $plan ? $plan->gmail_limit : 1,
-            'can_bulk_send' => ($request->input('can_bulk_send', '0') === '1' || ($plan && $plan->slug === 'professional')) ? 1 : 0,
-            'subscription_started_at' => $plan ? date('Y-m-d H:i:s') : null,
-            'subscription_expires_at' => $plan ? date('Y-m-d H:i:s', strtotime('+1 month')) : null,
-        ]);
+        try {
+            $user = User::create([
+                'name' => $name,
+                'email' => $email,
+                'password' => password_hash($password, PASSWORD_BCRYPT),
+                'role' => in_array($role, ['user', 'admin']) ? $role : 'user',
+                'status' => in_array($status, ['active', 'suspended']) ? $status : 'active',
+                'plan_id' => $plan ? $plan->id : null,
+                'plan_type' => $plan ? $plan->slug : 'free',
+                'subscription_status' => $plan ? 'active' : 'inactive',
+                'gmail_limit' => $plan ? $plan->gmail_limit : 1,
+                'can_bulk_send' => ($request->input('can_bulk_send', '0') === '1' || ($plan && $plan->slug === 'professional')) ? 1 : 0,
+                'subscription_started_at' => $plan ? date('Y-m-d H:i:s') : null,
+                'subscription_expires_at' => $plan ? date('Y-m-d H:i:s', strtotime('+1 month')) : null,
+            ]);
 
-        logger("Admin created user account: {$email}", 'info', Auth::id());
-        flash('success', "User [{$name}] created successfully!");
+            logger("Admin created user account: {$email}", 'info', Auth::id());
+            flash('success', "User [{$name}] created successfully!");
+        } catch (\Throwable $e) {
+            error_log("Failed creating user account: " . $e->getMessage());
+            flash('error', "Could not create user: " . $e->getMessage());
+        }
         redirect('/admin/users');
     }
 
@@ -180,6 +185,25 @@ class AdminController {
         $plan = $planId ? Plan::find($planId) : null;
         $canBulkSendInput = $request->input('can_bulk_send', '0') === '1';
         $canBulkSend = ($canBulkSendInput || ($plan && $plan->slug === 'professional')) ? 1 : 0;
+
+        if (empty($name)) {
+            flash('error', 'Full Name is required.');
+            redirect('/admin/users');
+            return;
+        }
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            flash('error', 'Please provide a valid email address.');
+            redirect('/admin/users');
+            return;
+        }
+
+        $existingUser = User::findByEmail($email);
+        if ($existingUser && (int)$existingUser->id !== (int)$user->id) {
+            flash('error', "The email {$email} is already in use by another user account.");
+            redirect('/admin/users');
+            return;
+        }
 
         $dataToUpdate = [
             'name' => $name,
@@ -213,9 +237,14 @@ class AdminController {
             $dataToUpdate['password'] = password_hash($password, PASSWORD_BCRYPT);
         }
 
-        $user->update($dataToUpdate);
-        logger("Admin updated user ID #{$user->id} subscription & settings", 'info', Auth::id());
-        flash('success', "User [{$name}] updated successfully!");
+        try {
+            $user->update($dataToUpdate);
+            logger("Admin updated user ID #{$user->id} subscription & settings", 'info', Auth::id());
+            flash('success', "User [{$name}] updated successfully!");
+        } catch (\Throwable $e) {
+            error_log("Error updating user ID #{$id}: " . $e->getMessage());
+            flash('error', "Failed to update user: " . $e->getMessage());
+        }
         redirect('/admin/users');
     }
 
@@ -228,12 +257,26 @@ class AdminController {
         }
 
         $reason = trim($request->input('deletion_reason', 'Account closed upon administrative review.'));
-        // Dispatch account deleted notification before DB removal
-        \App\Services\EmailNotificationService::notifyAccountDeleted($user, $reason);
+        $targetEmail = $user->email;
+        $targetName = $user->name;
 
+        // Clean up user data
+        Database::execute("DELETE FROM activity_logs WHERE user_id = :uid", ['uid' => $id]);
+        Database::execute("DELETE FROM auto_reply_recipients WHERE gmail_account_id IN (SELECT id FROM gmail_accounts WHERE user_id = :uid)", ['uid' => $id]);
+        Database::execute("DELETE FROM email_messages WHERE user_id = :uid", ['uid' => $id]);
+        Database::execute("DELETE FROM gmail_accounts WHERE user_id = :uid", ['uid' => $id]);
+        Database::execute("DELETE FROM automation_settings WHERE user_id = :uid", ['uid' => $id]);
+        Database::execute("DELETE FROM scheduled_jobs WHERE user_id = :uid", ['uid' => $id]);
+        Database::execute("DELETE FROM followup_jobs WHERE user_id = :uid", ['uid' => $id]);
+        Database::execute("DELETE FROM skipped_email_logs WHERE user_id = :uid", ['uid' => $id]);
+        Database::execute("DELETE FROM payments WHERE user_id = :uid", ['uid' => $id]);
         $user->delete();
-        logger("Admin deleted user #{$id} ({$user->email})", 'warning', Auth::id());
-        flash('success', "User [{$user->name}] and all related accounts deleted.");
+
+        // Send goodbye / account closure notification
+        \App\Services\EmailNotificationService::notifyAccountDeleted($targetEmail, $targetName, $reason);
+
+        logger("Admin deleted user ID #{$id} ({$targetEmail}). Reason: {$reason}", 'warning', Auth::id());
+        flash('success', "User account [{$targetName}] and associated data permanently deleted.");
         redirect('/admin/users');
     }
 
@@ -267,12 +310,17 @@ class AdminController {
             return;
         }
 
-        $newState = (int)($user->can_bulk_send ?? 0) === 1 ? 0 : 1;
-        $user->update(['can_bulk_send' => $newState]);
+        try {
+            $newState = (int)($user->can_bulk_send ?? 0) === 1 ? 0 : 1;
+            $user->update(['can_bulk_send' => $newState]);
 
-        $actionText = $newState === 1 ? 'granted to' : 'revoked from';
-        logger("Admin {$actionText} bulk sender permission for user #{$user->id} ({$user->email})", 'info', Auth::id());
-        flash('success', "Bulk Sender permission successfully {$actionText} [{$user->name}].");
+            $actionText = $newState === 1 ? 'granted to' : 'revoked from';
+            logger("Admin {$actionText} bulk sender permission for user #{$user->id} ({$user->email})", 'info', Auth::id());
+            flash('success', "Bulk Sender permission successfully {$actionText} [{$user->name}].");
+        } catch (\Throwable $e) {
+            error_log("Failed toggling bulk permission for user #{$id}: " . $e->getMessage());
+            flash('error', "Could not toggle bulk permission: " . $e->getMessage());
+        }
         redirect('/admin/users');
     }
 
