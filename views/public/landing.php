@@ -213,10 +213,10 @@
                     <?php endif; ?>
 
                     <h1 class="display-5 fw-extrabold text-dark tracking-tight mb-3">
-                        Automate Your Gmail Replies, Follow-ups &amp; Bulk Campaigns
+                        Global Auto-Reply, Smart Follow-ups &amp; Bulk Email Campaigns
                     </h1>
                     <p class="lead text-secondary mb-4 fs-5" style="line-height: 1.7;">
-                        Connect your Gmail accounts, automatically reply to incoming leads, schedule multi-step follow-ups, and launch high-volume bulk email campaigns with smart account rotation from one unified platform.
+                        Configure once globally and let all your connected Gmail accounts automatically inherit multi-step responses with <strong>per-send independent random message variations</strong>, bulletproof lead protection, and high-volume cold email campaigns.
                     </p>
 
                     <div class="d-flex flex-wrap gap-3 justify-content-center justify-content-lg-start mb-4">
@@ -230,15 +230,15 @@
 
                     <!-- Trust Points -->
                     <div class="d-flex flex-wrap gap-3 justify-content-center justify-content-lg-start text-muted small fw-semibold mb-2">
-                        <span><i class="fa-solid fa-shield-check text-success me-1"></i> Secure Gmail OAuth</span>
+                        <span><i class="fa-solid fa-globe text-primary me-1"></i> Global Auto-Reply</span>
                         <span>&bull;</span>
-                        <span><i class="fa-solid fa-paper-plane text-warning me-1"></i> Bulk Campaigns</span>
+                        <span><i class="fa-solid fa-shuffle text-warning me-1"></i> Random Variations (A/B/C)</span>
                         <span>&bull;</span>
-                        <span><i class="fa-solid fa-bolt text-primary me-1"></i> Automated Replies</span>
+                        <span><i class="fa-solid fa-paper-plane text-success me-1"></i> Multi-Account Bulk Sender</span>
                         <span>&bull;</span>
-                        <span><i class="fa-solid fa-arrows-split-up-and-left text-info me-1"></i> Smart Follow-ups</span>
+                        <span><i class="fa-solid fa-shield-halved text-info me-1"></i> Zero-Fallback Guarantee</span>
                         <span>&bull;</span>
-                        <span><i class="fa-solid fa-server text-secondary me-1"></i> 24/7 Cloud Workers</span>
+                        <span><i class="fa-solid fa-server text-secondary me-1"></i> 24/7 Cloud Queue</span>
                     </div>
 
                     <div class="text-center text-lg-start text-muted small">
@@ -251,10 +251,11 @@
                 <!-- Product Mockup Preview -->
                 <div class="col-12 col-lg-6">
                     <div class="dashboard-mockup p-3 p-md-4">
-                        <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
+                        <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3 flex-wrap gap-2">
                             <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-success bg-opacity-10 text-success px-2 py-1"><i class="fa-solid fa-circle text-success small me-1"></i> Automation Active</span>
-                                <span class="badge bg-warning bg-opacity-10 text-warning px-2 py-1"><i class="fa-solid fa-paper-plane me-1"></i> Bulk Sender Active</span>
+                                <span class="badge bg-primary bg-opacity-10 text-primary px-2 py-1"><i class="fa-solid fa-globe me-1"></i> Global Active (85 Accounts)</span>
+                                <span class="badge bg-info bg-opacity-10 text-info px-2 py-1"><i class="fa-solid fa-shuffle me-1"></i> Random Variations</span>
+                                <span class="badge bg-warning bg-opacity-10 text-warning px-2 py-1"><i class="fa-solid fa-paper-plane me-1"></i> Bulk Sender</span>
                             </div>
                             <span class="badge bg-light text-dark border">Server Queue: 24/7</span>
                         </div>
@@ -291,19 +292,19 @@
                         <div class="border rounded-3 p-3 bg-white mb-2 shadow-sm">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span class="fw-bold small text-dark"><i class="fa-solid fa-envelope text-primary me-1"></i> Sarah Jenkins &lt;sarah@company.com&gt;</span>
-                                <span class="badge bg-primary bg-opacity-10 text-primary">Step #1 Replied</span>
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Step #1 &bull; Variation B (Random)</span>
                             </div>
                             <p class="text-muted small mb-1">"Hi, I am interested in your software services..."</p>
                             <div class="d-flex justify-content-between align-items-center text-muted" style="font-size: 0.75rem;">
-                                <span><i class="fa-solid fa-check-double text-success me-1"></i> Custom User Message Sent</span>
-                                <span>Scheduled Follow-up in 2 days</span>
+                                <span><i class="fa-solid fa-check-double text-success me-1"></i> Global Template Sent Automatically</span>
+                                <span>Follow-up #1 scheduled in 2 days</span>
                             </div>
                         </div>
 
                         <div class="border rounded-3 p-3 bg-light bg-opacity-50">
                             <div class="d-flex justify-content-between align-items-center text-muted small">
-                                <span><i class="fa-solid fa-shield-halved text-success me-1"></i> 100% User-Configured Message Guarantee</span>
-                                <span class="fw-semibold text-primary">Zero Fallback Policy</span>
+                                <span><i class="fa-solid fa-shield-halved text-success me-1"></i> Only Reply When Recipient Replies Rule</span>
+                                <span class="fw-semibold text-primary">Zero Fallback Policy Active</span>
                             </div>
                         </div>
                     </div>
@@ -317,38 +318,45 @@
         <div class="container py-4">
             <div class="text-center max-w-700 mx-auto mb-5">
                 <span class="text-primary fw-bold text-uppercase small tracking-wide">The Challenge</span>
-                <h2 class="fw-bold text-dark mt-1">Stop Managing Every Email Manually</h2>
-                <p class="text-muted">Handling hundreds of incoming leads and remembering timely follow-ups manually is time-consuming and causes lost deals.</p>
+                <h2 class="fw-bold text-dark mt-1">Stop Managing Repetitive Emails Manually</h2>
+                <p class="text-muted">Configuring dozens of accounts individually and sending repetitive replies by hand causes inbox fatigue, spam flags, and lost revenue.</p>
             </div>
 
             <div class="row g-4 mb-5">
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-6 col-lg-3">
                     <div class="bg-white p-4 rounded-4 border h-100 shadow-sm">
                         <div class="text-danger fs-3 mb-3"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                        <h5 class="fw-bold">Manual Replies</h5>
-                        <p class="text-muted mb-0">Responding to repetitive inquiries by hand takes hours every day and leads to slow response times.</p>
+                        <h5 class="fw-bold">Manual Repetitive Replies</h5>
+                        <p class="text-muted small mb-0">Typing the same reply repeatedly wastes hours daily and guarantees delays that cold leads will ignore.</p>
                     </div>
                 </div>
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-6 col-lg-3">
                     <div class="bg-white p-4 rounded-4 border h-100 shadow-sm">
                         <div class="text-warning fs-3 mb-3"><i class="fa-solid fa-clock-rotate-left"></i></div>
                         <h5 class="fw-bold">Missed Follow-ups</h5>
-                        <p class="text-muted mb-0">Crucial conversations get buried in inboxes, and leads go cold without consistent, timely follow-up sequences.</p>
+                        <p class="text-muted small mb-0">Crucial prospective deals slip through the cracks without consistent, automated multi-step nurturing sequences.</p>
                     </div>
                 </div>
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-6 col-lg-3">
                     <div class="bg-white p-4 rounded-4 border h-100 shadow-sm">
-                        <div class="text-primary fs-3 mb-3"><i class="fa-brands fa-google"></i></div>
-                        <h5 class="fw-bold">Multiple Gmail Accounts</h5>
-                        <p class="text-muted mb-0">Switching back and forth between 50 to 250 different Gmail accounts individually is inefficient and prone to mistakes.</p>
+                        <div class="text-info fs-3 mb-3"><i class="fa-solid fa-copy"></i></div>
+                        <h5 class="fw-bold">Repetitive Account Setup</h5>
+                        <p class="text-muted small mb-0">Configuring 50 to 250+ Gmail accounts one by one manually is a nightmare. You need a single centralized master setting.</p>
+                    </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                    <div class="bg-white p-4 rounded-4 border h-100 shadow-sm">
+                        <div class="text-primary fs-3 mb-3"><i class="fa-solid fa-filter-circle-xmark"></i></div>
+                        <h5 class="fw-bold">Spam Filters from Same Text</h5>
+                        <p class="text-muted small mb-0">Sending identical messages over and over triggers Google spam algorithms. You need rotating random variations.</p>
                     </div>
                 </div>
             </div>
 
             <div class="p-4 rounded-4 text-center bg-white border border-primary border-opacity-25 shadow-sm">
-                <h5 class="fw-bold text-primary mb-1"><i class="fa-solid fa-sparkles me-2"></i> The Solution</h5>
+                <h5 class="fw-bold text-primary mb-1"><i class="fa-solid fa-sparkles me-2"></i> The Modern Solution</h5>
                 <p class="text-secondary mb-0 fs-6 fw-medium">
-                    Automate repetitive email communication while keeping complete control over your messages, schedules, and accounts from a single centralized dashboard.
+                    Centralized Global Automation: configure multi-step auto-replies, follow-ups, and message variations once. All eligible Gmail accounts automatically inherit settings with per-send independent random variations and bulk cold emailing!
                 </p>
             </div>
         </div>
@@ -363,161 +371,182 @@
                 <p class="text-muted">Engineered for high-volume cold outreach, instantaneous auto-replies, and multi-step follow-ups with bulletproof deliverability.</p>
             </div>
 
-            <!-- New Update Feature Banner -->
-            <div class="card border-0 bg-gradient text-white rounded-4 p-4 mb-5 shadow" style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);">
-                <div class="row align-items-center g-3">
-                    <div class="col-12 col-lg-8 text-center text-lg-start">
-                        <div class="d-inline-flex align-items-center gap-2 bg-white bg-opacity-10 px-3 py-1 rounded-pill small mb-2 text-warning fw-bold">
-                            <i class="fa-solid fa-sparkles"></i> Major New Feature Release
+            <!-- Dual Release Highlight Banner -->
+            <div class="row g-4 mb-5">
+                <div class="col-12 col-lg-6">
+                    <div class="card border-0 h-100 text-white rounded-4 p-4 shadow" style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%);">
+                        <div class="d-inline-flex align-items-center gap-2 bg-white bg-opacity-10 px-3 py-1 rounded-pill small mb-2 text-warning fw-bold w-fit">
+                            <i class="fa-solid fa-sparkles"></i> Brand New Release
                         </div>
-                        <h4 class="fw-bold mb-1 text-white">High-Volume Bulk Email Campaigns (Multi-Account Sender)</h4>
-                        <p class="mb-0 text-white-50 small">
-                            Distribute large-scale recipient lists across dozens of connected Gmail accounts with automated quota rotation, CSV/Excel importing, A/B message variation spinning, and real-time deliverability telemetry. <strong>Included in the Professional Package!</strong>
+                        <h4 class="fw-bold mb-2 text-white">Global Auto-Reply &amp; Random Variations</h4>
+                        <p class="mb-3 text-white-50 small">
+                            Configure once globally. All connected Gmail accounts automatically inherit your multi-step auto-replies and follow-ups. Every send independently selects a random active variation (A/B/C) to guarantee maximum inbox deliverability.
                         </p>
+                        <div class="mt-auto">
+                            <a href="#pricing" class="btn btn-sm btn-light text-primary fw-bold px-3 py-2 rounded-3 shadow-sm">
+                                <i class="fa-solid fa-globe me-1"></i> Explore Global System
+                            </a>
+                        </div>
                     </div>
-                    <div class="col-12 col-lg-4 text-center text-lg-end">
-                        <a href="#pricing" class="btn btn-light text-primary fw-bold px-4 py-2 rounded-3 shadow-sm">
-                            <i class="fa-solid fa-arrow-right me-1"></i> Get Professional Plan
-                        </a>
+                </div>
+
+                <div class="col-12 col-lg-6">
+                    <div class="card border-0 h-100 text-white rounded-4 p-4 shadow" style="background: linear-gradient(135deg, #064e3b 0%, #047857 60%, #10b981 100%);">
+                        <div class="d-inline-flex align-items-center gap-2 bg-white bg-opacity-10 px-3 py-1 rounded-pill small mb-2 text-warning fw-bold w-fit">
+                            <i class="fa-solid fa-paper-plane"></i> Professional Feature
+                        </div>
+                        <h4 class="fw-bold mb-2 text-white">Multi-Account Bulk Email Campaigns</h4>
+                        <p class="mb-3 text-white-50 small">
+                            Distribute large recipient lists across dozens of authorized Gmail accounts with automated daily quota rotation, CSV/Excel lead importing, and real-time deliverability telemetry. <strong>Included in the Professional Package!</strong>
+                        </p>
+                        <div class="mt-auto">
+                            <a href="#pricing" class="btn btn-sm btn-light text-success fw-bold px-3 py-2 rounded-3 shadow-sm">
+                                <i class="fa-solid fa-arrow-right me-1"></i> Get Professional Plan
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="row g-4">
-                <!-- Feature 1: Bulk Email Campaigns -->
+                <!-- Feature 1: Global Centralized Auto-Reply -->
                 <div class="col-12 col-md-6 col-lg-4">
                     <div class="feature-card border-primary border-opacity-25 shadow-sm">
                         <div class="feature-icon-wrapper bg-primary bg-opacity-10 text-primary">
-                            <i class="fa-solid fa-paper-plane"></i>
+                            <i class="fa-solid fa-globe"></i>
                         </div>
-                        <div class="badge bg-primary-subtle text-primary border border-primary-subtle float-end small">New Update</div>
-                        <h5 class="fw-bold mb-2">Bulk Email Campaigns</h5>
-                        <p class="text-muted small mb-0">Launch massive email campaigns distributed smoothly across multiple Gmail accounts with per-account safety limits and automated sender rotation.</p>
+                        <div class="badge bg-primary-subtle text-primary border border-primary-subtle float-end small">Brand New Update</div>
+                        <h5 class="fw-bold mb-2">Centralized Global Automation</h5>
+                        <p class="text-muted small mb-0">Configure your multi-step auto-reply and follow-ups once. All 100 to 250+ connected Gmail accounts automatically inherit settings without repetitive per-account configuration.</p>
                     </div>
                 </div>
 
-                <!-- Feature 2: Contact List Importer -->
+                <!-- Feature 2: Per-Send Random Message Variations -->
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="feature-card">
-                        <div class="feature-icon-wrapper bg-success bg-opacity-10 text-success">
-                            <i class="fa-solid fa-file-excel"></i>
-                        </div>
-                        <div class="badge bg-success-subtle text-success border border-success-subtle float-end small">New Update</div>
-                        <h5 class="fw-bold mb-2">CSV, TXT &amp; Excel Importer</h5>
-                        <p class="text-muted small mb-0">Upload thousands of prospective leads effortlessly using <code>.csv</code>, <code>.xlsx</code>, or <code>.txt</code> files with automatic syntax sanitization and instant deduplication.</p>
-                    </div>
-                </div>
-
-                <!-- Feature 3: Message Variations Spin -->
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="feature-card">
+                    <div class="feature-card border-warning border-opacity-25 shadow-sm">
                         <div class="feature-icon-wrapper bg-warning bg-opacity-10 text-warning">
                             <i class="fa-solid fa-shuffle"></i>
                         </div>
-                        <div class="badge bg-warning-subtle text-warning border border-warning-subtle float-end small">New Update</div>
-                        <h5 class="fw-bold mb-2">Multi-Variation Message Spin</h5>
-                        <p class="text-muted small mb-0">Configure multiple rotating subject lines and email body variations (A/B testing) to bypass spam algorithms and ensure pristine inbox placement.</p>
+                        <div class="badge bg-warning-subtle text-warning border border-warning-subtle float-end small">Brand New Update</div>
+                        <h5 class="fw-bold mb-2">Per-Send Random Variations</h5>
+                        <p class="text-muted small mb-0">Create multiple variations (Variation A, B, C...) per step. For every outgoing email, the system independently selects ONE random variation to prevent spam detection and ensure organic inbox delivery.</p>
                     </div>
                 </div>
 
-                <!-- Feature 4: Role-Based Bulk Sender Permissions -->
+                <!-- Feature 3: Only Reply When Recipient Replies Safeguard -->
                 <div class="col-12 col-md-6 col-lg-4">
                     <div class="feature-card">
-                        <div class="feature-icon-wrapper bg-indigo bg-opacity-10 text-indigo" style="background:#eef2ff; color:#4f46e5;">
-                            <i class="fa-solid fa-user-shield"></i>
+                        <div class="feature-icon-wrapper bg-success bg-opacity-10 text-success">
+                            <i class="fa-solid fa-shield-halved"></i>
                         </div>
-                        <div class="badge bg-indigo-subtle text-indigo border border-indigo-subtle float-end small">Professional &amp; Admin</div>
-                        <h5 class="fw-bold mb-2">Custom Bulk Permission Control</h5>
-                        <p class="text-muted small mb-0">Granular role-based security. Bulk campaign capabilities are automatically unlocked with the <strong>Professional Package</strong> or can be granted by administrators.</p>
+                        <div class="badge bg-success-subtle text-success border border-success-subtle float-end small">Brand New Update</div>
+                        <h5 class="fw-bold mb-2">Recipient-Reply Sequence Gate</h5>
+                        <p class="text-muted small mb-0">Strict sequence protection rule ensures Reply Step #2 and #3 are dispatched ONLY if the recipient replies back to your previous message. Never double-reply or spam leads.</p>
                     </div>
                 </div>
 
-                <!-- Feature 5: 24/7 Instant Sending & Smart Scheduler -->
+                <!-- Feature 4: Execution-Time Live Reload -->
                 <div class="col-12 col-md-6 col-lg-4">
                     <div class="feature-card">
                         <div class="feature-icon-wrapper bg-info bg-opacity-10 text-info">
                             <i class="fa-solid fa-bolt"></i>
                         </div>
-                        <div class="badge bg-info-subtle text-info border border-info-subtle float-end small">New Update</div>
-                        <h5 class="fw-bold mb-2">24/7 Instant Sending &amp; Batches</h5>
+                        <div class="badge bg-info-subtle text-info border border-info-subtle float-end small">Live Queue Engine</div>
+                        <h5 class="fw-bold mb-2">Execution-Time Live Reload</h5>
+                        <p class="text-muted small mb-0">Edit or deactivate templates anytime. The queue worker reloads live active variations from the database right before dispatch, updating queued sends immediately in real-time.</p>
+                    </div>
+                </div>
+
+                <!-- Feature 5: Bulk Email Campaigns -->
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="feature-card border-success border-opacity-25 shadow-sm">
+                        <div class="feature-icon-wrapper bg-success bg-opacity-10 text-success">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </div>
+                        <div class="badge bg-success-subtle text-success border border-success-subtle float-end small">Professional Plan</div>
+                        <h5 class="fw-bold mb-2">Multi-Account Bulk Campaigns</h5>
+                        <p class="text-muted small mb-0">Launch high-volume cold email outreach distributed smoothly across multiple Gmail accounts with automated daily quota rotation and sender load-balancing.</p>
+                    </div>
+                </div>
+
+                <!-- Feature 6: Contact List Importer -->
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="feature-card">
+                        <div class="feature-icon-wrapper bg-primary bg-opacity-10 text-primary">
+                            <i class="fa-solid fa-file-excel"></i>
+                        </div>
+                        <div class="badge bg-primary-subtle text-primary border border-primary-subtle float-end small">CSV &bull; XLSX &bull; TXT</div>
+                        <h5 class="fw-bold mb-2">Lead List Importer &amp; Clean</h5>
+                        <p class="text-muted small mb-0">Upload thousands of prospective leads effortlessly using <code>.csv</code>, <code>.xlsx</code>, or <code>.txt</code> files with automated email sanitization, syntax validation, and instant deduplication.</p>
+                    </div>
+                </div>
+
+                <!-- Feature 7: Role-Based Bulk Sender Permissions -->
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="feature-card">
+                        <div class="feature-icon-wrapper bg-indigo bg-opacity-10 text-indigo" style="background:#eef2ff; color:#4f46e5;">
+                            <i class="fa-solid fa-user-shield"></i>
+                        </div>
+                        <div class="badge bg-indigo-subtle text-indigo border border-indigo-subtle float-end small">Access Control</div>
+                        <h5 class="fw-bold mb-2">Custom Bulk Permission Control</h5>
+                        <p class="text-muted small mb-0">Granular role-based security. Bulk campaign capabilities are automatically unlocked with the <strong>Professional Package</strong> or can be granted to specific user accounts by administrators.</p>
+                    </div>
+                </div>
+
+                <!-- Feature 8: 24/7 Instant Sending & Smart Scheduler -->
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="feature-card">
+                        <div class="feature-icon-wrapper bg-dark bg-opacity-10 text-dark">
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div class="badge bg-dark-subtle text-dark border border-dark-subtle float-end small">Instant Delivery</div>
+                        <h5 class="fw-bold mb-2">24/7 Sending &amp; Batch Overrides</h5>
                         <p class="text-muted small mb-0">Switch between instantaneous 24/7 round-the-clock delivery or strict business window scheduling in any global timezone with one-click "Send Batch Now" manual overrides.</p>
                     </div>
                 </div>
 
-                <!-- Feature 6: Multiple Gmail Accounts Connection -->
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="feature-card">
-                        <div class="feature-icon-wrapper bg-primary bg-opacity-10 text-primary">
-                            <i class="fa-brands fa-google"></i>
-                        </div>
-                        <h5 class="fw-bold mb-2">Multiple Gmail Accounts</h5>
-                        <p class="text-muted small mb-0">Connect and orchestrate 100 to 250+ Gmail accounts from one centralized dashboard with official Google OAuth 2.0.</p>
-                    </div>
-                </div>
-
-                <!-- Feature 7: Automatic Conversational Replies -->
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="feature-card">
-                        <div class="feature-icon-wrapper bg-success bg-opacity-10 text-success">
-                            <i class="fa-solid fa-reply-all"></i>
-                        </div>
-                        <h5 class="fw-bold mb-2">Conversational Auto Replies</h5>
-                        <p class="text-muted small mb-0">Instantly or with custom jitter delays reply to incoming inquiries with 100% user-crafted messages. Zero canned or hardcoded system replies.</p>
-                    </div>
-                </div>
-
-                <!-- Feature 8: Sequential Follow-ups & Smart Cancellation -->
+                <!-- Feature 9: Sequential Follow-ups & Auto-Cancellation -->
                 <div class="col-12 col-md-6 col-lg-4">
                     <div class="feature-card">
                         <div class="feature-icon-wrapper bg-danger bg-opacity-10 text-danger">
                             <i class="fa-solid fa-arrows-split-up-and-left"></i>
                         </div>
                         <h5 class="fw-bold mb-2">Multi-Step Auto Follow-ups</h5>
-                        <p class="text-muted small mb-0">Build automated drip sequences (Step 1, Step 2, Step 3). When a recipient replies, the system instantly cancels all remaining follow-ups automatically.</p>
+                        <p class="text-muted small mb-0">Build automated sequential nurturing campaigns (Step 1, Step 2, Step 3). When a recipient replies, the system instantly cancels all remaining follow-ups automatically.</p>
                     </div>
                 </div>
 
-                <!-- Feature 9: Exact Deduplication & Historical Baseline -->
+                <!-- Feature 10: Strict Zero-Fallback Policy -->
                 <div class="col-12 col-md-6 col-lg-4">
                     <div class="feature-card">
                         <div class="feature-icon-wrapper bg-teal bg-opacity-10 text-teal" style="background:#ccfbf1; color:#0d9488;">
-                            <i class="fa-solid fa-shield-halved"></i>
+                            <i class="fa-solid fa-lock"></i>
                         </div>
-                        <h5 class="fw-bold mb-2">Duplicate &amp; Baseline Protection</h5>
-                        <p class="text-muted small mb-0">Advanced safety architecture ensures existing threads, past customers, and previously contacted leads are never emailed twice or double-replied.</p>
+                        <div class="badge bg-teal-subtle text-teal border border-teal-subtle float-end small">100% Custom</div>
+                        <h5 class="fw-bold mb-2">Strict Zero-Fallback Policy</h5>
+                        <p class="text-muted small mb-0">If message variations are missing, empty, or deleted, jobs are cleanly cancelled. The platform strictly enforces zero hardcoded fallback or placeholder emails.</p>
                     </div>
                 </div>
 
-                <!-- Feature 10: Rich Text Formatting & Media Attachments -->
+                <!-- Feature 11: Exact Deduplication & Historical Baseline -->
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="feature-card">
+                        <div class="feature-icon-wrapper bg-secondary bg-opacity-10 text-secondary">
+                            <i class="fa-solid fa-history"></i>
+                        </div>
+                        <h5 class="fw-bold mb-2">Historical Baseline Protection</h5>
+                        <p class="text-muted small mb-0">Strict connection-date baseline protection prevents auto-replies or drip follow-ups from being triggered on old historical emails received before account connection.</p>
+                    </div>
+                </div>
+
+                <!-- Feature 12: WYSIWYG Rich Text Formatting & Images -->
                 <div class="col-12 col-md-6 col-lg-4">
                     <div class="feature-card">
                         <div class="feature-icon-wrapper bg-purple bg-opacity-10 text-purple" style="background:#f3e8ff; color:#9333ea;">
                             <i class="fa-solid fa-pen-nib"></i>
                         </div>
-                        <h5 class="fw-bold mb-2">WYSIWYG Rich Text &amp; Images</h5>
-                        <p class="text-muted small mb-0">Craft beautiful rich-text HTML emails with clickable links, formatting, embedded images, and dynamic tags like <code>{{sender_name}}</code>.</p>
-                    </div>
-                </div>
-
-                <!-- Feature 11: Real-Time Telemetry & Recipient Auditing -->
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="feature-card">
-                        <div class="feature-icon-wrapper bg-secondary bg-opacity-10 text-secondary">
-                            <i class="fa-solid fa-chart-line"></i>
-                        </div>
-                        <h5 class="fw-bold mb-2">Live Telemetry &amp; Audit Logs</h5>
-                        <p class="text-muted small mb-0">Monitor live progress bars, detailed recipient delivery statuses (Pending, Sent, Failed, Cancelled), per-account limits, and comprehensive activity logs.</p>
-                    </div>
-                </div>
-
-                <!-- Feature 12: Account Safety Cooldowns & Queue Isolation -->
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="feature-card">
-                        <div class="feature-icon-wrapper bg-dark bg-opacity-10 text-dark">
-                            <i class="fa-solid fa-gauge-high"></i>
-                        </div>
-                        <h5 class="fw-bold mb-2">Safety Limits &amp; Cooldowns</h5>
-                        <p class="text-muted small mb-0">Isolated quota telemetry prevents bulk campaigns from exhausting auto-reply daily quotas. Includes automated temporary cooldowns if Google rate limits occur.</p>
+                        <h5 class="fw-bold mb-2">WYSIWYG Rich Text &amp; Media</h5>
+                        <p class="text-muted small mb-0">Craft beautiful rich-text HTML emails with clickable links, formatting, embedded images, and dynamic tags like <code>{{first_name}}</code>, <code>{{company}}</code>, and <code>{{subject}}</code>.</p>
                     </div>
                 </div>
             </div>
@@ -707,6 +736,31 @@
                                 <td class="fw-semibold">Connected Gmail Accounts</td>
                                 <td class="text-center text-primary fw-bold">100 Accounts</td>
                                 <td class="text-center text-primary fw-bold">250 Accounts</td>
+                            </tr>
+                            <tr class="table-info table-opacity-10">
+                                <td class="fw-bold text-dark"><i class="fa-solid fa-globe text-info me-2"></i> Global Auto-Reply &amp; Follow-up (1-Click Multi-Account Sync)</td>
+                                <td class="text-center text-success fw-bold"><i class="fa-solid fa-check fs-5 me-1"></i> Included</td>
+                                <td class="text-center text-success fw-bold"><i class="fa-solid fa-check fs-5 me-1"></i> Included</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold"><i class="fa-solid fa-shuffle text-primary me-2"></i> Per-Send Independent Random Message Variations (A/B/C)</td>
+                                <td class="text-center text-success"><i class="fa-solid fa-check fs-5"></i></td>
+                                <td class="text-center text-success"><i class="fa-solid fa-check fs-5"></i></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold"><i class="fa-solid fa-shield-check text-success me-2"></i> "Only Reply When Recipient Replies" Rule (Strict Gate)</td>
+                                <td class="text-center text-success"><i class="fa-solid fa-check fs-5"></i></td>
+                                <td class="text-center text-success"><i class="fa-solid fa-check fs-5"></i></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold"><i class="fa-solid fa-bolt text-warning me-2"></i> Live Execution-Time Dynamic Variation Reload</td>
+                                <td class="text-center text-success"><i class="fa-solid fa-check fs-5"></i></td>
+                                <td class="text-center text-success"><i class="fa-solid fa-check fs-5"></i></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold"><i class="fa-solid fa-lock text-dark me-2"></i> Strict Zero-Fallback Delivery Protection</td>
+                                <td class="text-center text-success"><i class="fa-solid fa-check fs-5"></i></td>
+                                <td class="text-center text-success"><i class="fa-solid fa-check fs-5"></i></td>
                             </tr>
                             <tr class="table-primary table-opacity-10">
                                 <td class="fw-bold text-dark"><i class="fa-solid fa-paper-plane text-primary me-2"></i> Bulk Email Campaigns (High-Volume Mass Sender)</td>
@@ -969,6 +1023,62 @@
                     <div id="faq11" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                         <div class="accordion-body text-secondary">
                             Yes! You can upload recipient lists directly using CSV (<code>.csv</code>), plain text (<code>.txt</code>), or Excel spreadsheets (<code>.xlsx</code>). The engine automatically strips duplicates, filters invalid email syntax, and prepares recipients for seamless multi-account sending.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ 12 -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq12">
+                            How does Global Auto-Reply &amp; Centralized Follow-up work?
+                        </button>
+                    </h2>
+                    <div id="faq12" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body text-secondary">
+                            Instead of configuring auto-replies and follow-up delays individually on 50 or 250 connected Gmail accounts, you configure your settings once in the <strong>Global Auto-Reply</strong> dashboard. All current and future connected accounts automatically inherit and execute the global rules instantly.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ 13 -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq13">
+                            What are Random Message Variations (A/B/C) and how do they boost deliverability?
+                        </button>
+                    </h2>
+                    <div id="faq13" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body text-secondary">
+                            Sending the exact same email text thousands of times triggers spam filters. With our <strong>Random Message Variations</strong>, you can define multiple alternative message versions (Variation A, Variation B, Variation C) for your initial reply and each follow-up step. Every time an email is dispatched, the engine picks an active variation at random—keeping your text unique and maximizing inbox delivery rates.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ 14 -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq14">
+                            What is the "Only Reply When Recipient Replies" rule?
+                        </button>
+                    </h2>
+                    <div id="faq14" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body text-secondary">
+                            This setting ensures sequential follow-ups are only sent if the prospect has actually replied to the preceding email. If your initial auto-reply went out and the recipient never replied, the system will not blindly send unsolicited follow-ups unless you explicitly want proactive sequences.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ 15 -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq15">
+                            What is the Zero-Fallback guarantee and Live Execution-Time Reload?
+                        </button>
+                    </h2>
+                    <div id="faq15" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body text-secondary">
+                            We never send default system text or fallback templates when you delete or edit variations. Our background worker queries the latest live database configuration right before sending. If a variation was removed or changed in the dashboard, the worker loads the fresh variation dynamically at execution time or safely cancels the send.
                         </div>
                     </div>
                 </div>
