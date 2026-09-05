@@ -70,7 +70,7 @@
                                     <input type="hidden" name="message_ids[]" value="<?= $msg->id ?>">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <span class="fw-bold small text-dark"><i class="fa-solid fa-shuffle text-warning me-1"></i> Variation #<?= $idx + 1 ?></span>
-                                        <span class="badge bg-secondary-subtle text-dark border"><?= $msg->sends_count ?> sent</span>
+                                        <span class="badge bg-secondary-subtle text-dark border"><?= (int)($msg->usage_count ?? 0) ?> sent</span>
                                     </div>
                                     <div class="mb-2">
                                         <input type="text" name="subjects[]" class="form-control form-control-sm mb-2" value="<?= e($msg->subject) ?>" placeholder="Subject line" required>

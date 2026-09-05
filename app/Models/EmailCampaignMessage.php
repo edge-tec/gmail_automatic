@@ -109,6 +109,13 @@ class EmailCampaignMessage {
         return Database::execute("DELETE FROM email_campaign_messages WHERE campaign_id = :cid", ['cid' => $campaignId]);
     }
 
+    public function __get(string $name) {
+        if ($name === 'sends_count') {
+            return $this->usage_count;
+        }
+        return null;
+    }
+
     public static function fromRow(array $row): self {
         $m = new self();
         $m->id = (int)$row['id'];
