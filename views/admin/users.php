@@ -22,9 +22,10 @@
                         <th>Email Address</th>
                         <th>Plan &amp; Subscription</th>
                         <th>Gmail Limit</th>
+                        <th>Bulk Sender</th>
                         <th>Trial Status</th>
                         <th>Role / Status</th>
-                        <th class="text-end" style="width: 140px;">Actions</th>
+                        <th class="text-end" style="width: 175px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -61,6 +62,17 @@
                             <span class="badge bg-light text-primary border fw-bold"><?= $u->getMaxGmailAccounts() ?> Accounts</span>
                         </td>
                         <td>
+                            <?php if ($u->canBulkSend()): ?>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                    <i class="fa-solid fa-check me-1"></i> Enabled
+                                </span>
+                            <?php else: ?>
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                    <i class="fa-solid fa-xmark me-1"></i> Disabled
+                                </span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
                             <span class="badge <?= $u->trial_status === 'active' ? 'bg-info' : ($u->trial_status === 'expired' ? 'bg-danger' : 'bg-secondary') ?>">
                                 <?= ucfirst($u->trial_status) ?>
                             </span>
@@ -79,6 +91,16 @@
                         </td>
                         <td class="text-end">
                             <div class="d-inline-flex gap-1 align-items-center">
+                                <?php if ($u->role !== 'admin'): ?>
+                                    <!-- Toggle Bulk Sender Permission -->
+                                    <form action="<?= url("/admin/users/{$u->id}/toggle-bulk") ?>" method="POST" class="d-inline">
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="btn btn-sm <?= $u->canBulkSend() ? 'btn-outline-success' : 'btn-outline-secondary' ?>" title="<?= $u->canBulkSend() ? 'Revoke Bulk Sender Permission' : 'Grant Bulk Sender Permission' ?>">
+                                            <i class="fa-solid fa-paper-plane"></i>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+
                                 <?php if ($u->id !== auth_user()->id): ?>
                                     <!-- Login as User (Impersonate without password) -->
                                     <form action="<?= url("/admin/users/{$u->id}/impersonate") ?>" method="POST" class="d-inline">
@@ -190,6 +212,13 @@
                                                     </label>
                                                 </div>
 
+                                                <div class="form-check form-switch mb-3 p-2 bg-light rounded border">
+                                                    <input class="form-check-input ms-0 me-2" type="checkbox" name="can_bulk_send" id="can_bulk_send_<?= $u->id ?>" value="1" <?= $u->canBulkSend() ? 'checked' : '' ?>>
+                                                    <label class="form-check-label fw-semibold small text-dark" for="can_bulk_send_<?= $u->id ?>">
+                                                        <i class="fa-solid fa-paper-plane text-primary me-1"></i> Grant Bulk Sender Permission (Access to Bulk Campaigns)
+                                                    </label>
+                                                </div>
+
                                                 <div class="row g-3 mb-3">
                                                     <div class="col-6">
                                                         <label class="form-label fw-semibold small">Role</label>
@@ -265,6 +294,13 @@
                             <option value="<?= $p->id ?>"><?= e($p->name) ?> Plan ($<?= number_format($p->price, 0) ?>/mo - <?= $p->gmail_limit ?> Gmails)</option>
                             <?php endforeach; ?>
                         </select>
+                    </div>
+
+                    <div class="form-check form-switch mb-3 p-2 bg-light rounded border">
+                        <input class="form-check-input ms-0 me-2" type="checkbox" name="can_bulk_send" id="new_can_bulk_send" value="1">
+                        <label class="form-check-label fw-semibold small text-dark" for="new_can_bulk_send">
+                            <i class="fa-solid fa-paper-plane text-primary me-1"></i> Grant Bulk Sender Permission
+                        </label>
                     </div>
 
                     <div class="row g-3">

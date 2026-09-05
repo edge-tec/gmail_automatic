@@ -15,7 +15,20 @@ use Exception;
 
 class CampaignController {
 
+    private function authorizeBulkSender(): bool {
+        $user = Auth::user();
+        if (!$user || !$user->canBulkSend()) {
+            flash('warning', 'Bulk Email Campaign feature is not enabled for your account. Please contact the administrator to grant bulk sender access.');
+            redirect('/dashboard');
+            return false;
+        }
+        return true;
+    }
+
     public function index(Request $request): string {
+        if (!$this->authorizeBulkSender()) {
+            return '';
+        }
         $userId = Auth::id();
         $campaigns = EmailCampaign::findByUserId($userId);
         $accounts = GmailAccount::findByUserId($userId);
@@ -48,6 +61,9 @@ class CampaignController {
     }
 
     public function create(Request $request): string {
+        if (!$this->authorizeBulkSender()) {
+            return '';
+        }
         $userId = Auth::id();
         $accounts = GmailAccount::findByUserId($userId);
 
@@ -69,6 +85,9 @@ class CampaignController {
     }
 
     public function store(Request $request): void {
+        if (!$this->authorizeBulkSender()) {
+            return;
+        }
         $userId = Auth::id();
         $name = trim($request->input('name', ''));
         $dailyLimit = max(1, (int)$request->input('daily_campaign_limit', 300));
@@ -211,6 +230,9 @@ class CampaignController {
     }
 
     public function show(Request $request, int $id): string {
+        if (!$this->authorizeBulkSender()) {
+            return '';
+        }
         $userId = Auth::id();
         $campaign = EmailCampaign::findByUserAndId($userId, $id);
 
@@ -280,6 +302,9 @@ class CampaignController {
     }
 
     public function pause(Request $request, int $id): void {
+        if (!$this->authorizeBulkSender()) {
+            return;
+        }
         $userId = Auth::id();
         $campaign = EmailCampaign::findByUserAndId($userId, $id);
         if ($campaign && $campaign->status === 'active') {
@@ -290,6 +315,9 @@ class CampaignController {
     }
 
     public function resume(Request $request, int $id): void {
+        if (!$this->authorizeBulkSender()) {
+            return;
+        }
         $userId = Auth::id();
         $campaign = EmailCampaign::findByUserAndId($userId, $id);
         if ($campaign && in_array($campaign->status, ['paused', 'draft'])) {
@@ -300,6 +328,9 @@ class CampaignController {
     }
 
     public function cancel(Request $request, int $id): void {
+        if (!$this->authorizeBulkSender()) {
+            return;
+        }
         $userId = Auth::id();
         $campaign = EmailCampaign::findByUserAndId($userId, $id);
         if ($campaign) {
@@ -317,6 +348,9 @@ class CampaignController {
     }
 
     public function delete(Request $request, int $id): void {
+        if (!$this->authorizeBulkSender()) {
+            return;
+        }
         $userId = Auth::id();
         $campaign = EmailCampaign::findByUserAndId($userId, $id);
         if ($campaign) {
@@ -327,6 +361,9 @@ class CampaignController {
     }
 
     public function accounts(Request $request): string {
+        if (!$this->authorizeBulkSender()) {
+            return '';
+        }
         $userId = Auth::id();
         $accounts = GmailAccount::findByUserId($userId);
 
@@ -350,6 +387,9 @@ class CampaignController {
     }
 
     public function updateAccountLimits(Request $request): void {
+        if (!$this->authorizeBulkSender()) {
+            return;
+        }
         $userId = Auth::id();
         $limits = $request->input('limits', []);
         $enabled = $request->input('enabled', []);
@@ -369,6 +409,9 @@ class CampaignController {
     }
 
     public function edit(Request $request, int $id): string {
+        if (!$this->authorizeBulkSender()) {
+            return '';
+        }
         $userId = Auth::id();
         $campaign = EmailCampaign::findByUserAndId($userId, $id);
 
@@ -390,6 +433,9 @@ class CampaignController {
     }
 
     public function update(Request $request, int $id): void {
+        if (!$this->authorizeBulkSender()) {
+            return;
+        }
         $userId = Auth::id();
         $campaign = EmailCampaign::findByUserAndId($userId, $id);
 
@@ -498,6 +544,9 @@ class CampaignController {
     }
 
     public function sendBatchNow(Request $request, int $id): void {
+        if (!$this->authorizeBulkSender()) {
+            return;
+        }
         $userId = Auth::id();
         $campaign = EmailCampaign::findByUserAndId($userId, $id);
 

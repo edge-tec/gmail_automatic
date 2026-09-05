@@ -14,6 +14,7 @@ class User {
     public string $plan_type = 'free';
     public string $subscription_status = 'inactive';
     public int $gmail_limit = 1;
+    public int $can_bulk_send = 0;
     public string $trial_status = 'not_started';
     public ?string $trial_started_at = null;
     public ?string $trial_ends_at = null;
@@ -56,9 +57,9 @@ class User {
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
         $sql = "INSERT INTO users 
-                (name, email, password, role, status, plan_id, plan_type, subscription_status, gmail_limit, trial_status, trial_used, verification_token, created_at) 
+                (name, email, password, role, status, plan_id, plan_type, subscription_status, gmail_limit, can_bulk_send, trial_status, trial_used, verification_token, created_at) 
                 VALUES 
-                (:name, :email, :password, :role, :status, :pid, :ptype, :sub_status, :limit, :t_status, :t_used, :v_tok, {$now})";
+                (:name, :email, :password, :role, :status, :pid, :ptype, :sub_status, :limit, :can_bulk, :t_status, :t_used, :v_tok, {$now})";
 
         Database::execute($sql, [
             'name' => $data['name'],
@@ -70,6 +71,7 @@ class User {
             'ptype' => $data['plan_type'] ?? 'free',
             'sub_status' => $data['subscription_status'] ?? 'inactive',
             'limit' => (int)($data['gmail_limit'] ?? 1),
+            'can_bulk' => (int)($data['can_bulk_send'] ?? 0),
             't_status' => $data['trial_status'] ?? 'not_started',
             't_used' => !empty($data['trial_used']) ? 1 : 0,
             'v_tok' => $data['verification_token'] ?? null,
@@ -222,6 +224,13 @@ class User {
         return 'Free / Inactive';
     }
 
+    public function canBulkSend(): bool {
+        if ($this->role === 'admin') {
+            return true;
+        }
+        return (int)($this->can_bulk_send ?? 0) === 1;
+    }
+
     public static function fromRow(array $row): self {
         $user = new self();
         $user->id = (int)$row['id'];
@@ -234,6 +243,7 @@ class User {
         $user->plan_type = $row['plan_type'] ?? 'free';
         $user->subscription_status = $row['subscription_status'] ?? 'inactive';
         $user->gmail_limit = (int)($row['gmail_limit'] ?? 1);
+        $user->can_bulk_send = (int)($row['can_bulk_send'] ?? 0);
         $user->trial_status = $row['trial_status'] ?? 'not_started';
         $user->trial_started_at = $row['trial_started_at'] ?? null;
         $user->trial_ends_at = $row['trial_ends_at'] ?? null;

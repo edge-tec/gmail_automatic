@@ -128,6 +128,7 @@ $router->get('/admin/users', 'AdminController@users', [AdminMiddleware::class]);
 $router->post('/admin/users/create', 'AdminController@createUser', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/users/{id}/update', 'AdminController@updateUser', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/users/{id}/toggle', 'AdminController@toggleUserStatus', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/users/{id}/toggle-bulk', 'AdminController@toggleBulkPermission', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/users/{id}/delete', 'AdminController@deleteUser', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/users/{id}/impersonate', 'AdminController@impersonateUser', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/impersonate/leave', 'AdminController@leaveImpersonation', [AuthMiddleware::class]);

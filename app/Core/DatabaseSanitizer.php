@@ -98,6 +98,11 @@ class DatabaseSanitizer {
                 ];
                 self::ensureTableColumns('gmail_accounts', $accountCols);
 
+                $userCols = [
+                    'can_bulk_send' => 'TINYINT(1) NOT NULL DEFAULT 0',
+                ];
+                self::ensureTableColumns('users', $userCols);
+
                 $messageCols = [
                     'is_historical' => 'TINYINT(1) NOT NULL DEFAULT 0',
                 ];

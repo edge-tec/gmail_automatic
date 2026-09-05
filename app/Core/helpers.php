@@ -93,7 +93,12 @@ if (!function_exists('url')) {
 if (!function_exists('redirect')) {
     function redirect(string $path, int $status = 302): void {
         $target = str_starts_with($path, 'http') ? $path : url($path);
-        header("Location: {$target}", true, $status);
+        if (!headers_sent()) {
+            header("Location: {$target}", true, $status);
+        }
+        if (defined('TESTING') || (getenv('APP_ENV') === 'testing') || (isset($_ENV['APP_ENV']) && $_ENV['APP_ENV'] === 'testing')) {
+            return;
+        }
         exit;
     }
 }

@@ -68,12 +68,14 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
                         <span>Follow-up Sequence</span>
                     </a>
                 </li>
+                <?php if (auth_user() && auth_user()->canBulkSend()): ?>
                 <li>
                     <a href="<?= url('/campaigns') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/campaigns') ? 'active' : '' ?>">
                         <i class="fa-solid fa-paper-plane text-warning"></i>
                         <span>Bulk Campaigns</span>
                     </a>
                 </li>
+                <?php endif; ?>
                 <li>
                     <a href="<?= url('/rules') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/rules') ? 'active' : '' ?>">
                         <i class="fa-solid fa-filter text-info"></i>

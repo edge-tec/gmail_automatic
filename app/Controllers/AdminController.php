@@ -149,6 +149,7 @@ class AdminController {
             'plan_type' => $plan ? $plan->slug : 'free',
             'subscription_status' => $plan ? 'active' : 'inactive',
             'gmail_limit' => $plan ? $plan->gmail_limit : 1,
+            'can_bulk_send' => $request->input('can_bulk_send', '0') === '1' ? 1 : 0,
             'subscription_started_at' => $plan ? date('Y-m-d H:i:s') : null,
             'subscription_expires_at' => $plan ? date('Y-m-d H:i:s', strtotime('+1 month')) : null,
         ]);
@@ -176,6 +177,7 @@ class AdminController {
         $subscriptionStatus = $request->input('subscription_status', $user->subscription_status);
         $trialStatus = $request->input('trial_status', $user->trial_status);
         $resetTrial = $request->input('reset_trial', '0') === '1';
+        $canBulkSend = $request->input('can_bulk_send', '0') === '1' ? 1 : 0;
 
         $plan = $planId ? Plan::find($planId) : null;
 
@@ -188,6 +190,7 @@ class AdminController {
             'plan_type' => $plan ? $plan->slug : 'free',
             'subscription_status' => $subscriptionStatus,
             'gmail_limit' => $plan ? $plan->gmail_limit : max($gmailLimit, 1),
+            'can_bulk_send' => $canBulkSend,
             'trial_status' => $trialStatus,
         ];
 
@@ -253,6 +256,23 @@ class AdminController {
 
         logger("Admin changed user #{$user->id} status to {$newStatus}", 'info', Auth::id());
         flash('success', "User status updated to {$newStatus}.");
+        redirect('/admin/users');
+    }
+
+    public function toggleBulkPermission(Request $request, int $id): void {
+        $user = User::find($id);
+        if (!$user) {
+            flash('error', 'User not found.');
+            redirect('/admin/users');
+            return;
+        }
+
+        $newState = (int)($user->can_bulk_send ?? 0) === 1 ? 0 : 1;
+        $user->update(['can_bulk_send' => $newState]);
+
+        $actionText = $newState === 1 ? 'granted to' : 'revoked from';
+        logger("Admin {$actionText} bulk sender permission for user #{$user->id} ({$user->email})", 'info', Auth::id());
+        flash('success', "Bulk Sender permission successfully {$actionText} [{$user->name}].");
         redirect('/admin/users');
     }
 

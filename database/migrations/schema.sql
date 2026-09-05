@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     plan_type VARCHAR(50) NOT NULL DEFAULT 'free',
     subscription_status VARCHAR(50) NOT NULL DEFAULT 'inactive',
     gmail_limit INT NOT NULL DEFAULT 1,
+    can_bulk_send TINYINT(1) NOT NULL DEFAULT 0,
     trial_status VARCHAR(50) NOT NULL DEFAULT 'not_started',
     trial_started_at DATETIME NULL,
     trial_ends_at DATETIME NULL,
