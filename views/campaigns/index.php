@@ -155,6 +155,9 @@
                             <a href="<?= url('/campaigns/' . $c->id) ?>" class="btn btn-sm btn-outline-primary" title="View Dashboard">
                                 <i class="fa-solid fa-chart-pie"></i>
                             </a>
+                            <a href="<?= url('/campaigns/' . $c->id . '/edit') ?>" class="btn btn-sm btn-outline-secondary" title="Edit Campaign">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </a>
 
                             <?php if ($c->status === 'active'): ?>
                                 <form action="<?= url('/campaigns/' . $c->id . '/pause') ?>" method="POST" class="d-inline">

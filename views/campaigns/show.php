@@ -34,7 +34,20 @@
     </div>
 
     <!-- Action Buttons -->
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="<?= url('/campaigns/' . $campaign->id . '/edit') ?>" class="btn btn-outline-primary">
+            <i class="fa-solid fa-pen-to-square me-1"></i> Edit Campaign
+        </a>
+
+        <?php if ($campaign->status === 'active' && $campaign->pending_recipients > 0): ?>
+            <form action="<?= url('/campaigns/' . $campaign->id . '/send-batch-now') ?>" method="POST">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-success">
+                    <i class="fa-solid fa-paper-plane me-1"></i> Send Next Batch Now
+                </button>
+            </form>
+        <?php endif; ?>
+
         <?php if ($campaign->status === 'active'): ?>
             <form action="<?= url('/campaigns/' . $campaign->id . '/pause') ?>" method="POST">
                 <?= csrf_field() ?>

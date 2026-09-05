@@ -366,4 +366,159 @@ class CampaignController {
         flash('success', 'Per-Gmail sending limits and campaign status updated successfully.');
         redirect('/campaigns/accounts');
     }
+
+    public function edit(Request $request, int $id): string {
+        $userId = Auth::id();
+        $campaign = EmailCampaign::findByUserAndId($userId, $id);
+
+        if (!$campaign) {
+            flash('danger', 'Campaign not found.');
+            redirect('/campaigns');
+        }
+
+        $messages = EmailCampaignMessage::findByCampaignId($campaign->id);
+        $accounts = GmailAccount::findByUserId($userId);
+        $timezones = \DateTimeZone::listIdentifiers();
+
+        return View::render('campaigns/edit', [
+            'campaign' => $campaign,
+            'messages' => $messages,
+            'accounts' => $accounts,
+            'timezones' => $timezones,
+        ]);
+    }
+
+    public function update(Request $request, int $id): void {
+        $userId = Auth::id();
+        $campaign = EmailCampaign::findByUserAndId($userId, $id);
+
+        if (!$campaign) {
+            flash('danger', 'Campaign not found.');
+            redirect('/campaigns');
+        }
+
+        $name = trim($request->input('name', ''));
+        if (empty($name)) {
+            flash('danger', 'Campaign name is required.');
+            redirect('/campaigns/' . $id . '/edit');
+        }
+
+        $dailyLimit = max(1, (int)$request->input('daily_campaign_limit', 300));
+        $interval = max(5, (int)$request->input('sending_interval', 60));
+
+        $scheduleMode = $request->input('schedule_mode', 'instant');
+        if ($scheduleMode === 'instant') {
+            $startTime = '00:00';
+            $endTime = '23:59';
+        } else {
+            $startTime = trim($request->input('start_time', '00:00')) ?: '00:00';
+            $endTime = trim($request->input('end_time', '23:59')) ?: '23:59';
+        }
+
+        $timezone = trim($request->input('timezone', 'Asia/Dhaka')) ?: 'Asia/Dhaka';
+        $status = $request->input('status', $campaign->status);
+        if (!in_array($status, ['active', 'paused', 'draft', 'cancelled'])) {
+            $status = $campaign->status;
+        }
+
+        $campaign->update([
+            'name' => $name,
+            'daily_campaign_limit' => $dailyLimit,
+            'sending_interval' => $interval,
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'timezone' => $timezone,
+            'status' => $status,
+        ]);
+
+        // Message Variations update/add
+        $messageIds = $request->input('message_ids', []);
+        $subjects = $request->input('subjects', []);
+        $bodies = $request->input('bodies', []);
+
+        if (is_array($bodies)) {
+            foreach ($bodies as $idx => $bodyText) {
+                $bClean = trim(strip_tags($bodyText, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
+                if (empty($bClean)) continue;
+
+                $mId = (int)($messageIds[$idx] ?? 0);
+                $sText = trim($subjects[$idx] ?? '') ?: '(No Subject)';
+
+                if ($mId > 0) {
+                    $msg = EmailCampaignMessage::find($mId);
+                    if ($msg && (int)$msg->campaign_id === (int)$campaign->id) {
+                        $msg->update([
+                            'subject' => $sText,
+                            'body' => $bodyText,
+                        ]);
+                    }
+                } else {
+                    EmailCampaignMessage::create([
+                        'campaign_id' => $campaign->id,
+                        'user_id' => $userId,
+                        'subject' => $sText,
+                        'body' => $bodyText,
+                        'status' => 'active',
+                    ]);
+                }
+            }
+        }
+
+        // Optional append more recipients if a file is provided
+        if (isset($_FILES['recipient_file']) && $_FILES['recipient_file']['error'] === UPLOAD_ERR_OK) {
+            $file = $_FILES['recipient_file'];
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, ['txt', 'csv', 'xlsx'])) {
+                $tempUploadDir = storage_path('temp/uploads');
+                if (!is_dir($tempUploadDir)) mkdir($tempUploadDir, 0775, true);
+                $tempPath = $tempUploadDir . '/' . uniqid('recip_') . '.' . $ext;
+                if (move_uploaded_file($file['tmp_name'], $tempPath)) {
+                    $importService = new RecipientImportService();
+                    $importResult = $importService->importFile($campaign->id, $userId, $tempPath, $ext);
+                    @unlink($tempPath);
+                    flash('success', "Appended {$importResult['imported']} new recipient(s) to campaign!");
+                }
+            }
+        }
+
+        $campaign->recalculateStats();
+
+        // If active, kick off an immediate batch
+        if ($status === 'active') {
+            try {
+                CampaignEngine::processBatch(5);
+            } catch (\Throwable $t) {
+                // Background worker handles rest
+            }
+        }
+
+        flash('success', 'Campaign settings updated successfully!');
+        redirect('/campaigns/' . $campaign->id);
+    }
+
+    public function sendBatchNow(Request $request, int $id): void {
+        $userId = Auth::id();
+        $campaign = EmailCampaign::findByUserAndId($userId, $id);
+
+        if (!$campaign) {
+            flash('danger', 'Campaign not found.');
+            redirect('/campaigns');
+        }
+
+        if ($campaign->status !== 'active') {
+            flash('warning', 'Campaign must be Active to send emails. Please resume or activate it first.');
+            redirect('/campaigns/' . $campaign->id);
+        }
+
+        $sentCount = CampaignEngine::processBatch(10);
+        $campaign->recalculateStats();
+
+        if ($sentCount > 0) {
+            flash('success', "Successfully sent {$sentCount} campaign email(s) in this batch!");
+        } else {
+            flash('info', 'No emails were sent in this run. Please check schedule window, daily limits, or pending recipients.');
+        }
+
+        redirect('/campaigns/' . $campaign->id);
+    }
 }

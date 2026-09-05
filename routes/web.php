@@ -111,6 +111,9 @@ $router->post('/campaigns/create', 'CampaignController@store', [AuthMiddleware::
 $router->get('/campaigns/accounts', 'CampaignController@accounts', [AuthMiddleware::class]);
 $router->post('/campaigns/accounts', 'CampaignController@updateAccountLimits', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->get('/campaigns/{id}', 'CampaignController@show', [AuthMiddleware::class]);
+$router->get('/campaigns/{id}/edit', 'CampaignController@edit', [AuthMiddleware::class]);
+$router->post('/campaigns/{id}/edit', 'CampaignController@update', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/campaigns/{id}/send-batch-now', 'CampaignController@sendBatchNow', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/campaigns/{id}/pause', 'CampaignController@pause', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/campaigns/{id}/resume', 'CampaignController@resume', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/campaigns/{id}/cancel', 'CampaignController@cancel', [AuthMiddleware::class, CSRFMiddleware::class]);
