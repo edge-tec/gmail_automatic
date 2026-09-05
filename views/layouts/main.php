@@ -69,6 +69,12 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
                     </a>
                 </li>
                 <li>
+                    <a href="<?= url('/campaigns') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/campaigns') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-paper-plane text-warning"></i>
+                        <span>Bulk Campaigns</span>
+                    </a>
+                </li>
+                <li>
                     <a href="<?= url('/rules') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/rules') ? 'active' : '' ?>">
                         <i class="fa-solid fa-filter text-info"></i>
                         <span>Filter Rules</span>
@@ -106,6 +112,12 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
                     <a href="<?= url('/admin') ?>" class="nav-link <?= $_SERVER['REQUEST_URI'] === '/admin' ? 'active' : '' ?>">
                         <i class="fa-solid fa-gauge-high"></i>
                         <span>Admin Overview</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="<?= url('/admin/campaigns') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/admin/campaigns') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-paper-plane text-warning"></i>
+                        <span>Campaigns Admin</span>
                     </a>
                 </li>
                 <li>

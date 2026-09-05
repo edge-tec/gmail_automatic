@@ -53,6 +53,10 @@ CREATE TABLE IF NOT EXISTS gmail_accounts (
     initial_sync_at DATETIME NULL,
     baseline_message_date DATETIME NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'connected',
+    bulk_daily_limit INT NOT NULL DEFAULT 50,
+    campaign_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    temp_unavailable_until DATETIME NULL,
+    temp_failure_count INT NOT NULL DEFAULT 0,
     last_sync_at DATETIME NULL,
     last_error LONGTEXT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -489,6 +493,114 @@ CREATE TABLE IF NOT EXISTS skipped_email_logs (
     INDEX idx_sel_type (skip_type),
     INDEX idx_sel_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS email_campaigns (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'draft',
+    daily_campaign_limit INT NOT NULL DEFAULT 300,
+    sending_interval INT NOT NULL DEFAULT 60,
+    start_time VARCHAR(20) NOT NULL DEFAULT '00:00',
+    end_time VARCHAR(20) NOT NULL DEFAULT '23:59',
+    timezone VARCHAR(100) NOT NULL DEFAULT 'Asia/Dhaka',
+    last_used_gmail_account_id INT NULL,
+    last_sent_at DATETIME NULL,
+    total_recipients INT NOT NULL DEFAULT 0,
+    sent_count INT NOT NULL DEFAULT 0,
+    failed_count INT NOT NULL DEFAULT 0,
+    skipped_count INT NOT NULL DEFAULT 0,
+    cancelled_count INT NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_camp_user (user_id),
+    INDEX idx_camp_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS email_campaign_recipients (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    campaign_id INT NOT NULL,
+    user_id INT NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100) NULL,
+    last_name VARCHAR(100) NULL,
+    company VARCHAR(200) NULL,
+    custom_field_1 VARCHAR(255) NULL,
+    custom_field_2 VARCHAR(255) NULL,
+    custom_data JSON NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    claimed_at DATETIME NULL,
+    sent_at DATETIME NULL,
+    sent_gmail_account_id INT NULL,
+    sent_message_id VARCHAR(191) NULL,
+    skip_reason VARCHAR(255) NULL,
+    last_error TEXT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_camp_email (campaign_id, email),
+    FOREIGN KEY (campaign_id) REFERENCES email_campaigns(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_recip_camp_stat (campaign_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS email_campaign_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    campaign_id INT NOT NULL,
+    user_id INT NOT NULL,
+    subject VARCHAR(500) NOT NULL,
+    body LONGTEXT NOT NULL,
+    usage_count INT NOT NULL DEFAULT 0,
+    status VARCHAR(50) NOT NULL DEFAULT 'active',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (campaign_id) REFERENCES email_campaigns(id) ON DELETE CASCADE,
+    INDEX idx_msg_camp (campaign_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS email_campaign_suppressions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    campaign_id INT NULL,
+    email VARCHAR(255) NOT NULL,
+    reason VARCHAR(50) NOT NULL DEFAULT 'unsubscribed',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_supp_user_email (user_id, email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS gmail_campaign_daily_usage (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    gmail_account_id INT NOT NULL,
+    user_id INT NOT NULL,
+    usage_date DATE NOT NULL,
+    daily_limit INT NOT NULL DEFAULT 50,
+    emails_sent INT NOT NULL DEFAULT 0,
+    emails_failed INT NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_gmail_camp_usage (gmail_account_id, usage_date),
+    INDEX idx_gcdu_date (usage_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS email_campaign_sends (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    campaign_id INT NOT NULL,
+    recipient_id INT NOT NULL,
+    gmail_account_id INT NOT NULL,
+    message_variation_id INT NULL,
+    queued_at DATETIME NULL,
+    claimed_at DATETIME NULL,
+    sent_at DATETIME NULL,
+    status VARCHAR(50) NOT NULL,
+    gmail_message_id VARCHAR(191) NULL,
+    error_code VARCHAR(100) NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_send_camp (campaign_id),
+    INDEX idx_send_recip (recipient_id),
+    INDEX idx_send_gmail (gmail_account_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 
 

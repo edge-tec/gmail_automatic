@@ -91,6 +91,10 @@ class DatabaseSanitizer {
                     'initial_history_id' => 'VARCHAR(191) NULL',
                     'initial_sync_at' => 'DATETIME NULL',
                     'baseline_message_date' => 'DATETIME NULL',
+                    'bulk_daily_limit' => 'INT NOT NULL DEFAULT 50',
+                    'campaign_enabled' => 'TINYINT(1) NOT NULL DEFAULT 1',
+                    'temp_unavailable_until' => 'DATETIME NULL',
+                    'temp_failure_count' => 'INT NOT NULL DEFAULT 0',
                 ];
                 self::ensureTableColumns('gmail_accounts', $accountCols);
 
@@ -145,6 +149,10 @@ class DatabaseSanitizer {
                     'initial_history_id' => 'TEXT NULL',
                     'initial_sync_at' => 'TEXT NULL',
                     'baseline_message_date' => 'TEXT NULL',
+                    'bulk_daily_limit' => 'INTEGER NOT NULL DEFAULT 50',
+                    'campaign_enabled' => 'INTEGER NOT NULL DEFAULT 1',
+                    'temp_unavailable_until' => 'TEXT NULL',
+                    'temp_failure_count' => 'INTEGER NOT NULL DEFAULT 0',
                 ];
                 self::ensureTableColumns('gmail_accounts', $accountColsSqlite);
 

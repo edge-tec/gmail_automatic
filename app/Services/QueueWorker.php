@@ -57,6 +57,9 @@ class QueueWorker {
             $jobs = ScheduledJob::getReadyJobs($batchSize);
             
             if (empty($jobs)) {
+                // Also process any ready campaign emails
+                $this->processCampaigns($batchSize);
+
                 if ($once) {
                     echo "[" . date('Y-m-d H:i:s') . "] No pending jobs found. Exiting.\n";
                     break;
@@ -74,12 +77,23 @@ class QueueWorker {
                 }
             }
 
+            // Process ready campaign emails after job batch
+            $this->processCampaigns($batchSize);
+
             if ($once) {
                 $iterations++;
                 if ($iterations >= $maxOnceIterations) {
                     break;
                 }
             }
+        }
+    }
+
+    public function processCampaigns(int $batchSize = 25): void {
+        try {
+            CampaignEngine::processBatch($batchSize);
+        } catch (\Throwable $e) {
+            logger("Error in QueueWorker::processCampaigns: " . $e->getMessage(), 'error');
         }
     }
 

@@ -19,6 +19,10 @@ class GmailAccount {
     public ?string $initial_sync_at = null;
     public ?string $baseline_message_date = null;
     public string $status;
+    public int $bulk_daily_limit = 50;
+    public int $campaign_enabled = 1;
+    public ?string $temp_unavailable_until = null;
+    public int $temp_failure_count = 0;
     public ?string $last_sync_at = null;
     public ?string $last_error = null;
     public ?string $created_at = null;
@@ -37,6 +41,10 @@ class GmailAccount {
             'initial_history_id' => 'VARCHAR(191) NULL',
             'initial_sync_at' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
             'baseline_message_date' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
+            'bulk_daily_limit' => ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 50' : 'INTEGER NOT NULL DEFAULT 50'),
+            'campaign_enabled' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1'),
+            'temp_unavailable_until' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
+            'temp_failure_count' => ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
         ];
         \App\Core\DatabaseSanitizer::ensureTableColumns('gmail_accounts', $accountCols);
     }
@@ -183,6 +191,54 @@ class GmailAccount {
         return DailyUsage::getOrCreate($this->id);
     }
 
+    public function getCampaignTodayUsage(): array {
+        return GmailCampaignDailyUsage::getAccountUsage($this->id);
+    }
+
+    public function isCampaignEligible(?string $date = null): bool {
+        if ($this->status !== 'connected' || empty($this->refresh_token)) {
+            return false;
+        }
+
+        if ($this->campaign_enabled !== 1) {
+            return false;
+        }
+
+        // Check failure cooldown
+        if ($this->temp_unavailable_until !== null) {
+            if (strtotime($this->temp_unavailable_until) > time()) {
+                return false;
+            }
+        }
+
+        // Check per-account daily limit
+        $usage = $this->getCampaignTodayUsage();
+        $limit = $this->bulk_daily_limit > 0 ? $this->bulk_daily_limit : 50;
+        return $usage['emails_sent'] < $limit;
+    }
+
+    public function markTemporaryFailure(int $cooldownMinutes = 10): void {
+        $cooldown = date('Y-m-d H:i:s', time() + ($cooldownMinutes * 60));
+        $this->update([
+            'temp_unavailable_until' => $cooldown,
+            'temp_failure_count' => $this->temp_failure_count + 1,
+        ]);
+    }
+
+    public function clearTemporaryFailure(): void {
+        if ($this->temp_unavailable_until !== null || $this->temp_failure_count > 0) {
+            $this->update([
+                'temp_unavailable_until' => null,
+                'temp_failure_count' => 0,
+            ]);
+        }
+    }
+
+    public static function findCampaignEligibleByUserId(int $userId): array {
+        $accounts = self::findByUserId($userId);
+        return array_values(array_filter($accounts, fn(GmailAccount $a) => $a->isCampaignEligible()));
+    }
+
     public function delete(): bool {
         return Database::execute("DELETE FROM gmail_accounts WHERE id = :id", ['id' => $this->id]);
     }
@@ -203,6 +259,10 @@ class GmailAccount {
         $acc->initial_sync_at = $row['initial_sync_at'] ?? null;
         $acc->baseline_message_date = $row['baseline_message_date'] ?? null;
         $acc->status = $row['status'] ?? 'connected';
+        $acc->bulk_daily_limit = isset($row['bulk_daily_limit']) ? (int)$row['bulk_daily_limit'] : 50;
+        $acc->campaign_enabled = isset($row['campaign_enabled']) ? (int)$row['campaign_enabled'] : 1;
+        $acc->temp_unavailable_until = $row['temp_unavailable_until'] ?? null;
+        $acc->temp_failure_count = isset($row['temp_failure_count']) ? (int)$row['temp_failure_count'] : 0;
         $acc->last_sync_at = $row['last_sync_at'] ?? null;
         $acc->last_error = $row['last_error'] ?? null;
         $acc->created_at = $row['created_at'] ?? null;

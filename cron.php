@@ -93,5 +93,10 @@ echo "[{$timestamp}] Triggering queue worker batch...\n";
 $worker = new QueueWorker();
 $worker->run(true, 50);
 
+// 4. Process bulk email campaigns
+echo "[{$timestamp}] Triggering bulk email campaign engine...\n";
+$sentCount = \App\Services\CampaignEngine::processBatch(50);
+echo "  ↳ Campaign Engine sent {$sentCount} campaign email(s).\n";
+
 $elapsed = round(microtime(true) - $startTime, 2);
 echo "[" . date('Y-m-d H:i:s') . "] Cron run finished in {$elapsed}s.\n";

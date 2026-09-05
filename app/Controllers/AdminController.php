@@ -780,5 +780,67 @@ class AdminController {
 
         redirect($request->input('redirect_to', '/admin/skipped-emails'));
     }
+
+    // --- Bulk Email Campaigns Admin Control ---
+    public function campaigns(): string {
+        $campaigns = \App\Models\EmailCampaign::all();
+        $accounts = \App\Models\GmailAccount::allActive();
+
+        $suppressions = \App\Models\EmailCampaignSuppression::all();
+        $dailyUsage = Database::query("
+            SELECT u.*, g.gmail_email, usr.email as user_email
+            FROM gmail_campaign_daily_usage u
+            JOIN gmail_accounts g ON u.gmail_account_id = g.id
+            JOIN users usr ON u.user_id = usr.id
+            ORDER BY u.usage_date DESC, u.emails_sent DESC
+            LIMIT 50
+        ");
+
+        $recentSends = Database::query("
+            SELECT s.*, c.name as campaign_name, g.gmail_email, r.email as recipient_email
+            FROM email_campaign_sends s
+            JOIN email_campaigns c ON s.campaign_id = c.id
+            JOIN gmail_accounts g ON s.gmail_account_id = g.id
+            JOIN email_campaign_recipients r ON s.recipient_id = r.id
+            ORDER BY s.id DESC
+            LIMIT 50
+        ");
+
+        return View::render('admin/campaigns', [
+            'campaigns' => $campaigns,
+            'accounts' => $accounts,
+            'suppressions' => $suppressions,
+            'dailyUsage' => $dailyUsage,
+            'recentSends' => $recentSends,
+        ]);
+    }
+
+    public function adminStopCampaign(Request $request, int $id): void {
+        $campaign = \App\Models\EmailCampaign::find($id);
+        if ($campaign) {
+            $campaign->update(['status' => 'cancelled']);
+            Database::execute(
+                "UPDATE email_campaign_recipients 
+                 SET status = 'cancelled' 
+                 WHERE campaign_id = :cid AND status IN ('pending', 'queued', 'sending')",
+                ['cid' => $campaign->id]
+            );
+            $campaign->recalculateStats();
+            logger("Admin forcefully cancelled Campaign #{$id} ({$campaign->name})", 'warning', Auth::id());
+            flash('warning', "Campaign '{$campaign->name}' has been stopped and cancelled by admin.");
+        }
+        redirect('/admin/campaigns');
+    }
+
+    public function adminPauseCampaign(Request $request, int $id): void {
+        $campaign = \App\Models\EmailCampaign::find($id);
+        if ($campaign) {
+            $newStatus = $campaign->status === 'paused' ? 'active' : 'paused';
+            $campaign->update(['status' => $newStatus]);
+            logger("Admin toggled Campaign #{$id} status to '{$newStatus}'", 'info', Auth::id());
+            flash('info', "Campaign '{$campaign->name}' status changed to '{$newStatus}'.");
+        }
+        redirect('/admin/campaigns');
+    }
 }
 

@@ -88,4 +88,8 @@ class Router {
         http_response_code(404);
         return View::render('errors/404', ['message' => 'Page Not Found']);
     }
+
+    public function getRoutes(): array {
+        return $this->routes;
+    }
 }

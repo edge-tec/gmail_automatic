@@ -36,6 +36,8 @@ $router->get('/terms', 'LegalController@terms');
 $router->get('/google-api-disclosure', 'LegalController@googleApiDisclosure');
 $router->get('/zero-fallback-policy', 'LegalController@zeroFallbackPolicy');
 $router->get('/data-security', 'LegalController@dataSecurity');
+// Public Unsubscribe Endpoint
+$router->get('/unsubscribe', 'UnsubscribeController@handle');
 
 // Webhook Routes (Exempt from CSRF)
 $router->post('/webhook/gmail/pubsub', 'WebhookController@handlePubSub');
@@ -102,8 +104,23 @@ $router->get('/skipped-emails', 'SkippedEmailController@index', [AuthMiddleware:
 $router->get('/skipped-emails/export', 'SkippedEmailController@exportCsv', [AuthMiddleware::class]);
 $router->post('/skipped-emails/clear', 'SkippedEmailController@clear', [AuthMiddleware::class, CSRFMiddleware::class]);
 
+// Bulk Email Campaigns
+$router->get('/campaigns', 'CampaignController@index', [AuthMiddleware::class]);
+$router->get('/campaigns/create', 'CampaignController@create', [AuthMiddleware::class]);
+$router->post('/campaigns/create', 'CampaignController@store', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->get('/campaigns/accounts', 'CampaignController@accounts', [AuthMiddleware::class]);
+$router->post('/campaigns/accounts', 'CampaignController@updateAccountLimits', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->get('/campaigns/{id}', 'CampaignController@show', [AuthMiddleware::class]);
+$router->post('/campaigns/{id}/pause', 'CampaignController@pause', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/campaigns/{id}/resume', 'CampaignController@resume', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/campaigns/{id}/cancel', 'CampaignController@cancel', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/campaigns/{id}/delete', 'CampaignController@delete', [AuthMiddleware::class, CSRFMiddleware::class]);
+
 // Admin Panel Routes
 $router->get('/admin', 'AdminController@index', [AdminMiddleware::class]);
+$router->get('/admin/campaigns', 'AdminController@campaigns', [AdminMiddleware::class]);
+$router->post('/admin/campaigns/{id}/pause', 'AdminController@adminPauseCampaign', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/campaigns/{id}/stop', 'AdminController@adminStopCampaign', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/users', 'AdminController@users', [AdminMiddleware::class]);
 $router->post('/admin/users/create', 'AdminController@createUser', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/users/{id}/update', 'AdminController@updateUser', [AdminMiddleware::class, CSRFMiddleware::class]);
