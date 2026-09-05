@@ -47,7 +47,7 @@ class CampaignEngine {
     /**
      * Process sending for a specific campaign
      */
-    public static function processCampaign(EmailCampaign $campaign, int $limit = 10): int {
+    public static function processCampaign(EmailCampaign $campaign, int $limit = 10, bool $bypassInterval = false): int {
         $sentCount = 0;
 
         for ($i = 0; $i < $limit; $i++) {
@@ -64,7 +64,7 @@ class CampaignEngine {
             }
 
             // 3. Check Sending Interval (throttle)
-            if ($campaign->last_sent_at) {
+            if (!$bypassInterval && $campaign->last_sent_at) {
                 $elapsed = time() - strtotime($campaign->last_sent_at);
                 if ($elapsed < $campaign->sending_interval) {
                     // Interval has not passed yet

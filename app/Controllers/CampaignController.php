@@ -10,6 +10,7 @@ use App\Models\EmailCampaignMessage;
 use App\Models\GmailAccount;
 use App\Models\GmailCampaignDailyUsage;
 use App\Services\RecipientImportService;
+use App\Services\CampaignEngine;
 use Exception;
 
 class CampaignController {
@@ -510,13 +511,30 @@ class CampaignController {
             redirect('/campaigns/' . $campaign->id);
         }
 
-        $sentCount = CampaignEngine::processBatch(10);
-        $campaign->recalculateStats();
+        try {
+            // Check schedule hours
+            if (!$campaign->isWithinSendingSchedule()) {
+                flash('warning', "Cannot send now: Current time is outside campaign active hours ({$campaign->start_time} – {$campaign->end_time} {$campaign->timezone}). Please edit the campaign to 'Instant Send (No Schedule)' or adjust the hours to send right now.");
+                redirect('/campaigns/' . $campaign->id);
+            }
 
-        if ($sentCount > 0) {
-            flash('success', "Successfully sent {$sentCount} campaign email(s) in this batch!");
-        } else {
-            flash('info', 'No emails were sent in this run. Please check schedule window, daily limits, or pending recipients.');
+            // Process next batch for this specific campaign with interval bypass
+            $sentCount = CampaignEngine::processCampaign($campaign, 5, true);
+            $campaign->recalculateStats();
+
+            if ($sentCount > 0) {
+                flash('success', "Dispatched {$sentCount} campaign email(s) successfully!");
+            } else {
+                $remaining = $campaign->getRemainingCount();
+                if ($remaining === 0) {
+                    flash('info', 'All recipients have already been processed for this campaign.');
+                } else {
+                    flash('warning', 'No emails were sent in this run. Please verify your Gmail accounts daily limits, OAuth connection, or campaign limits.');
+                }
+            }
+        } catch (\Throwable $e) {
+            flash('danger', 'Error sending campaign batch: ' . $e->getMessage());
+            logger("Error in sendBatchNow for Campaign #{$campaign->id}: " . $e->getMessage(), 'error', $userId);
         }
 
         redirect('/campaigns/' . $campaign->id);
