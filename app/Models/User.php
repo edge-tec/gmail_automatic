@@ -228,6 +228,16 @@ class User {
         if ($this->role === 'admin') {
             return true;
         }
+        // Active Professional Plan subscribers automatically receive bulk sender access
+        if ($this->hasActiveSubscription()) {
+            if ($this->plan_type === 'professional') {
+                return true;
+            }
+            $plan = $this->getPlan();
+            if ($plan && $plan->slug === 'professional') {
+                return true;
+            }
+        }
         return (int)($this->can_bulk_send ?? 0) === 1;
     }
 

@@ -165,6 +165,36 @@ class DatabaseSanitizer {
                     'is_historical' => 'INTEGER NOT NULL DEFAULT 0',
                 ];
                 self::ensureTableColumns('email_messages', $messageColsSqlite);
+
+                $userColsSqlite = [
+                    'can_bulk_send' => 'INTEGER NOT NULL DEFAULT 0',
+                ];
+                self::ensureTableColumns('users', $userColsSqlite);
+            }
+
+            // Ensure professional plan features include bulk campaigns and sync active subscribers
+            try {
+                $profPlan = Database::first("SELECT id, features FROM plans WHERE slug = 'professional' LIMIT 1");
+                if ($profPlan) {
+                    $feats = json_decode($profPlan['features'] ?? '[]', true) ?: [];
+                    $checkTitle = 'High-Volume Bulk Email Campaigns (Multi-Account Sender)';
+                    if (!in_array($checkTitle, $feats)) {
+                        array_splice($feats, 1, 0, [
+                            'High-Volume Bulk Email Campaigns (Multi-Account Sender)',
+                            'Bulk Sender Access Permission Included',
+                            'CSV, TXT & Excel (XLSX) Recipient List Importer',
+                            'Multi-Variation Message Spin (A/B Deliverability Engine)',
+                        ]);
+                        Database::execute("UPDATE plans SET features = :feat WHERE id = :id", [
+                            'feat' => json_encode($feats),
+                            'id' => $profPlan['id'],
+                        ]);
+                    }
+                }
+                // Auto-grant bulk send to existing active professional subscribers
+                Database::execute("UPDATE users SET can_bulk_send = 1 WHERE (plan_type = 'professional' OR plan_id IN (SELECT id FROM plans WHERE slug = 'professional')) AND subscription_status = 'active'");
+            } catch (\Throwable $t) {
+                // Safe fallback if tables not yet ready
             }
 
             // Ensure skipped_email_logs table exists

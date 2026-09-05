@@ -25,9 +25,15 @@
                         <span class="text-secondary fw-semibold">/ <?= e($plan->billing_period) ?></span>
                     </div>
 
-                    <div class="badge bg-primary bg-opacity-10 text-primary fw-bold mb-4 p-2 px-3 fs-6 w-100 text-start">
+                    <div class="badge bg-primary bg-opacity-10 text-primary fw-bold mb-3 p-2 px-3 fs-6 w-100 text-start">
                         <i class="fa-brands fa-google me-2"></i> Connect up to <strong><?= $plan->gmail_limit ?> Gmail Accounts</strong>
                     </div>
+
+                    <?php if ($plan->slug === 'professional'): ?>
+                    <div class="badge bg-success bg-opacity-10 text-success border border-success-subtle fw-bold mb-4 p-2 px-3 fs-6 w-100 text-start">
+                        <i class="fa-solid fa-paper-plane me-2"></i> <strong>Bulk Email Campaigns &amp; Bulk Sender Access Included</strong>
+                    </div>
+                    <?php endif; ?>
 
                     <h6 class="fw-bold text-dark small text-uppercase tracking-wider mb-3">Included Features:</h6>
                     <ul class="list-unstyled d-flex flex-column gap-2 mb-4 text-secondary small">

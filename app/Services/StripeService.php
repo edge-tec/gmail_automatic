@@ -160,11 +160,14 @@ class StripeService {
         $startDate = date('Y-m-d H:i:s');
         $expiryDate = date('Y-m-d H:i:s', strtotime('+1 month'));
 
+        $canBulkSend = ($plan && $plan->slug === 'professional') ? 1 : $user->can_bulk_send;
+
         $user->update([
             'plan_id' => $plan ? $plan->id : null,
             'plan_type' => $plan ? $plan->slug : 'starter',
             'subscription_status' => 'active',
             'gmail_limit' => $plan ? $plan->gmail_limit : 100,
+            'can_bulk_send' => $canBulkSend,
             'subscription_started_at' => $startDate,
             'subscription_expires_at' => $expiryDate,
             'stripe_customer_id' => $customerId ?? $user->stripe_customer_id,

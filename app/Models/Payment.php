@@ -121,11 +121,14 @@ class Payment {
         $plan = $this->getPlan();
 
         if ($user && $plan) {
+            $canBulkSend = ($plan->slug === 'professional') ? 1 : $user->can_bulk_send;
+
             $user->update([
                 'plan_id' => $plan->id,
                 'plan_type' => $plan->slug,
                 'subscription_status' => 'active',
                 'gmail_limit' => $plan->gmail_limit,
+                'can_bulk_send' => $canBulkSend,
                 'subscription_started_at' => $now,
                 'subscription_expires_at' => date('Y-m-d H:i:s', strtotime('+1 month')),
             ]);

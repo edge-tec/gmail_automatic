@@ -162,4 +162,43 @@ class BulkSenderPermissionTest extends TestCase {
         $warning = Session::getFlash('warning') ?? ($_SESSION['_flash']['warning'] ?? '');
         $this->assertStringContainsString('Bulk Email Campaign feature is not enabled', $warning);
     }
+
+    public function testProfessionalPlanSubscribersAutomaticallyGetBulkPermission(): void {
+        $user = User::create([
+            'name' => 'Pro User',
+            'email' => 'pro_' . uniqid() . '@example.com',
+            'password' => password_hash('secret123', PASSWORD_BCRYPT),
+            'role' => 'user',
+            'status' => 'active',
+            'plan_type' => 'professional',
+            'subscription_status' => 'active',
+            'subscription_started_at' => date('Y-m-d H:i:s'),
+            'subscription_expires_at' => date('Y-m-d H:i:s', strtotime('+1 month')),
+            'can_bulk_send' => 0, // Even if 0 in DB, professional plan subscriber gets permission
+        ]);
+
+        $this->assertTrue($user->canBulkSend());
+    }
+
+    public function testStarterPlanDoesNotGetBulkPermissionByDefault(): void {
+        $user = User::create([
+            'name' => 'Starter User',
+            'email' => 'starter_' . uniqid() . '@example.com',
+            'password' => password_hash('secret123', PASSWORD_BCRYPT),
+            'role' => 'user',
+            'status' => 'active',
+            'plan_type' => 'starter',
+            'subscription_status' => 'active',
+            'subscription_started_at' => date('Y-m-d H:i:s'),
+            'subscription_expires_at' => date('Y-m-d H:i:s', strtotime('+1 month')),
+            'can_bulk_send' => 0,
+        ]);
+
+        $this->assertFalse($user->canBulkSend());
+
+        // Admin grants custom permission
+        $user->update(['can_bulk_send' => 1]);
+        $fresh = User::find($user->id);
+        $this->assertTrue($fresh->canBulkSend());
+    }
 }

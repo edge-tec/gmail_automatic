@@ -149,7 +149,7 @@ class AdminController {
             'plan_type' => $plan ? $plan->slug : 'free',
             'subscription_status' => $plan ? 'active' : 'inactive',
             'gmail_limit' => $plan ? $plan->gmail_limit : 1,
-            'can_bulk_send' => $request->input('can_bulk_send', '0') === '1' ? 1 : 0,
+            'can_bulk_send' => ($request->input('can_bulk_send', '0') === '1' || ($plan && $plan->slug === 'professional')) ? 1 : 0,
             'subscription_started_at' => $plan ? date('Y-m-d H:i:s') : null,
             'subscription_expires_at' => $plan ? date('Y-m-d H:i:s', strtotime('+1 month')) : null,
         ]);
@@ -177,9 +177,9 @@ class AdminController {
         $subscriptionStatus = $request->input('subscription_status', $user->subscription_status);
         $trialStatus = $request->input('trial_status', $user->trial_status);
         $resetTrial = $request->input('reset_trial', '0') === '1';
-        $canBulkSend = $request->input('can_bulk_send', '0') === '1' ? 1 : 0;
-
         $plan = $planId ? Plan::find($planId) : null;
+        $canBulkSendInput = $request->input('can_bulk_send', '0') === '1';
+        $canBulkSend = ($canBulkSendInput || ($plan && $plan->slug === 'professional')) ? 1 : 0;
 
         $dataToUpdate = [
             'name' => $name,
