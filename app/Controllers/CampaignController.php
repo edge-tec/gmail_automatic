@@ -72,8 +72,14 @@ class CampaignController {
         $name = trim($request->input('name', ''));
         $dailyLimit = max(1, (int)$request->input('daily_campaign_limit', 300));
         $interval = max(5, (int)$request->input('sending_interval', 60));
-        $startTime = trim($request->input('start_time', '00:00')) ?: '00:00';
-        $endTime = trim($request->input('end_time', '23:59')) ?: '23:59';
+        $scheduleMode = $request->input('schedule_mode', 'instant');
+        if ($scheduleMode === 'instant') {
+            $startTime = '00:00';
+            $endTime = '23:59';
+        } else {
+            $startTime = trim($request->input('start_time', '00:00')) ?: '00:00';
+            $endTime = trim($request->input('end_time', '23:59')) ?: '23:59';
+        }
         $timezone = trim($request->input('timezone', 'Asia/Dhaka')) ?: 'Asia/Dhaka';
         $status = $request->input('status', 'active');
         if (!in_array($status, ['active', 'draft'])) {
@@ -181,6 +187,16 @@ class CampaignController {
 
             $msg = "Campaign '{$name}' created successfully! Imported {$result['imported']} recipients. (Total rows: {$result['total_rows']}, Valid: {$result['valid_emails']}, Duplicates: {$result['duplicates']}, Invalid: {$result['invalid_emails']})";
             flash('success', $msg);
+
+            // Kick off immediate sending batch if campaign is active
+            if ($status === 'active') {
+                try {
+                    CampaignEngine::processBatch(5);
+                } catch (\Throwable $t) {
+                    // Worker continues processing in background
+                }
+            }
+
             redirect('/campaigns/' . $campaign->id);
 
         } catch (\Throwable $e) {

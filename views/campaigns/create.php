@@ -110,10 +110,11 @@
                             <span class="input-group-text small text-muted">seconds</span>
                         </div>
                         <div class="d-flex gap-1 mt-2">
+                            <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" onclick="document.querySelector('input[name=sending_interval]').value=5">5s (Fast)</button>
+                            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" onclick="document.querySelector('input[name=sending_interval]').value=10">10s</button>
                             <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" onclick="document.querySelector('input[name=sending_interval]').value=30">30s</button>
                             <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" onclick="document.querySelector('input[name=sending_interval]').value=60">1m</button>
                             <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" onclick="document.querySelector('input[name=sending_interval]').value=300">5m</button>
-                            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" onclick="document.querySelector('input[name=sending_interval]').value=600">10m</button>
                         </div>
                     </div>
 
@@ -142,23 +143,51 @@
                     <h6 class="fw-bold mb-0"><i class="fa-regular fa-clock text-success me-2"></i>4. Schedule &amp; Timezone</h6>
                 </div>
                 <div class="card-body pt-0">
-                    <div class="row g-2 mb-2">
-                        <div class="col-6">
-                            <label class="form-label small fw-semibold">Start Time</label>
-                            <input type="time" name="start_time" id="startTimeInput" class="form-control" value="09:00" required>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small fw-semibold">End Time</label>
-                            <input type="time" name="end_time" id="endTimeInput" class="form-control" value="18:00" required>
+                    <!-- Sending Mode Selector -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Sending Mode</label>
+                        <div class="d-flex flex-column gap-2">
+                            <div class="form-check p-2 rounded-3 border bg-light">
+                                <input class="form-check-input ms-1 me-2" type="radio" name="schedule_mode" id="modeInstant" value="instant" checked onchange="toggleScheduleMode()">
+                                <label class="form-check-label small fw-bold text-dark cursor-pointer" for="modeInstant">
+                                    <i class="fa-solid fa-bolt text-warning me-1"></i> Instant Send (No Schedule / 24/7)
+                                </label>
+                                <div class="small text-muted ms-4" style="font-size: 0.78rem;">
+                                    Starts immediately after creation. Runs 24 hours non-stop without hour restrictions.
+                                </div>
+                            </div>
+                            <div class="form-check p-2 rounded-3 border bg-light">
+                                <input class="form-check-input ms-1 me-2" type="radio" name="schedule_mode" id="modeCustom" value="custom" onchange="toggleScheduleMode()">
+                                <label class="form-check-label small fw-bold text-dark cursor-pointer" for="modeCustom">
+                                    <i class="fa-regular fa-clock text-primary me-1"></i> Custom Schedule Window
+                                </label>
+                                <div class="small text-muted ms-4" style="font-size: 0.78rem;">
+                                    Only send emails during specific hours of the day (e.g. 9 AM to 6 PM).
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="d-flex gap-2 mb-3">
-                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" style="font-size: 0.78rem;" onclick="setSchedule('00:00', '23:59')">
-                            <i class="fa-solid fa-infinity me-1"></i> 24 Hours (All Day)
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" style="font-size: 0.78rem;" onclick="setSchedule('09:00', '18:00')">
-                            <i class="fa-solid fa-briefcase me-1"></i> 9 AM – 6 PM
-                        </button>
+
+                    <!-- Custom Schedule Pickers (Hidden in Instant Mode) -->
+                    <div id="customScheduleSection" style="display: none;">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold">Start Time</label>
+                                <input type="time" name="start_time" id="startTimeInput" class="form-control" value="00:00" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold">End Time</label>
+                                <input type="time" name="end_time" id="endTimeInput" class="form-control" value="23:59" required>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mb-3">
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" style="font-size: 0.78rem;" onclick="setSchedule('00:00', '23:59')">
+                                <i class="fa-solid fa-infinity me-1"></i> 24 Hours (All Day)
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" style="font-size: 0.78rem;" onclick="setSchedule('09:00', '18:00')">
+                                <i class="fa-solid fa-briefcase me-1"></i> 9 AM – 6 PM
+                            </button>
+                        </div>
                     </div>
 
                     <div class="mb-3">
@@ -168,13 +197,13 @@
                                 <option value="<?= e($tz) ?>" <?= $tz === 'Asia/Dhaka' ? 'selected' : '' ?>><?= e($tz) ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <div class="form-text small">Sending will only occur within the specified window in this timezone.</div>
+                        <div class="form-text small">Daily quota counter resets at midnight in this timezone.</div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Initial Status</label>
                         <select name="status" class="form-select">
-                            <option value="active" selected>Active (Start sending immediately when schedule allows)</option>
+                            <option value="active" selected>Active (Start sending immediately)</option>
                             <option value="draft">Draft (Save now, launch manually later)</option>
                         </select>
                     </div>
@@ -249,5 +278,21 @@ document.getElementById('addVariationBtn').addEventListener('click', function() 
 function setSchedule(start, end) {
     document.getElementById('startTimeInput').value = start;
     document.getElementById('endTimeInput').value = end;
+}
+
+function toggleScheduleMode() {
+    const isInstant = document.getElementById('modeInstant').checked;
+    const section = document.getElementById('customScheduleSection');
+    if (isInstant) {
+        section.style.display = 'none';
+        document.getElementById('startTimeInput').value = '00:00';
+        document.getElementById('endTimeInput').value = '23:59';
+    } else {
+        section.style.display = 'block';
+        if (document.getElementById('startTimeInput').value === '00:00' && document.getElementById('endTimeInput').value === '23:59') {
+            document.getElementById('startTimeInput').value = '09:00';
+            document.getElementById('endTimeInput').value = '18:00';
+        }
+    }
 }
 </script>
