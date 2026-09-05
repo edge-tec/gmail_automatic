@@ -142,15 +142,23 @@
                     <h6 class="fw-bold mb-0"><i class="fa-regular fa-clock text-success me-2"></i>4. Schedule &amp; Timezone</h6>
                 </div>
                 <div class="card-body pt-0">
-                    <div class="row g-2 mb-3">
+                    <div class="row g-2 mb-2">
                         <div class="col-6">
                             <label class="form-label small fw-semibold">Start Time</label>
-                            <input type="time" name="start_time" class="form-control" value="09:00" required>
+                            <input type="time" name="start_time" id="startTimeInput" class="form-control" value="09:00" required>
                         </div>
                         <div class="col-6">
                             <label class="form-label small fw-semibold">End Time</label>
-                            <input type="time" name="end_time" class="form-control" value="18:00" required>
+                            <input type="time" name="end_time" id="endTimeInput" class="form-control" value="18:00" required>
                         </div>
+                    </div>
+                    <div class="d-flex gap-2 mb-3">
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" style="font-size: 0.78rem;" onclick="setSchedule('00:00', '23:59')">
+                            <i class="fa-solid fa-infinity me-1"></i> 24 Hours (All Day)
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2" style="font-size: 0.78rem;" onclick="setSchedule('09:00', '18:00')">
+                            <i class="fa-solid fa-briefcase me-1"></i> 9 AM – 6 PM
+                        </button>
                     </div>
 
                     <div class="mb-3">
@@ -237,4 +245,9 @@ document.getElementById('addVariationBtn').addEventListener('click', function() 
         lastFocusedTextarea = this;
     });
 });
+
+function setSchedule(start, end) {
+    document.getElementById('startTimeInput').value = start;
+    document.getElementById('endTimeInput').value = end;
+}
 </script>
