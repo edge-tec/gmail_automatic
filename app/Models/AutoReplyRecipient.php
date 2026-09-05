@@ -169,6 +169,16 @@ class AutoReplyRecipient {
         return $row ? self::fromRow($row) : null;
     }
 
+    public function refresh(): self {
+        $reloaded = self::find($this->id);
+        if ($reloaded) {
+            foreach (get_object_vars($reloaded) as $key => $value) {
+                $this->$key = $value;
+            }
+        }
+        return $this;
+    }
+
     /**
      * Look up sequence state by traffic identity (user_id + normalized_sender_email)
      */

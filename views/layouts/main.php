@@ -57,15 +57,21 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
                     </a>
                 </li>
                 <li>
-                    <a href="<?= url('/settings/automation') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/settings/automation') ? 'active' : '' ?>">
+                    <a href="<?= url('/settings/automation/global') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/settings/automation/global') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-globe text-primary"></i>
+                        <span>Global Automation</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="<?= url('/settings/automation') ?>" class="nav-link <?= (str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/settings/automation') && !str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/settings/automation/global')) ? 'active' : '' ?>">
                         <i class="fa-solid fa-robot"></i>
-                        <span>Auto Reply</span>
+                        <span>Account Auto Reply</span>
                     </a>
                 </li>
                 <li>
                     <a href="<?= url('/settings/followups') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/settings/followups') ? 'active' : '' ?>">
                         <i class="fa-solid fa-arrows-split-up-and-left"></i>
-                        <span>Follow-up Sequence</span>
+                        <span>Account Follow-up</span>
                     </a>
                 </li>
                 <?php if (auth_user() && auth_user()->canBulkSend()): ?>

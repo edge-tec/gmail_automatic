@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS automation_settings (
     followup_enabled TINYINT(1) NOT NULL DEFAULT 0,
     daily_followup_limit INT NOT NULL DEFAULT 100,
     require_recipient_reply_before_next_reply TINYINT(1) NOT NULL DEFAULT 0,
+    use_account_override TINYINT(1) NOT NULL DEFAULT 0,
     timezone VARCHAR(100) NOT NULL DEFAULT 'Asia/Dhaka',
     working_days VARCHAR(255) NOT NULL DEFAULT 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday',
     working_start VARCHAR(20) NOT NULL DEFAULT '00:00',
@@ -601,6 +602,66 @@ CREATE TABLE IF NOT EXISTS email_campaign_sends (
     INDEX idx_send_recip (recipient_id),
     INDEX idx_send_gmail (gmail_account_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS global_automation_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    auto_reply_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    followup_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    require_recipient_reply_before_next_reply TINYINT(1) NOT NULL DEFAULT 0,
+    max_reply_per_thread INT NOT NULL DEFAULT 3,
+    daily_reply_limit INT NOT NULL DEFAULT 100,
+    daily_followup_limit INT NOT NULL DEFAULT 100,
+    reply_delay INT NOT NULL DEFAULT 0,
+    timezone VARCHAR(100) NOT NULL DEFAULT 'Asia/Dhaka',
+    working_days VARCHAR(255) NOT NULL DEFAULT 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday',
+    working_start VARCHAR(20) NOT NULL DEFAULT '00:00',
+    working_end VARCHAR(20) NOT NULL DEFAULT '23:59',
+    version INT NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_gas_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS global_auto_reply_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    step_number INT NOT NULL DEFAULT 1,
+    variation_name VARCHAR(100) NOT NULL DEFAULT 'Variation 1',
+    message LONGTEXT NOT NULL,
+    delay_value INT NOT NULL DEFAULT 0,
+    delay_unit VARCHAR(50) NOT NULL DEFAULT 'seconds',
+    status VARCHAR(50) NOT NULL DEFAULT 'active',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_garm_user_step (user_id, step_number, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS global_followup_sequences (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    step_number INT NOT NULL DEFAULT 1,
+    name VARCHAR(255) NOT NULL DEFAULT 'Follow-up #1',
+    delay_value INT NOT NULL DEFAULT 1,
+    delay_unit VARCHAR(50) NOT NULL DEFAULT 'days',
+    status VARCHAR(50) NOT NULL DEFAULT 'active',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_gfs_user_step (user_id, step_number, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS global_followup_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    step_number INT NOT NULL DEFAULT 1,
+    variation_name VARCHAR(100) NOT NULL DEFAULT 'Variation 1',
+    message LONGTEXT NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'active',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_gfm_user_step (user_id, step_number, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 
 

@@ -883,9 +883,9 @@ class ReplySequenceAndFollowupCampaignTest extends TestCase {
         $sender = 'reconcile_lead_' . uniqid() . '@test.com';
 
         // Insert legacy rows simulating previous multi-account bugs
-        Database::execute("INSERT INTO auto_reply_recipients (user_id, gmail_account_id, normalized_sender_email, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status) VALUES (:uid, 101, :sender, 1, 5, 'active', 'replied')", ['uid' => $this->user->id, 'sender' => $sender]);
-        Database::execute("INSERT INTO auto_reply_recipients (user_id, gmail_account_id, normalized_sender_email, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status) VALUES (:uid, 102, :sender, 3, 5, 'active', 'replied')", ['uid' => $this->user->id, 'sender' => $sender]);
-        Database::execute("INSERT INTO auto_reply_recipients (user_id, gmail_account_id, normalized_sender_email, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status) VALUES (:uid, 103, :sender, 2, 5, 'active', 'replied')", ['uid' => $this->user->id, 'sender' => $sender]);
+        Database::execute("INSERT INTO auto_reply_recipients (user_id, gmail_account_id, normalized_sender_email, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status) VALUES (:uid, :acc, :sender, 1, 5, 'active', 'replied')", ['uid' => $this->user->id, 'acc' => $this->account->id, 'sender' => $sender]);
+        Database::execute("INSERT INTO auto_reply_recipients (user_id, gmail_account_id, normalized_sender_email, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status) VALUES (:uid, :acc, :sender, 3, 5, 'active', 'replied')", ['uid' => $this->user->id, 'acc' => $this->account->id, 'sender' => $sender]);
+        Database::execute("INSERT INTO auto_reply_recipients (user_id, gmail_account_id, normalized_sender_email, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status) VALUES (:uid, :acc, :sender, 2, 5, 'active', 'replied')", ['uid' => $this->user->id, 'acc' => $this->account->id, 'sender' => $sender]);
 
         // Run reconciliation
         AutoReplyRecipient::reconcileExistingDuplicates();

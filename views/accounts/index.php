@@ -26,6 +26,19 @@
     </div>
 </div>
 <?php else: ?>
+<div class="alert alert-primary d-flex align-items-center justify-content-between p-3 mb-4 rounded-3 border-0 bg-primary bg-opacity-10 text-primary">
+    <div class="d-flex align-items-center gap-3">
+        <i class="fa-solid fa-globe fs-4"></i>
+        <div>
+            <strong class="d-block text-dark">Global Auto-Reply &amp; Follow-up Active</strong>
+            <span class="small text-muted">Configure once and all connected accounts automatically inherit multi-step random variation replies.</span>
+        </div>
+    </div>
+    <a href="<?= url('/settings/automation/global') ?>" class="btn btn-sm btn-primary text-nowrap">
+        <i class="fa-solid fa-sliders me-1"></i> Manage Global Automation
+    </a>
+</div>
+
 <div class="row g-4">
     <?php foreach ($accountsData as $item): 
         $acc = $item['account'];
@@ -42,7 +55,7 @@
                         </div>
                         <div>
                             <h5 class="fw-bold mb-1 text-truncate" style="max-width: 280px;"><?= e($acc->gmail_email) ?></h5>
-                            <div>
+                            <div class="d-flex align-items-center flex-wrap gap-1">
                                 <?php if ($acc->status === 'connected'): ?>
                                     <span class="badge bg-success-subtle text-success border border-success-subtle">
                                         <i class="fa-solid fa-circle-check me-1"></i> Connected
@@ -56,7 +69,18 @@
                                         <i class="fa-solid fa-circle-xmark me-1"></i> Disconnected
                                     </span>
                                 <?php endif; ?>
-                                <span class="small text-muted ms-2">
+
+                                <?php if ($sett && !empty($sett->use_account_override)): ?>
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" title="This account overrides global settings with custom rules">
+                                        <i class="fa-solid fa-gear me-1"></i> Custom Override
+                                    </span>
+                                <?php else: ?>
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle" title="Active on user Global Auto-Reply & Follow-up">
+                                        <i class="fa-solid fa-globe me-1"></i> Global Active
+                                    </span>
+                                <?php endif; ?>
+
+                                <span class="small text-muted ms-1">
                                     <i class="fa-solid fa-rotate me-1"></i> Sync: <?= $acc->last_sync_at ? date('M d, H:i', strtotime($acc->last_sync_at)) : 'Pending' ?>
                                 </span>
                             </div>

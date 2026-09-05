@@ -14,6 +14,10 @@ use App\Models\SkippedEmailLog;
 use App\Models\ScheduledJob;
 use App\Models\DailyUsage;
 use App\Models\SystemSetting;
+use App\Models\GlobalAutomationSetting;
+use App\Models\GlobalAutoReplyMessage;
+use App\Models\GlobalFollowupSequence;
+use App\Models\GlobalFollowupMessage;
 use DateTime;
 use DateTimeZone;
 use Exception;
@@ -25,6 +29,66 @@ class AutomationEngine {
     public function __construct(GmailAccount $account) {
         $this->account = $account;
         $this->settings = $this->account->getSettings();
+    }
+
+    /**
+     * Get effective automation settings (Global user settings by default, or account override)
+     */
+    public function getEffectiveSettings(): array {
+        $hasGlobalSteps = GlobalAutoReplyMessage::getTotalConfiguredSteps($this->account->user_id) > 0;
+        $hasGlobalFollowup = count(GlobalFollowupSequence::findByUserId($this->account->user_id)) > 0;
+        $global = ($hasGlobalSteps || $hasGlobalFollowup) ? GlobalAutomationSetting::findByUserId($this->account->user_id) : null;
+
+        $useGlobal = (!$this->settings || !$this->settings->use_account_override) && ($global !== null);
+
+        return [
+            'use_global' => ($useGlobal && $global !== null),
+            'global' => $global,
+            'account_settings' => $this->settings,
+            'auto_reply_enabled' => ($useGlobal && $global) ? $global->auto_reply_enabled : ($this->settings?->auto_reply_enabled ?? false),
+            'followup_enabled' => ($useGlobal && $global) ? $global->followup_enabled : ($this->settings?->followup_enabled ?? false),
+            'require_recipient_reply' => ($useGlobal && $global) ? $global->require_recipient_reply_before_next_reply : ($this->settings?->require_recipient_reply_before_next_reply ?? false),
+            'max_reply_per_thread' => ($useGlobal && $global) ? $global->max_reply_per_thread : ($this->settings?->max_reply_per_thread ?? 3),
+            'daily_reply_limit' => ($useGlobal && $global) ? $global->daily_reply_limit : ($this->settings?->daily_reply_limit ?? 100),
+            'daily_followup_limit' => ($useGlobal && $global) ? $global->daily_followup_limit : ($this->settings?->daily_followup_limit ?? 100),
+            'timezone' => ($useGlobal && $global) ? $global->timezone : ($this->settings?->timezone ?? 'Asia/Dhaka'),
+            'working_days' => ($useGlobal && $global) ? $global->working_days : ($this->settings?->working_days ?? 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'),
+            'working_start' => ($useGlobal && $global) ? $global->working_start : ($this->settings?->working_start ?? '00:00'),
+            'working_end' => ($useGlobal && $global) ? $global->working_end : ($this->settings?->working_end ?? '23:59'),
+        ];
+    }
+
+    public function getTotalConfiguredReplySteps(): int {
+        $effective = $this->getEffectiveSettings();
+        if ($effective['use_global']) {
+            $globalSteps = GlobalAutoReplyMessage::getTotalConfiguredSteps($this->account->user_id);
+            if ($globalSteps > 0) {
+                return $globalSteps;
+            }
+        }
+        return $this->settings ? $this->settings->getTotalConfiguredReplySteps() : 0;
+    }
+
+    public function getStepDelaySeconds(int $step): int {
+        $effective = $this->getEffectiveSettings();
+        if ($effective['use_global']) {
+            $delay = GlobalAutoReplyMessage::getDelaySecondsForStep($this->account->user_id, $step);
+            if ($delay >= 0) {
+                return $delay;
+            }
+        }
+        return $this->settings ? $this->settings->getReplyDelaySecondsForStep($step) : 0;
+    }
+
+    public function getRandomReplyMessageForStep(int $step): string {
+        $effective = $this->getEffectiveSettings();
+        if ($effective['use_global']) {
+            $var = GlobalAutoReplyMessage::getRandomVariation($this->account->user_id, $step);
+            if ($var) {
+                return $var->message;
+            }
+        }
+        return $this->settings ? $this->settings->getReplyMessageForStep($step) : '';
     }
 
     /**
@@ -206,10 +270,11 @@ class AutomationEngine {
             return ['status' => 'skipped', 'reason' => $reason];
         }
 
-        // 8. Check Account Auto Reply Settings
-        if (!$this->settings || !$this->settings->auto_reply_enabled) {
+        // 8. Check Effective Auto Reply Settings (Global vs Account Override)
+        $effective = $this->getEffectiveSettings();
+        if (!$effective['auto_reply_enabled']) {
             // If auto-reply is disabled, but follow-up is enabled, schedule follow-up campaign step 1
-            if ($this->settings && $this->settings->followup_enabled && $thread->reply_count === 0 && $thread->followup_count === 0) {
+            if ($effective['followup_enabled'] && $thread->reply_count === 0 && $thread->followup_count === 0) {
                 $job = $this->scheduleNextFollowupStep($thread, 0);
                 return [
                     'status' => 'followup_scheduled',
@@ -246,12 +311,12 @@ class AutomationEngine {
         }
 
         // 9.5. Auto-Reply Sequence & Duplicate Traffic Protection
-        $totalConfiguredSteps = $this->settings->getTotalConfiguredReplySteps();
+        $totalConfiguredSteps = $this->getTotalConfiguredReplySteps();
         if ($totalConfiguredSteps <= 0) {
             return ['status' => 'skipped', 'reason' => 'Message content is missing. Automated email was not sent.'];
         }
 
-        $requireRecipientReply = (bool)($this->settings->require_recipient_reply_before_next_reply ?? false);
+        $requireRecipientReply = (bool)$effective['require_recipient_reply'];
 
         $claimResult = AutoReplyRecipient::claimOrGetForSequence(
             $this->account->user_id,
@@ -331,12 +396,12 @@ class AutomationEngine {
         // Check Daily Reply Limit for Starting New Traffic Sequences (Step 1)
         // Active sequences (Step 2, 3, 4, 5...) are not blocked by the daily new-traffic limit
         $usage = $this->account->getTodayUsage();
-        $stepDelay = $this->settings->getReplyDelaySecondsForStep($nextReplyStep);
+        $stepDelay = $this->getStepDelaySeconds($nextReplyStep);
 
         $recipientObj = $claimResult['recipient'] ?? null;
         $isNewTrafficSequence = ($nextReplyStep === 1 && (!$recipientObj || $recipientObj->daily_counted === 0 || $recipientObj->counted_date !== date('Y-m-d')));
 
-        if ($isNewTrafficSequence && $usage['reply_count'] >= ($this->settings->daily_reply_limit ?? 100)) {
+        if ($isNewTrafficSequence && $usage['reply_count'] >= ($effective['daily_reply_limit'] ?? 100)) {
             // Schedule reply for next day beginning of working hour
             $scheduledAt = $this->calculateNextAllowedSendTime(true);
         } else {
@@ -344,7 +409,7 @@ class AutomationEngine {
         }
 
         // 10. Prepare Reply Message for Step #$nextReplyStep with Template Variables
-        $templateMessage = $ruleDecision['custom_message'] ?? $this->settings->getReplyMessageForStep($nextReplyStep);
+        $templateMessage = $ruleDecision['custom_message'] ?? $this->getRandomReplyMessageForStep($nextReplyStep);
         $cleanCheck = trim(strip_tags($templateMessage, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
         $isPlaceholder = in_array(trim($templateMessage), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
         if (empty($cleanCheck) || $isPlaceholder) {
@@ -400,17 +465,32 @@ class AutomationEngine {
      */
     public function renderVariables(string $template, array $data): string {
         $name = trim($data['sender_name'] ?? '');
+        if (empty($name) && !empty($data['first_name'])) {
+            $name = trim($data['first_name'] . ' ' . ($data['last_name'] ?? ''));
+        }
         $nameParts = explode(' ', $name);
-        $firstName = $nameParts[0] ?? 'Friend';
-        $lastName = count($nameParts) > 1 ? end($nameParts) : '';
+        $firstName = !empty($data['first_name']) ? $data['first_name'] : ($nameParts[0] ?? 'Friend');
+        $lastName = !empty($data['last_name']) ? $data['last_name'] : (count($nameParts) > 1 ? end($nameParts) : '');
 
         $cleanSubject = preg_replace('/^Re:\s*/i', '', $data['subject'] ?? '');
+
+        $email = $data['sender_email'] ?? ($data['email'] ?? '');
+        $company = $data['company'] ?? '';
+        if (empty($company) && !empty($email) && str_contains($email, '@')) {
+            $domain = substr(strrchr($email, "@"), 1);
+            if (!in_array(strtolower($domain), ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'aol.com', 'mail.com', 'zoho.com', 'protonmail.com'])) {
+                $parts = explode('.', $domain);
+                $company = ucfirst($parts[0]);
+            }
+        }
 
         $replacements = [
             '{{sender_name}}' => $name ?: 'Friend',
             '{{first_name}}' => $firstName ?: 'There',
             '{{last_name}}' => $lastName,
-            '{{sender_email}}' => $data['sender_email'] ?? '',
+            '{{sender_email}}' => $email,
+            '{{email}}' => $email,
+            '{{company}}' => $company,
             '{{subject}}' => $cleanSubject,
             '{{date}}' => date('F j, Y', strtotime($data['date'] ?? 'now')),
         ];
@@ -422,8 +502,9 @@ class AutomationEngine {
      * Calculate allowed send time considering delay, timezone, working days, and working hours
      */
     public function calculateNextAllowedSendTime(bool $forceTomorrow = false, int $delaySeconds = 0): string {
+        $effective = $this->getEffectiveSettings();
         $appTz = new \DateTimeZone(date_default_timezone_get());
-        $userTzStr = $this->settings->timezone ?? date_default_timezone_get();
+        $userTzStr = $effective['timezone'] ?? date_default_timezone_get();
         if (empty($userTzStr)) {
             $userTzStr = date_default_timezone_get();
         }
@@ -443,14 +524,14 @@ class AutomationEngine {
             $userNow->modify("+{$delaySeconds} seconds");
         }
 
-        $workingDays = array_map('trim', explode(',', $this->settings->working_days ?? 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'));
+        $workingDays = array_map('trim', explode(',', $effective['working_days'] ?? 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'));
         $workingDays = array_filter($workingDays);
         if (empty($workingDays)) {
             $workingDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
         }
 
-        $workingStart = !empty($this->settings->working_start) ? $this->settings->working_start : '00:00';
-        $workingEnd = !empty($this->settings->working_end) ? $this->settings->working_end : '23:59';
+        $workingStart = !empty($effective['working_start']) ? $effective['working_start'] : '00:00';
+        $workingEnd = !empty($effective['working_end']) ? $effective['working_end'] : '23:59';
 
         $startParts = explode(':', $workingStart);
         $endParts = explode(':', $workingEnd);
@@ -703,7 +784,8 @@ class AutomationEngine {
      * Schedule next follow-up step after a reply or previous follow-up has been sent
      */
     public function scheduleNextFollowupStep(EmailThread $thread, int $completedStepNumber = 0): ?ScheduledJob {
-        if (!$this->settings || !$this->settings->followup_enabled) {
+        $effective = $this->getEffectiveSettings();
+        if (!$effective['followup_enabled']) {
             return null;
         }
 
@@ -712,7 +794,29 @@ class AutomationEngine {
             return null;
         }
 
-        $allTemplates = FollowupTemplate::findByAccountId($this->account->id);
+        $useGlobal = $effective['use_global'];
+
+        if ($useGlobal) {
+            $allSequences = GlobalFollowupSequence::findByUserId($this->account->user_id);
+            $nextSequence = GlobalFollowupSequence::findNextStep($this->account->user_id, $completedStepNumber);
+            $totalSteps = count($allSequences);
+
+            $randomVar = $nextSequence ? GlobalFollowupMessage::getRandomVariation($this->account->user_id, $nextSequence->step_number) : null;
+            $nextMsg = $randomVar ? $randomVar->message : '';
+            $delaySeconds = $nextSequence ? $nextSequence->calculateDelaySeconds() : 0;
+            $stepNumber = $nextSequence ? $nextSequence->step_number : ($completedStepNumber + 1);
+            $stepName = $nextSequence ? $nextSequence->name : 'Follow-up #' . $stepNumber;
+            $templateId = null;
+        } else {
+            $allTemplates = FollowupTemplate::findByAccountId($this->account->id);
+            $nextTemplate = FollowupTemplate::findNextStep($this->account->id, $completedStepNumber);
+            $totalSteps = count($allTemplates);
+            $nextMsg = $nextTemplate ? $nextTemplate->message : '';
+            $delaySeconds = $nextTemplate ? $nextTemplate->calculateDelaySeconds() : 0;
+            $stepNumber = $nextTemplate ? $nextTemplate->step_number : ($completedStepNumber + 1);
+            $stepName = $nextTemplate ? $nextTemplate->name : 'Follow-up #' . $stepNumber;
+            $templateId = $nextTemplate ? $nextTemplate->id : null;
+        }
 
         // Get or create unique FollowupCampaign for this thread
         $campaign = FollowupCampaign::getOrCreate(
@@ -725,7 +829,7 @@ class AutomationEngine {
                 'sender_email' => $thread->sender_email,
                 'recipient_email' => $this->account->gmail_email,
                 'subject' => $thread->subject,
-                'total_steps' => count($allTemplates),
+                'total_steps' => $totalSteps,
             ]
         );
 
@@ -733,11 +837,9 @@ class AutomationEngine {
             return null;
         }
 
-        $nextTemplate = FollowupTemplate::findNextStep($this->account->id, $completedStepNumber);
-        $nextMsg = $nextTemplate ? $nextTemplate->message : '';
         $cleanCheck = trim(strip_tags($nextMsg, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
         $isPlaceholder = in_array(trim($nextMsg), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
-        if (!$nextTemplate || empty($cleanCheck) || $isPlaceholder) {
+        if (empty($cleanCheck) || $isPlaceholder) {
             // Sequence completed or template missing/empty
             $campaign->markCompleted();
             $thread->update(['automation_status' => 'completed', 'next_followup_at' => null]);
@@ -745,18 +847,17 @@ class AutomationEngine {
         }
 
         $usage = $this->account->getTodayUsage();
-        $delaySeconds = $nextTemplate->calculateDelaySeconds();
 
         // Check if daily follow quota was already counted for this campaign
         // New campaign (not counted yet today) vs Existing campaign in sequence
-        if ($campaign->daily_follow_counted === 0 && $usage['followup_count'] >= ($this->settings->daily_followup_limit ?? 100)) {
+        if ($campaign->daily_follow_counted === 0 && $usage['followup_count'] >= ($effective['daily_followup_limit'] ?? 100)) {
             // Limit reached for NEW campaigns today -> postpone step 1 to next day allowed window
             $scheduledAt = $this->calculateNextAllowedSendTime(true);
         } else {
             $scheduledAt = $this->calculateNextAllowedSendTime(false, $delaySeconds);
         }
 
-        $renderedMessage = $this->renderVariables($nextTemplate->message, [
+        $renderedMessage = $this->renderVariables($nextMsg, [
             'sender_email' => $thread->sender_email,
             'sender_name' => $thread->sender_name,
             'subject' => $thread->subject,
@@ -773,9 +874,9 @@ class AutomationEngine {
                 'recipient_name' => $thread->sender_name,
                 'subject' => $thread->subject,
                 'reply_body' => $renderedMessage,
-                'template_id' => $nextTemplate->id,
-                'step_number' => $nextTemplate->step_number,
-                'template_name' => $nextTemplate->name,
+                'template_id' => $templateId,
+                'step_number' => $stepNumber,
+                'template_name' => $stepName,
             ],
             'scheduled_at' => $scheduledAt,
             'status' => 'pending',
@@ -786,22 +887,22 @@ class AutomationEngine {
             'campaign_id' => $campaign->id,
             'gmail_account_id' => $this->account->id,
             'thread_id' => $thread->id,
-            'followup_step' => $nextTemplate->step_number,
-            'template_id' => $nextTemplate->id,
-            'message' => $renderedMessage,
+            'followup_step' => $stepNumber,
+            'template_id' => $templateId,
             'scheduled_at' => $scheduledAt,
+            'message' => $renderedMessage,
             'status' => 'pending',
         ]);
 
         $campaign->update([
-            'current_step' => $nextTemplate->step_number,
+            'current_step' => $stepNumber,
             'next_step_at' => $scheduledAt,
             'campaign_status' => 'active',
         ]);
 
         $thread->update(['next_followup_at' => $scheduledAt]);
 
-        logger("Scheduled Follow-up Step #{$nextTemplate->step_number} (Campaign #{$campaign->id}) for thread {$thread->gmail_thread_id} at {$scheduledAt}", 'info', $this->account->user_id, $this->account->id);
+        logger("Scheduled Follow-up Step #{$stepNumber} (Campaign #{$campaign->id}) for thread {$thread->gmail_thread_id} at {$scheduledAt}", 'info', $this->account->user_id, $this->account->id);
 
         return $job;
     }

@@ -65,6 +65,14 @@ $router->post('/accounts/{id}/toggle-reply', 'GmailAccountController@toggleAutoR
 $router->post('/accounts/{id}/toggle-followup', 'GmailAccountController@toggleFollowup', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/accounts/{id}/sync', 'GmailAccountController@syncNow', [AuthMiddleware::class, CSRFMiddleware::class]);
 
+// Global Automation Settings & Multi-step Variations
+$router->get('/settings/automation/global', 'GlobalAutomationController@show', [AuthMiddleware::class]);
+$router->post('/settings/automation/global/reply', 'GlobalAutomationController@saveAutoReply', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/settings/automation/global/reply/step/{step}/delete', 'GlobalAutomationController@deleteAutoReplyStep', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/settings/automation/global/followups', 'GlobalAutomationController@saveFollowups', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/settings/automation/global/followup/step/{step}/delete', 'GlobalAutomationController@deleteFollowupStep', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/settings/automation/global/settings', 'GlobalAutomationController@saveSettings', [AuthMiddleware::class, CSRFMiddleware::class]);
+
 // Automation Settings
 $router->get('/settings/automation', 'AutomationSettingsController@show', [AuthMiddleware::class]);
 $router->get('/settings/automation/{id}', 'AutomationSettingsController@show', [AuthMiddleware::class]);

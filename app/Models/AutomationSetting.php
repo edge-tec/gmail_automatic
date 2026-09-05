@@ -14,6 +14,7 @@ class AutomationSetting {
     public bool $followup_enabled;
     public int $daily_followup_limit;
     public bool $require_recipient_reply_before_next_reply = false;
+    public bool $use_account_override = false;
     public string $timezone;
     public string $working_days;
     public string $working_start;
@@ -29,6 +30,7 @@ class AutomationSetting {
         $driver = config('database.default', 'mysql');
         $cols = [
             'require_recipient_reply_before_next_reply' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+            'use_account_override' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
         ];
         \App\Core\DatabaseSanitizer::ensureTableColumns('automation_settings', $cols);
         if ($driver === 'mysql') {
@@ -86,6 +88,24 @@ class AutomationSetting {
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
         $sql = "UPDATE automation_settings SET " . implode(', ', $fields) . ", updated_at = {$now} WHERE id = :id";
         return Database::execute($sql, $params);
+    }
+
+    public function save(): bool {
+        return $this->update([
+            'auto_reply_enabled' => $this->auto_reply_enabled ? 1 : 0,
+            'reply_message' => $this->reply_message,
+            'max_reply_per_thread' => $this->max_reply_per_thread,
+            'daily_reply_limit' => $this->daily_reply_limit,
+            'reply_delay' => $this->reply_delay,
+            'followup_enabled' => $this->followup_enabled ? 1 : 0,
+            'daily_followup_limit' => $this->daily_followup_limit,
+            'require_recipient_reply_before_next_reply' => $this->require_recipient_reply_before_next_reply ? 1 : 0,
+            'use_account_override' => $this->use_account_override ? 1 : 0,
+            'timezone' => $this->timezone,
+            'working_days' => $this->working_days,
+            'working_start' => $this->working_start,
+            'working_end' => $this->working_end,
+        ]);
     }
 
     public function getReplyStepsData(): array {
@@ -235,6 +255,10 @@ class AutomationSetting {
         return $this->getBlacklistData()['keywords'] ?? '';
     }
 
+    public function isUsingGlobal(): bool {
+        return !$this->use_account_override;
+    }
+
     public static function fromRow(array $row): self {
         $setting = new self();
         $setting->id = (int)$row['id'];
@@ -247,6 +271,7 @@ class AutomationSetting {
         $setting->followup_enabled = (bool)($row['followup_enabled'] ?? false);
         $setting->daily_followup_limit = (int)($row['daily_followup_limit'] ?? 100);
         $setting->require_recipient_reply_before_next_reply = (bool)($row['require_recipient_reply_before_next_reply'] ?? false);
+        $setting->use_account_override = (bool)($row['use_account_override'] ?? false);
         $setting->timezone = $row['timezone'] ?? 'Asia/Dhaka';
         $setting->working_days = $row['working_days'] ?? 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday';
         $setting->working_start = $row['working_start'] ?? '00:00';

@@ -12,6 +12,10 @@ use App\Models\FollowupTemplate;
 use App\Models\FollowupCampaign;
 use App\Models\FollowupJob;
 use App\Models\AutoReplyRecipient;
+use App\Models\GlobalAutomationSetting;
+use App\Models\GlobalAutoReplyMessage;
+use App\Models\GlobalFollowupSequence;
+use App\Models\GlobalFollowupMessage;
 use Exception;
 
 class QueueWorker {
@@ -186,15 +190,16 @@ class QueueWorker {
                 throw new Exception("Missing recipient email address in job payload");
             }
 
-            // Check Account Automation Settings
+            // Check Account & Global Automation Settings
             $settings = $account->getSettings();
             $usage = $account->getTodayUsage();
             $engine = new AutomationEngine($account);
+            $effective = $engine->getEffectiveSettings();
 
             $finalBody = '';
 
             if ($job->job_type === 'auto_reply') {
-                if (!$settings || !$settings->auto_reply_enabled) {
+                if (!$effective['auto_reply_enabled']) {
                     $job->cancel('Auto-reply is currently turned off for this account');
                     logger("Skipped auto-reply job #{$job->id} because auto-reply is turned off for {$account->gmail_email}", 'info', $account->user_id, $account->id);
                     echo "  ↳ Skipped: Auto-reply is turned off for {$account->gmail_email}.\n";
@@ -203,7 +208,7 @@ class QueueWorker {
 
                 // Strictly fetch latest live user-configured message from database for this step
                 $stepNumber = (int)($payload['reply_step'] ?? 1);
-                $totalSteps = (int)($payload['total_steps'] ?? $settings->getTotalConfiguredReplySteps());
+                $totalSteps = (int)($payload['total_steps'] ?? $engine->getTotalConfiguredReplySteps());
 
                 // Concurrency check: verify this step hasn't already been sent to this global traffic identity
                 $replyRecipient = AutoReplyRecipient::findByUserAndSender($account->user_id, $recipientEmail);
@@ -213,7 +218,19 @@ class QueueWorker {
                     return true;
                 }
 
-                $liveTemplate = $settings->getReplyMessageForStep($stepNumber);
+                // LIVE DYNAMIC RELOAD: Randomly pick from current active pool at send time
+                $liveTemplate = '';
+                if ($effective['use_global']) {
+                    $randomVar = GlobalAutoReplyMessage::getRandomVariation($account->user_id, $stepNumber);
+                    if ($randomVar) {
+                        $liveTemplate = $randomVar->message;
+                    }
+                }
+
+                // If no global variation or account override
+                if (empty($liveTemplate) && $settings) {
+                    $liveTemplate = $settings->getReplyMessageForStep($stepNumber);
+                }
 
                 $liveClean = trim(strip_tags($liveTemplate, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
                 $liveIsPlaceholder = in_array(trim($liveTemplate), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
@@ -240,7 +257,7 @@ class QueueWorker {
                 $isSequenceCountedToday = $replyRecipient && $replyRecipient->daily_counted === 1 && $replyRecipient->counted_date === $todayDate;
                 $isNewTrafficSequence = ($stepNumber === 1 && !$isSequenceCountedToday);
 
-                if ($isNewTrafficSequence && $usage['reply_count'] >= ($settings->daily_reply_limit ?? 100)) {
+                if ($isNewTrafficSequence && $usage['reply_count'] >= ($effective['daily_reply_limit'] ?? 100)) {
                     // Reschedule for tomorrow
                     $nextTime = $engine->calculateNextAllowedSendTime(true);
                     $job->update([
@@ -252,7 +269,7 @@ class QueueWorker {
                     return false;
                 }
             } elseif ($job->job_type === 'follow_up') {
-                if (!$settings || !$settings->followup_enabled) {
+                if (!$effective['followup_enabled']) {
                     $job->cancel('Follow-up automation is currently turned off for this account');
                     logger("Skipped follow-up job #{$job->id} because follow-up is turned off for {$account->gmail_email}", 'info', $account->user_id, $account->id);
                     echo "  ↳ Skipped: Follow-up is turned off for {$account->gmail_email}.\n";
@@ -267,15 +284,29 @@ class QueueWorker {
                     return true;
                 }
 
-                $templateId = (int)($payload['template_id'] ?? 0);
                 $stepNumber = (int)($payload['step_number'] ?? 1);
-                // Re-validate live template strictly from DB (Message edit/delete protection)
-                $template = $templateId ? FollowupTemplate::find($templateId) : FollowupTemplate::findNextStep($account->id, $stepNumber - 1);
-                $tplMsg = $template ? $template->message : '';
-                $tplClean = trim(strip_tags($tplMsg, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
-                $tplIsPlaceholder = in_array(trim($tplMsg), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+                $liveTemplate = '';
 
-                if (!$template || $template->status !== 'active' || empty($tplClean) || $tplIsPlaceholder) {
+                // LIVE DYNAMIC RELOAD FOR FOLLOW-UP
+                if ($effective['use_global']) {
+                    $randomVar = GlobalFollowupMessage::getRandomVariation($account->user_id, $stepNumber);
+                    if ($randomVar) {
+                        $liveTemplate = $randomVar->message;
+                    }
+                }
+
+                if (empty($liveTemplate)) {
+                    $templateId = (int)($payload['template_id'] ?? 0);
+                    $template = $templateId ? FollowupTemplate::find($templateId) : FollowupTemplate::findNextStep($account->id, $stepNumber - 1);
+                    if ($template && $template->status === 'active') {
+                        $liveTemplate = $template->message;
+                    }
+                }
+
+                $tplClean = trim(strip_tags($liveTemplate, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
+                $tplIsPlaceholder = in_array(trim($liveTemplate), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
+
+                if (empty($tplClean) || $tplIsPlaceholder) {
                     $job->cancel('Follow-up template is missing, disabled, or deleted. Automated email was not sent.');
                     if ($campaign) {
                         $campaign->cancelPendingJobs('Follow-up template missing or deleted');
@@ -285,7 +316,7 @@ class QueueWorker {
                     return true;
                 }
 
-                $finalBody = $engine->renderVariables($template->message, [
+                $finalBody = $engine->renderVariables($liveTemplate, [
                     'sender_email' => $recipientEmail,
                     'sender_name' => $payload['recipient_name'] ?? $thread->sender_name,
                     'subject' => $subject,
@@ -296,7 +327,7 @@ class QueueWorker {
                 $todayDate = date('Y-m-d');
                 $isCampaignCountedToday = $campaign && $campaign->daily_follow_counted === 1 && $campaign->counted_date === $todayDate;
 
-                if (!$isCampaignCountedToday && $usage['followup_count'] >= ($settings->daily_followup_limit ?? 100)) {
+                if (!$isCampaignCountedToday && $usage['followup_count'] >= ($effective['daily_followup_limit'] ?? 100)) {
                     $nextTime = $engine->calculateNextAllowedSendTime(true);
                     $job->update([
                         'status' => 'pending',

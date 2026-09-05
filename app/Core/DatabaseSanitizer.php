@@ -74,6 +74,7 @@ class DatabaseSanitizer {
 
                 $settingCols = [
                     'require_recipient_reply_before_next_reply' => 'TINYINT(1) NOT NULL DEFAULT 0',
+                    'use_account_override' => 'TINYINT(1) NOT NULL DEFAULT 0',
                 ];
                 self::ensureTableColumns('automation_settings', $settingCols);
 
@@ -132,6 +133,7 @@ class DatabaseSanitizer {
             } else {
                 $settingColsSqlite = [
                     'require_recipient_reply_before_next_reply' => 'INTEGER NOT NULL DEFAULT 0',
+                    'use_account_override' => 'INTEGER NOT NULL DEFAULT 0',
                 ];
                 self::ensureTableColumns('automation_settings', $settingColsSqlite);
 
@@ -250,6 +252,62 @@ class DatabaseSanitizer {
                 scheduled_at " . ($driver === 'mysql' ? 'DATETIME NOT NULL' : 'TEXT NOT NULL') . ",
                 sent_at " . ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL') . ",
                 last_error LONGTEXT NULL,
+                created_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . ",
+                updated_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . "
+            )");
+
+            // Ensure Global Automation tables exist
+            Database::execute("CREATE TABLE IF NOT EXISTS global_automation_settings (
+                id " . ($driver === 'mysql' ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT') . ",
+                user_id " . ($driver === 'mysql' ? 'INT NOT NULL UNIQUE' : 'INTEGER NOT NULL UNIQUE') . ",
+                auto_reply_enabled " . ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1') . ",
+                followup_enabled " . ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1') . ",
+                require_recipient_reply_before_next_reply " . ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0') . ",
+                max_reply_per_thread " . ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 3' : 'INTEGER NOT NULL DEFAULT 3') . ",
+                daily_reply_limit " . ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 100' : 'INTEGER NOT NULL DEFAULT 100') . ",
+                daily_followup_limit " . ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 100' : 'INTEGER NOT NULL DEFAULT 100') . ",
+                reply_delay " . ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0') . ",
+                timezone VARCHAR(100) NOT NULL DEFAULT 'Asia/Dhaka',
+                working_days VARCHAR(255) NOT NULL DEFAULT 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday',
+                working_start VARCHAR(20) NOT NULL DEFAULT '00:00',
+                working_end VARCHAR(20) NOT NULL DEFAULT '23:59',
+                version " . ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1') . ",
+                created_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . ",
+                updated_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . "
+            )");
+
+            Database::execute("CREATE TABLE IF NOT EXISTS global_auto_reply_messages (
+                id " . ($driver === 'mysql' ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT') . ",
+                user_id " . ($driver === 'mysql' ? 'INT NOT NULL' : 'INTEGER NOT NULL') . ",
+                step_number " . ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1') . ",
+                variation_name VARCHAR(100) NOT NULL DEFAULT 'Variation 1',
+                message LONGTEXT NOT NULL,
+                delay_value " . ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0') . ",
+                delay_unit VARCHAR(50) NOT NULL DEFAULT 'seconds',
+                status VARCHAR(50) NOT NULL DEFAULT 'active',
+                created_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . ",
+                updated_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . "
+            )");
+
+            Database::execute("CREATE TABLE IF NOT EXISTS global_followup_sequences (
+                id " . ($driver === 'mysql' ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT') . ",
+                user_id " . ($driver === 'mysql' ? 'INT NOT NULL' : 'INTEGER NOT NULL') . ",
+                step_number " . ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1') . ",
+                name VARCHAR(255) NOT NULL DEFAULT 'Follow-up #1',
+                delay_value " . ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1') . ",
+                delay_unit VARCHAR(50) NOT NULL DEFAULT 'days',
+                status VARCHAR(50) NOT NULL DEFAULT 'active',
+                created_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . ",
+                updated_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . "
+            )");
+
+            Database::execute("CREATE TABLE IF NOT EXISTS global_followup_messages (
+                id " . ($driver === 'mysql' ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT') . ",
+                user_id " . ($driver === 'mysql' ? 'INT NOT NULL' : 'INTEGER NOT NULL') . ",
+                step_number " . ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1') . ",
+                variation_name VARCHAR(100) NOT NULL DEFAULT 'Variation 1',
+                message LONGTEXT NOT NULL,
+                status VARCHAR(50) NOT NULL DEFAULT 'active',
                 created_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . ",
                 updated_at " . ($driver === 'mysql' ? 'DATETIME DEFAULT CURRENT_TIMESTAMP' : 'TEXT DEFAULT CURRENT_TIMESTAMP') . "
             )");
