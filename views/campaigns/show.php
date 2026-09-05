@@ -39,7 +39,7 @@
             <i class="fa-solid fa-pen-to-square me-1"></i> Edit Campaign
         </a>
 
-        <?php if ($campaign->status === 'active' && $campaign->pending_recipients > 0): ?>
+        <?php if ($campaign->status === 'active' && $campaign->getRemainingCount() > 0): ?>
             <form action="<?= url('/campaigns/' . $campaign->id . '/send-batch-now') ?>" method="POST">
                 <?= csrf_field() ?>
                 <button type="submit" class="btn btn-success">

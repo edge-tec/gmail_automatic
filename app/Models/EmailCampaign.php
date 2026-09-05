@@ -178,6 +178,13 @@ class EmailCampaign {
         return (int)($row['c'] ?? 0);
     }
 
+    public function __get(string $name) {
+        if ($name === 'pending_recipients' || $name === 'pending_count') {
+            return $this->getRemainingCount();
+        }
+        return null;
+    }
+
     public function getProgressPercentage(): float {
         if ($this->total_recipients <= 0) {
             return 0.0;
