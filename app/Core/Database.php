@@ -81,6 +81,12 @@ class Database {
         return $stmt->execute($params);
     }
 
+    public static function executeUpdate(string $sql, array $params = []): int {
+        $stmt = self::getConnection()->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->rowCount();
+    }
+
     public static function lastInsertId(): string|int {
         return self::getConnection()->lastInsertId();
     }

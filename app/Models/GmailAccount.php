@@ -73,6 +73,27 @@ class GmailAccount {
         return array_map([self::class, 'fromRow'], $rows);
     }
 
+    /**
+     * Get accounts ready for inbox polling/syncing.
+     * Prioritizes new unsynced accounts, respects rate-limit cooldowns,
+     * and ensures fair round-robin scheduling across 20-50+ connected accounts.
+     */
+    public static function getReadyForSync(int $minIntervalSeconds = 45, int $limit = 50): array {
+        self::ensureSchema();
+        $now = date('Y-m-d H:i:s');
+        $cutoff = date('Y-m-d H:i:s', time() - $minIntervalSeconds);
+
+        $sql = "SELECT * FROM gmail_accounts 
+                WHERE status = 'connected' 
+                  AND (temp_unavailable_until IS NULL OR temp_unavailable_until <= :now)
+                  AND (last_sync_at IS NULL OR last_sync_at <= :cutoff)
+                ORDER BY initial_sync_completed ASC, last_sync_at ASC
+                LIMIT {$limit}";
+
+        $rows = Database::query($sql, ['now' => $now, 'cutoff' => $cutoff]);
+        return array_map([self::class, 'fromRow'], $rows);
+    }
+
     public static function create(array $data): self {
         return self::createOrUpdate($data);
     }

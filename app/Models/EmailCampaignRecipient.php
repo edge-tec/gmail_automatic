@@ -99,18 +99,19 @@ class EmailCampaignRecipient {
         $candId = (int)$candidate['id'];
 
         // Atomic lock: claim only if status is STILL 'pending'
-        $claimed = Database::execute(
+        $affected = Database::executeUpdate(
             "UPDATE email_campaign_recipients 
              SET status = 'sending', claimed_at = :now 
              WHERE id = :id AND status = 'pending'",
             ['id' => $candId, 'now' => $now]
         );
 
-        if ($claimed) {
+        if ($affected > 0) {
             return self::find($candId);
         }
 
         return null;
+
     }
 
     public function markSent(int $gmailAccountId, string $messageId): bool {

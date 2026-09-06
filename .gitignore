@@ -10,4 +10,6 @@
 scratch/
 .DS_Store
 .phpunit.result.cache
+/storage/framework/*
+!/storage/framework/.gitkeep
 

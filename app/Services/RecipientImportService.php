@@ -29,17 +29,30 @@ class RecipientImportService {
             'imported' => 0,
         ];
 
+        // Ensure execution time and memory limits for large 10,000 - 15,000+ lists
+        @set_time_limit(300);
+        @ini_set('memory_limit', '256M');
+
         // Ensure campaign exists and belongs to user
         $campaign = EmailCampaign::findByUserAndId($userId, $campaignId);
         if (!$campaign) {
             throw new Exception("Campaign #{$campaignId} not found or unauthorized");
         }
 
-        // To track duplicates across the import efficiently without storing huge arrays in memory,
-        // we keep a set of hash prefixes or clean emails for deduplication.
+        // HIGH PERFORMANCE OPTIMIZATION:
+        // Preload any existing emails for this campaign in ONE single fast query.
+        // This eliminates 10,000 - 15,000 separate SQL queries that caused massive web timeouts!
+        $existingRows = \App\Core\Database::query(
+            "SELECT email FROM email_campaign_recipients WHERE campaign_id = :cid",
+            ['cid' => $campaignId]
+        );
         $seenEmails = [];
+        foreach ($existingRows as $er) {
+            $seenEmails[strtolower(trim($er['email']))] = true;
+        }
+
         $batch = [];
-        $batchSize = 250;
+        $batchSize = 1000;
 
         $rowHandler = function(array $row) use (&$stats, &$seenEmails, &$batch, $batchSize, $campaignId, $userId) {
             $stats['total_rows']++;
@@ -60,16 +73,8 @@ class RecipientImportService {
                 return;
             }
 
-            // Intra-file deduplication
+            // Ultra-fast in-memory O(1) deduplication (Nanoseconds, zero SQL roundtrips)
             if (isset($seenEmails[$email])) {
-                $stats['duplicates']++;
-                return;
-            }
-
-            // Check if already in campaign in DB
-            $existing = EmailCampaignRecipient::findByCampaignAndEmail($campaignId, $email);
-            if ($existing) {
-                $seenEmails[$email] = true;
                 $stats['duplicates']++;
                 return;
             }
@@ -94,27 +99,37 @@ class RecipientImportService {
             }
         };
 
-        if ($ext === 'txt') {
-            $this->parseTxt($filePath, $rowHandler);
-        } elseif ($ext === 'csv') {
-            $this->parseCsv($filePath, $rowHandler);
-        } elseif ($ext === 'xlsx') {
-            $this->parseXlsx($filePath, $rowHandler);
-        } else {
-            throw new Exception("Unsupported file format: .{$ext}. Allowed formats: .txt, .csv, .xlsx");
-        }
+        // Wrap the entire streaming batch insertion in a database transaction for maximum I/O throughput
+        \App\Core\Database::beginTransaction();
+        try {
+            if ($ext === 'txt') {
+                $this->parseTxt($filePath, $rowHandler);
+            } elseif ($ext === 'csv') {
+                $this->parseCsv($filePath, $rowHandler);
+            } elseif ($ext === 'xlsx') {
+                $this->parseXlsx($filePath, $rowHandler);
+            } else {
+                throw new Exception("Unsupported file format: .{$ext}. Allowed formats: .txt, .csv, .xlsx");
+            }
 
-        // Flush remaining batch
-        if (!empty($batch)) {
-            $inserted = EmailCampaignRecipient::insertBatch($campaignId, $userId, $batch);
-            $stats['imported'] += $inserted;
-            $batch = [];
+            // Flush remaining batch
+            if (!empty($batch)) {
+                $inserted = EmailCampaignRecipient::insertBatch($campaignId, $userId, $batch);
+                $stats['imported'] += $inserted;
+                $batch = [];
+            }
+
+            \App\Core\Database::commit();
+        } catch (\Throwable $e) {
+            \App\Core\Database::rollBack();
+            throw $e;
         }
 
         // Update campaign total recipients
         $campaign->recalculateStats();
 
         return $stats;
+
     }
 
     /**

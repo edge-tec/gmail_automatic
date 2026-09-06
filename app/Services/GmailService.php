@@ -157,6 +157,15 @@ class GmailService {
                 return;
             }
 
+            if (str_contains($msg, 'Rate Limit') || str_contains($msg, 'Quota') || str_contains($msg, '429') || str_contains($msg, 'userRateLimitExceeded') || str_contains($msg, 'rateLimitExceeded')) {
+                $this->account->markTemporaryFailure(10);
+                $this->account->update([
+                    'last_error' => "Google API rate limit hit during {$actionName}. Account placed on 10-minute cooldown.",
+                ]);
+                logger("Gmail Account {$this->account->gmail_email} placed on 10m cooldown: Rate limit hit during {$actionName}.", 'warning', $this->account->user_id, $this->account->id);
+                return;
+            }
+
             if (str_contains($msg, 'invalid_grant') || str_contains($msg, 'Token has been expired or revoked')) {
                 $this->account->update([
                     'status' => 'needs_reauth',
@@ -166,6 +175,7 @@ class GmailService {
         }
         logger("Failed to {$actionName}: {$msg}", 'error', $this->account?->user_id, $this->account?->id);
     }
+
 
     public function getProfile(): ?array {
         try {

@@ -32,38 +32,92 @@ class QueueWorker {
         $sql = "UPDATE scheduled_jobs 
                 SET status = 'pending', last_error = 'Auto-recovered from interrupted processing', updated_at = :now 
                 WHERE status = 'processing' AND (updated_at <= :thresh OR updated_at IS NULL)";
-        return Database::execute($sql, ['now' => $now, 'thresh' => $staleThreshold]);
+        return Database::executeUpdate($sql, ['now' => $now, 'thresh' => $staleThreshold]);
     }
 
-    public function run(bool $once = false, int $batchSize = 25): void {
+    public static function ensureDatabaseConnection(): void {
+        try {
+            Database::query("SELECT 1");
+        } catch (\Throwable $e) {
+            Database::resetConnection();
+        }
+    }
+
+    public function run(bool $once = false, int $batchSize = 25, string $mode = 'all'): void {
         $timestamp = date('Y-m-d H:i:s');
-        echo "[{$timestamp}] Gmail Automation Queue Worker started...\n";
+        echo "[{$timestamp}] Gmail Automation Queue Worker started (Mode: {$mode})...\n";
 
         // Update heartbeat
         SystemSetting::set('worker_last_heartbeat', $timestamp);
         SystemSetting::set('worker_status', 'running');
 
-        // 0. Recover any stale processing jobs
-        self::recoverStaleJobs();
+        // 0. Recover any stale processing jobs initially
+        $recovered = self::recoverStaleJobs();
+        if ($recovered > 0) {
+            echo "[{$timestamp}] Recovered {$recovered} abandoned/stuck processing job(s).\n";
+        }
 
         // 1. Process asynchronous email notification jobs (SMTP)
-        $this->processEmailJobs($batchSize);
+        if ($mode !== 'campaign_only') {
+            $this->processEmailJobs($batchSize);
+        }
 
         // 2. Check expiring subscriptions and trials and send reminders
-        $this->checkExpiringSubscriptionsAndTrials();
+        if ($mode !== 'campaign_only') {
+            $this->checkExpiringSubscriptionsAndTrials();
+        }
 
         // 3. Process scheduled Gmail automation jobs in continuous or multi-batch mode
         $iterations = 0;
         $maxOnceIterations = 10;
+        $lastStaleCheck = time();
 
         while (!$this->stopRequested) {
+            self::ensureDatabaseConnection();
             SystemSetting::set('worker_last_heartbeat', date('Y-m-d H:i:s'));
-            $jobs = ScheduledJob::getReadyJobs($batchSize);
-            
-            if (empty($jobs)) {
-                // Also process any ready campaign emails
-                $this->processCampaigns($batchSize);
 
+            // Periodic recovery of stuck jobs (every 2 minutes in daemon mode)
+            if (!$once && (time() - $lastStaleCheck) > 120) {
+                self::recoverStaleJobs(5);
+                $lastStaleCheck = time();
+            }
+
+            // Memory leak protection: if RAM exceeds 128MB, gracefully exit for Supervisor restart
+            if (memory_get_usage(true) > 128 * 1024 * 1024) {
+                $ramMb = round(memory_get_usage(true) / 1048576, 1);
+                echo "[" . date('Y-m-d H:i:s') . "] Memory threshold reached ({$ramMb} MB). Gracefully exiting for clean Supervisor restart.\n";
+                break;
+            }
+
+            $hasProcessedAny = false;
+
+            // Process auto-reply / follow-up queue jobs if not in campaign-only mode
+            if ($mode !== 'campaign_only') {
+                $jobs = ScheduledJob::getReadyJobs($batchSize);
+
+                if (!empty($jobs)) {
+                    $hasProcessedAny = true;
+                    foreach ($jobs as $job) {
+                        try {
+                            $this->processJob($job);
+                        } catch (\Throwable $e) {
+                            logger("Fatal error in queue job #{$job->id}: " . $e->getMessage(), 'error');
+                            echo "  ✗ Uncaught error in Job #{$job->id}: " . $e->getMessage() . "\n";
+                        }
+                    }
+                }
+            }
+
+            // Process bulk email campaigns if not in queue-only mode
+            if ($mode !== 'queue_only') {
+                $campaignBatch = ($mode === 'campaign_only') ? $batchSize : 15;
+                $sentCampaign = $this->processCampaigns($campaignBatch);
+                if ($sentCampaign > 0) {
+                    $hasProcessedAny = true;
+                }
+            }
+
+            if (!$hasProcessedAny) {
                 if ($once) {
                     echo "[" . date('Y-m-d H:i:s') . "] No pending jobs found. Exiting.\n";
                     break;
@@ -71,18 +125,6 @@ class QueueWorker {
                 sleep(3);
                 continue;
             }
-
-            foreach ($jobs as $job) {
-                try {
-                    $this->processJob($job);
-                } catch (\Throwable $e) {
-                    logger("Fatal error in queue job #{$job->id}: " . $e->getMessage(), 'error');
-                    echo "  ✗ Uncaught error in Job #{$job->id}: " . $e->getMessage() . "\n";
-                }
-            }
-
-            // Process ready campaign emails after job batch
-            $this->processCampaigns($batchSize);
 
             if ($once) {
                 $iterations++;
@@ -92,6 +134,7 @@ class QueueWorker {
             }
         }
     }
+
 
     public function processCampaigns(int $batchSize = 25): void {
         try {
@@ -122,15 +165,16 @@ class QueueWorker {
     public function processJob(ScheduledJob $job): bool {
         // Attempt status lock to prevent concurrent worker race conditions
         $now = date('Y-m-d H:i:s');
-        $locked = Database::execute(
+        $affected = Database::executeUpdate(
             "UPDATE scheduled_jobs SET status = 'processing', attempts = attempts + 1, updated_at = :now 
              WHERE id = :id AND status = 'pending'",
             ['id' => $job->id, 'now' => $now]
         );
 
-        if (!$locked) {
+        if ($affected <= 0) {
             return false;
         }
+
 
         echo "[" . date('Y-m-d H:i:s') . "] Processing Job #{$job->id} (Type: {$job->job_type}, Thread: {$job->thread_id})...\n";
 
@@ -447,6 +491,12 @@ class QueueWorker {
             $errorMsg = $e->getMessage();
             echo "  ✗ Error: {$errorMsg}\n";
 
+            $isRateLimit = (str_contains($errorMsg, 'Rate Limit') || str_contains($errorMsg, 'Quota') || str_contains($errorMsg, '429') || str_contains($errorMsg, 'userRateLimitExceeded') || str_contains($errorMsg, 'rateLimitExceeded'));
+            if ($isRateLimit && isset($account) && $account instanceof GmailAccount) {
+                $account->markTemporaryFailure(10);
+                echo "  ↳ Account {$account->gmail_email} placed on 10m cooldown due to Google API rate limit.\n";
+            }
+
             $attempts = $job->attempts;
             $maxAttempts = $job->max_attempts;
 
@@ -458,8 +508,8 @@ class QueueWorker {
                 ]);
                 logger("Job #{$job->id} failed permanently after {$attempts} attempts: {$errorMsg}", 'error', $job->gmail_account_id);
             } else {
-                // Exponential backoff
-                $backoffSeconds = pow(2, $attempts) * 60; // 2m, 4m, 8m
+                // Exponential backoff (or at least 10 minutes if rate limit)
+                $backoffSeconds = $isRateLimit ? 600 : (pow(2, $attempts) * 60); // 10m for rate limit or 2m, 4m, 8m
                 $nextAttempt = date('Y-m-d H:i:s', time() + $backoffSeconds);
                 $job->update([
                     'status' => 'pending',

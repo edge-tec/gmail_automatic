@@ -14,6 +14,13 @@ new App();
 
 $once = in_array('--once', $argv);
 $batchSize = 25;
+$mode = 'all';
+
+if (in_array('--campaign', $argv) || in_array('--campaign-only', $argv)) {
+    $mode = 'campaign_only';
+} elseif (in_array('--queue', $argv) || in_array('--queue-only', $argv)) {
+    $mode = 'queue_only';
+}
 
 foreach ($argv as $arg) {
     if (str_starts_with($arg, '--batch=')) {
@@ -22,4 +29,5 @@ foreach ($argv as $arg) {
 }
 
 $worker = new QueueWorker();
-$worker->run($once, $batchSize);
+$worker->run($once, $batchSize, $mode);
+

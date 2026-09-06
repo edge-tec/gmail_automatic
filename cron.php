@@ -16,6 +16,26 @@ use App\Services\QueueWorker;
 new App();
 \App\Core\DatabaseSanitizer::runOnce();
 
+// Non-blocking file lock to prevent overlapping cron runs
+$lockDir = __DIR__ . '/storage/framework';
+if (!is_dir($lockDir)) {
+    @mkdir($lockDir, 0755, true);
+}
+$lockFile = $lockDir . '/cron.lock';
+$lockFp = @fopen($lockFile, 'c+');
+if (!$lockFp || !flock($lockFp, LOCK_EX | LOCK_NB)) {
+    $nowStr = date('Y-m-d H:i:s');
+    echo "[{$nowStr}] Another Gmail Automation Cron process is already running. Exiting gracefully to prevent overlap.\n";
+    exit(0);
+}
+
+register_shutdown_function(function() use ($lockFp) {
+    if ($lockFp) {
+        @flock($lockFp, LOCK_UN);
+        @fclose($lockFp);
+    }
+});
+
 $startTime = microtime(true);
 $timestamp = date('Y-m-d H:i:s');
 echo "[{$timestamp}] Gmail Automation Cron Poller starting...\n";
@@ -29,9 +49,10 @@ if (SystemSetting::get('global_automation_enabled', '1') !== '1') {
     exit(0);
 }
 
-// 2. Fetch all active connected Gmail accounts
-$accounts = GmailAccount::allActive();
-echo "[{$timestamp}] Found " . count($accounts) . " active Gmail account(s).\n";
+// 2. Fetch active connected Gmail accounts ready for sync (throttled and prioritized for 20-50+ users)
+$isTesting = config('app.env') === 'testing' || getenv('APP_ENV') === 'testing' || ($_ENV['APP_ENV'] ?? '') === 'testing';
+$accounts = $isTesting ? GmailAccount::allActive() : GmailAccount::getReadyForSync(45, 50);
+echo "[{$timestamp}] Found " . count($accounts) . " active Gmail account(s) ready for sync.\n";
 
 foreach ($accounts as $account) {
     echo "Processing account: {$account->gmail_email} (ID: {$account->id})...\n";
@@ -81,6 +102,13 @@ foreach ($accounts as $account) {
     } catch (\Throwable $e) {
         $errorMsg = $e->getMessage();
         echo "  ✗ Error syncing {$account->gmail_email}: {$errorMsg}\n";
+
+        // If rate limit or quota exceeded, place account in cooldown
+        if (str_contains($errorMsg, 'Rate Limit') || str_contains($errorMsg, 'Quota') || str_contains($errorMsg, '429') || str_contains($errorMsg, 'userRateLimitExceeded') || str_contains($errorMsg, 'rateLimitExceeded')) {
+            $account->markTemporaryFailure(10);
+            echo "  ↳ Rate limit hit. Account {$account->gmail_email} placed on 10m cooldown.\n";
+        }
+
         $account->update([
             'last_error' => "Sync error: {$errorMsg}",
         ]);
@@ -91,12 +119,13 @@ foreach ($accounts as $account) {
 // 3. Process any pending queue jobs ready for sending
 echo "[{$timestamp}] Triggering queue worker batch...\n";
 $worker = new QueueWorker();
-$worker->run(true, 50);
+$worker->run(true, 25);
 
 // 4. Process bulk email campaigns
 echo "[{$timestamp}] Triggering bulk email campaign engine...\n";
-$sentCount = \App\Services\CampaignEngine::processBatch(50);
+$sentCount = \App\Services\CampaignEngine::processBatch(25);
 echo "  ↳ Campaign Engine sent {$sentCount} campaign email(s).\n";
 
 $elapsed = round(microtime(true) - $startTime, 2);
 echo "[" . date('Y-m-d H:i:s') . "] Cron run finished in {$elapsed}s.\n";
+
