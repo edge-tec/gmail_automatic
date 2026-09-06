@@ -9,6 +9,7 @@ class GlobalAutomationSetting {
     public bool $auto_reply_enabled = true;
     public bool $followup_enabled = true;
     public bool $require_recipient_reply_before_next_reply = false;
+    public bool $skip_spam_emails = true;
     public int $max_reply_per_thread = 3;
     public int $daily_reply_limit = 100;
     public int $daily_followup_limit = 100;
@@ -57,9 +58,9 @@ class GlobalAutomationSetting {
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
         $sql = "INSERT INTO global_automation_settings 
-                (user_id, auto_reply_enabled, followup_enabled, require_recipient_reply_before_next_reply, max_reply_per_thread, daily_reply_limit, daily_followup_limit, reply_delay, timezone, working_days, working_start, working_end, version, created_at)
+                (user_id, auto_reply_enabled, followup_enabled, require_recipient_reply_before_next_reply, skip_spam_emails, max_reply_per_thread, daily_reply_limit, daily_followup_limit, reply_delay, timezone, working_days, working_start, working_end, version, created_at)
                 VALUES 
-                (:uid, 1, 1, 0, 3, 100, 100, 0, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', 1, {$now})";
+                (:uid, 1, 1, 0, 1, 3, 100, 100, 0, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', 1, {$now})";
 
         try {
             Database::execute($sql, ['uid' => $userId]);
@@ -84,6 +85,7 @@ class GlobalAutomationSetting {
                 'auto_reply_enabled' => $this->auto_reply_enabled ? 1 : 0,
                 'followup_enabled' => $this->followup_enabled ? 1 : 0,
                 'require_recipient_reply_before_next_reply' => $this->require_recipient_reply_before_next_reply ? 1 : 0,
+                'skip_spam_emails' => $this->skip_spam_emails ? 1 : 0,
                 'max_reply_per_thread' => $this->max_reply_per_thread,
                 'daily_reply_limit' => $this->daily_reply_limit,
                 'daily_followup_limit' => $this->daily_followup_limit,
@@ -127,6 +129,7 @@ class GlobalAutomationSetting {
         $setting->auto_reply_enabled = (bool)($row['auto_reply_enabled'] ?? true);
         $setting->followup_enabled = (bool)($row['followup_enabled'] ?? true);
         $setting->require_recipient_reply_before_next_reply = (bool)($row['require_recipient_reply_before_next_reply'] ?? false);
+        $setting->skip_spam_emails = (bool)($row['skip_spam_emails'] ?? true);
         $setting->max_reply_per_thread = (int)($row['max_reply_per_thread'] ?? 3);
         $setting->daily_reply_limit = (int)($row['daily_reply_limit'] ?? 100);
         $setting->daily_followup_limit = (int)($row['daily_followup_limit'] ?? 100);
@@ -141,3 +144,4 @@ class GlobalAutomationSetting {
         return $setting;
     }
 }
+

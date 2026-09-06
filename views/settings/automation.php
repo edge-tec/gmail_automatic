@@ -344,6 +344,30 @@ $replySteps = $settings->getReplyStepsData();
 
                     <hr class="my-3">
 
+                    <!-- Skip All Spam Emails Toggle -->
+                    <div class="mb-3 p-3 rounded border bg-light">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label small fw-bold m-0 text-dark d-flex align-items-center gap-2" for="skip_spam_emails" style="cursor: pointer;">
+                                <i class="fa-solid fa-shield-virus text-danger"></i>
+                                <span>Skip All Spam Emails (Anti-Spam Shield)</span>
+                            </label>
+                            <div class="form-check form-switch m-0 fs-5">
+                                <input class="form-check-input" type="checkbox" name="skip_spam_emails" value="1" id="skip_spam_emails" role="switch" style="cursor: pointer;" <?= (!isset($settings->skip_spam_emails) || $settings->skip_spam_emails) ? 'checked' : '' ?> onchange="document.getElementById('skip_spam_status_text').innerHTML = this.checked ? '<span class=\'badge bg-success-subtle text-success border border-success-subtle\'><i class=\'fa-solid fa-shield-check me-1\'></i>ON: Filtering All Spam/Bots/Bulk</span>' : '<span class=\'badge bg-secondary-subtle text-secondary border border-secondary-subtle\'><i class=\'fa-solid fa-circle-pause me-1\'></i>OFF: Auto-Reply to All Emails</span>'">
+                            </div>
+                        </div>
+                        <p class="text-muted small mb-2" style="font-size: 0.8rem; line-height: 1.4;">
+                            When enabled, any spam, newsletter blasts, mass mailing lists, automated bots, bounce/delivery notices, or emails with multiple recipients will be automatically skipped without sending an auto-reply.
+                        </p>
+                        <div id="skip_spam_status_text">
+                            <?= (!isset($settings->skip_spam_emails) || $settings->skip_spam_emails)
+                                ? '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="fa-solid fa-shield-check me-1"></i>ON: Filtering All Spam/Bots/Bulk</span>' 
+                                : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"><i class="fa-solid fa-circle-pause me-1"></i>OFF: Auto-Reply to All Emails</span>' 
+                            ?>
+                        </div>
+                    </div>
+
+                    <hr class="my-3">
+
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <label class="form-label small fw-semibold m-0">Follow-up Automation</label>

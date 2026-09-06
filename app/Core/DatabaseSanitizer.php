@@ -75,10 +75,17 @@ class DatabaseSanitizer {
                 $settingCols = [
                     'require_recipient_reply_before_next_reply' => 'TINYINT(1) NOT NULL DEFAULT 0',
                     'use_account_override' => 'TINYINT(1) NOT NULL DEFAULT 0',
+                    'skip_spam_emails' => 'TINYINT(1) NOT NULL DEFAULT 1',
                 ];
                 self::ensureTableColumns('automation_settings', $settingCols);
 
+                $globalSettingCols = [
+                    'skip_spam_emails' => 'TINYINT(1) NOT NULL DEFAULT 1',
+                ];
+                self::ensureTableColumns('global_automation_settings', $globalSettingCols);
+
                 $recipientCols = [
+
                     'reply_sequence_step' => 'INT NOT NULL DEFAULT 0',
                     'reply_sequence_total' => 'INT NOT NULL DEFAULT 1',
                     'reply_sequence_status' => "VARCHAR(50) NOT NULL DEFAULT 'active'",
@@ -134,8 +141,15 @@ class DatabaseSanitizer {
                 $settingColsSqlite = [
                     'require_recipient_reply_before_next_reply' => 'INTEGER NOT NULL DEFAULT 0',
                     'use_account_override' => 'INTEGER NOT NULL DEFAULT 0',
+                    'skip_spam_emails' => 'INTEGER NOT NULL DEFAULT 1',
                 ];
                 self::ensureTableColumns('automation_settings', $settingColsSqlite);
+
+                $globalColsSqlite = [
+                    'skip_spam_emails' => 'INTEGER NOT NULL DEFAULT 1',
+                ];
+                self::ensureTableColumns('global_automation_settings', $globalColsSqlite);
+
 
                 $dailyColsSqlite = [
                     'reply_messages_count' => 'INTEGER NOT NULL DEFAULT 0',

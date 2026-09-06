@@ -197,6 +197,7 @@ class AutomationSettingsController {
 
         try {
             $requireRecipientReply = (bool)$request->input('require_recipient_reply_before_next_reply', 0);
+            $skipSpamEmails = (bool)$request->input('skip_spam_emails', 0);
 
             $settings->update([
                 'auto_reply_enabled' => $autoReplyEnabled ? 1 : 0,
@@ -207,6 +208,7 @@ class AutomationSettingsController {
                 'followup_enabled' => $followupEnabled ? 1 : 0,
                 'daily_followup_limit' => $dailyFollowupLimit,
                 'require_recipient_reply_before_next_reply' => $requireRecipientReply ? 1 : 0,
+                'skip_spam_emails' => $skipSpamEmails ? 1 : 0,
                 'timezone' => $timezone,
                 'working_days' => $workingDaysStr,
                 'working_start' => $workingStart,

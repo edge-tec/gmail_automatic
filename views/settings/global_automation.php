@@ -463,6 +463,16 @@ $connectedAccountsCount = count($accounts);
                                 </div>
                             </div>
 
+                            <div class="p-3 border rounded-3 bg-light d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong class="d-block text-dark"><i class="fa-solid fa-shield-virus text-danger me-1"></i> Skip All Spam Emails (Anti-Spam Shield)</strong>
+                                    <span class="small text-muted">Automatically skip replying to any spam, marketing newsletters, mass/bulk emails, bots, bounce notices, or multi-recipient emails.</span>
+                                </div>
+                                <div class="form-check form-switch m-0">
+                                    <input class="form-check-input fs-5" type="checkbox" role="switch" name="skip_spam_emails" value="1" <?= (!isset($settings->skip_spam_emails) || $settings->skip_spam_emails) ? 'checked' : '' ?>>
+                                </div>
+                            </div>
+
                             <div class="row g-3 mt-1">
                                 <div class="col-6">
                                     <label class="form-label small fw-semibold">Daily Reply Limit / Account</label>

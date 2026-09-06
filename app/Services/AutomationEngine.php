@@ -48,6 +48,7 @@ class AutomationEngine {
             'auto_reply_enabled' => ($useGlobal && $global) ? $global->auto_reply_enabled : ($this->settings?->auto_reply_enabled ?? false),
             'followup_enabled' => ($useGlobal && $global) ? $global->followup_enabled : ($this->settings?->followup_enabled ?? false),
             'require_recipient_reply' => ($useGlobal && $global) ? $global->require_recipient_reply_before_next_reply : ($this->settings?->require_recipient_reply_before_next_reply ?? false),
+            'skip_spam_emails' => ($useGlobal && $global) ? ($global->skip_spam_emails ?? true) : ($this->settings?->skip_spam_emails ?? true),
             'max_reply_per_thread' => ($useGlobal && $global) ? $global->max_reply_per_thread : ($this->settings?->max_reply_per_thread ?? 3),
             'daily_reply_limit' => ($useGlobal && $global) ? $global->daily_reply_limit : ($this->settings?->daily_reply_limit ?? 100),
             'daily_followup_limit' => ($useGlobal && $global) ? $global->daily_followup_limit : ($this->settings?->daily_followup_limit ?? 100),
@@ -245,33 +246,36 @@ class AutomationEngine {
             return ['status' => 'skipped', 'reason' => $reason];
         }
 
-        // 7. Anti-Spam / Multi-Recipient & Bulk Header Checks (Skip if multiple To, CC, BCC, or bulk spam)
-        $spamCheck = $this->checkSpamAndMultiRecipients($msgData);
-        if ($spamCheck['is_spam']) {
-            $reason = $spamCheck['reason'];
-            try {
-                SkippedEmailLog::create([
-                    'user_id' => $this->account->user_id,
-                    'gmail_account_id' => $this->account->id,
-                    'thread_id' => $thread->id,
-                    'gmail_thread_id' => $threadId,
-                    'gmail_message_id' => $msgId,
-                    'sender_email' => $senderEmail,
-                    'sender_name' => $senderName,
-                    'recipient_email' => $this->account->gmail_email,
-                    'subject' => $subject,
-                    'snippet' => $msgData['snippet'] ?? '',
-                    'skip_reason' => $reason,
-                    'skip_type' => 'spam_filter',
-                    'received_at' => $date,
-                ]);
-            } catch (\Throwable $t) {}
-            logger("Skipped spam/bulk incoming email from {$senderEmail}: {$reason}", 'warning', $this->account->user_id, $this->account->id);
-            return ['status' => 'skipped', 'reason' => $reason];
+        // 7. Check Effective Auto Reply Settings (Global vs Account Override)
+        $effective = $this->getEffectiveSettings();
+
+        // 8. Anti-Spam / Multi-Recipient & Bulk Header Checks (If skip_spam_emails is enabled)
+        if (!empty($effective['skip_spam_emails'])) {
+            $spamCheck = $this->checkSpamAndMultiRecipients($msgData);
+            if ($spamCheck['is_spam']) {
+                $reason = $spamCheck['reason'];
+                try {
+                    SkippedEmailLog::create([
+                        'user_id' => $this->account->user_id,
+                        'gmail_account_id' => $this->account->id,
+                        'thread_id' => $thread->id,
+                        'gmail_thread_id' => $threadId,
+                        'gmail_message_id' => $msgId,
+                        'sender_email' => $senderEmail,
+                        'sender_name' => $senderName,
+                        'recipient_email' => $this->account->gmail_email,
+                        'subject' => $subject,
+                        'snippet' => $msgData['snippet'] ?? '',
+                        'skip_reason' => $reason,
+                        'skip_type' => 'spam_filter',
+                        'received_at' => $date,
+                    ]);
+                } catch (\Throwable $t) {}
+                logger("Skipped spam/bulk incoming email from {$senderEmail}: {$reason}", 'warning', $this->account->user_id, $this->account->id);
+                return ['status' => 'skipped', 'reason' => $reason];
+            }
         }
 
-        // 8. Check Effective Auto Reply Settings (Global vs Account Override)
-        $effective = $this->getEffectiveSettings();
         if (!$effective['auto_reply_enabled']) {
             // If auto-reply is disabled, but follow-up is enabled, schedule follow-up campaign step 1
             if ($effective['followup_enabled'] && $thread->reply_count === 0 && $thread->followup_count === 0) {
@@ -659,14 +663,90 @@ class AutomationEngine {
      * Check if incoming message is a mass blast, spam, or contains multiple recipients (To / CC / BCC)
      */
     private function checkSpamAndMultiRecipients(array $msgData): array {
+        $senderEmail = strtolower(trim($msgData['sender_email'] ?? ''));
         $toHeader = $msgData['to'] ?? '';
         $ccHeader = $msgData['cc'] ?? '';
         $bccHeader = $msgData['bcc'] ?? '';
         $autoSubmitted = strtolower(trim($msgData['auto_submitted'] ?? ''));
         $precedence = strtolower(trim($msgData['precedence'] ?? ''));
         $subject = strtolower(trim($msgData['subject'] ?? ''));
+        $listUnsubscribe = trim($msgData['list_unsubscribe'] ?? '');
+        $listId = trim($msgData['list_id'] ?? '');
+        $xSpamFlag = strtolower(trim($msgData['x_spam_flag'] ?? ''));
+        $xSpamStatus = strtolower(trim($msgData['x_spam_status'] ?? ''));
+        $labelIds = $msgData['label_ids'] ?? [];
 
-        // 1. Multiple recipients in To header
+        // 1. Gmail ML Spam / Trash labels
+        if (in_array('SPAM', $labelIds)) {
+            return [
+                'is_spam' => true,
+                'reason' => "Spam email skipped: Gmail classified message with 'SPAM' label"
+            ];
+        }
+        if (in_array('TRASH', $labelIds)) {
+            return [
+                'is_spam' => true,
+                'reason' => "Trash email skipped: Gmail classified message with 'TRASH' label"
+            ];
+        }
+
+        // 2. Standard anti-spam headers (SpamAssassin, rspamd, etc.)
+        if ($xSpamFlag === 'yes' || str_starts_with($xSpamFlag, 'y') || $xSpamFlag === '1') {
+            return [
+                'is_spam' => true,
+                'reason' => "Spam email skipped: X-Spam-Flag header is '{$xSpamFlag}'"
+            ];
+        }
+        if (str_starts_with($xSpamStatus, 'yes') || str_contains($xSpamStatus, 'score=')) {
+            if (str_starts_with($xSpamStatus, 'yes')) {
+                return [
+                    'is_spam' => true,
+                    'reason' => "Spam email skipped: X-Spam-Status indicated spam ({$xSpamStatus})"
+                ];
+            }
+        }
+
+        // 3. Automated / Bot / System sender patterns
+        $botSenderPrefixes = [
+            'mailer-daemon@',
+            'noreply@',
+            'no-reply@',
+            'donotreply@',
+            'do-not-reply@',
+            'postmaster@',
+            'bounce@',
+            'bounces@',
+            'notification@',
+            'notifications@',
+            'support-noreply@',
+            'system@',
+            'alert@',
+            'alerts@',
+        ];
+        foreach ($botSenderPrefixes as $prefix) {
+            if (str_starts_with($senderEmail, $prefix) || str_contains($senderEmail, '+' . $prefix) || str_contains($senderEmail, '=' . $prefix)) {
+                return [
+                    'is_spam' => true,
+                    'reason' => "Bot/System email skipped: automated sender address '{$senderEmail}'"
+                ];
+            }
+        }
+
+        // 4. Marketing Newsletters & Mass Mailing lists (RFC 2369 / RFC 2919)
+        if (!empty($listUnsubscribe)) {
+            return [
+                'is_spam' => true,
+                'reason' => "Marketing/Newsletter email skipped: List-Unsubscribe header present"
+            ];
+        }
+        if (!empty($listId)) {
+            return [
+                'is_spam' => true,
+                'reason' => "Mass mailing list skipped: List-ID header present ({$listId})"
+            ];
+        }
+
+        // 5. Multiple recipients in To header (Mass outreach)
         $toCount = $this->extractEmailCount($toHeader);
         if ($toCount > 1) {
             return [
@@ -675,7 +755,7 @@ class AutomationEngine {
             ];
         }
 
-        // 2. Check for CC / BCC recipients (bulk email)
+        // 6. Check for CC / BCC recipients (bulk email)
         $ccCount = $this->extractEmailCount($ccHeader);
         if ($ccCount > 0) {
             return [
@@ -692,7 +772,7 @@ class AutomationEngine {
             ];
         }
 
-        // 3. Automated / Bulk / System Headers
+        // 7. Automated / Bulk / System Headers
         if (in_array($autoSubmitted, ['auto-generated', 'auto-replied', 'auto-notified'])) {
             return [
                 'is_spam' => true,
@@ -707,13 +787,46 @@ class AutomationEngine {
             ];
         }
 
-        // 4. Delivery status / Mailer-daemon failure notices
-        $deliveryKeywords = ['delivery status notification', 'undelivered mail', 'mail delivery failed', 'failure notice', 'returned mail:'];
-        foreach ($deliveryKeywords as $kw) {
+        // 8. Delivery status / Mailer-daemon failure notices & Vacation/Out-of-office
+        $bounceAndOooKeywords = [
+            'delivery status notification',
+            'undelivered mail',
+            'mail delivery failed',
+            'failure notice',
+            'returned mail:',
+            'out of office',
+            'automatic reply:',
+            'auto-reply:',
+            'autoreply:',
+            'vacation response',
+            'away from office',
+            'away from my email',
+        ];
+        foreach ($bounceAndOooKeywords as $kw) {
             if (str_contains($subject, $kw)) {
                 return [
                     'is_spam' => true,
-                    'reason' => "Delivery failure notice skipped: subject contains '{$kw}'"
+                    'reason' => "Automated/Bounce notice skipped: subject contains '{$kw}'"
+                ];
+            }
+        }
+
+        // 9. Common scam, phishing, and lottery spam subjects
+        $scamKeywords = [
+            'won the lottery',
+            'lottery winner',
+            'claim your prize',
+            'inheritance fund',
+            'crypto giveaway',
+            'casino online',
+            'viagra',
+            'wire transfer of $',
+        ];
+        foreach ($scamKeywords as $kw) {
+            if (str_contains($subject, $kw)) {
+                return [
+                    'is_spam' => true,
+                    'reason' => "Spam/Scam email skipped: subject contains suspicious keyword '{$kw}'"
                 ];
             }
         }

@@ -15,6 +15,7 @@ class AutomationSetting {
     public int $daily_followup_limit;
     public bool $require_recipient_reply_before_next_reply = false;
     public bool $use_account_override = false;
+    public bool $skip_spam_emails = true;
     public string $timezone;
     public string $working_days;
     public string $working_start;
@@ -31,6 +32,7 @@ class AutomationSetting {
         $cols = [
             'require_recipient_reply_before_next_reply' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
             'use_account_override' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+            'skip_spam_emails' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1'),
         ];
         \App\Core\DatabaseSanitizer::ensureTableColumns('automation_settings', $cols);
         if ($driver === 'mysql') {
@@ -61,9 +63,9 @@ class AutomationSetting {
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
         $sql = "INSERT INTO automation_settings 
-                (gmail_account_id, auto_reply_enabled, reply_message, max_reply_per_thread, daily_reply_limit, reply_delay, followup_enabled, daily_followup_limit, require_recipient_reply_before_next_reply, timezone, working_days, working_start, working_end, created_at)
+                (gmail_account_id, auto_reply_enabled, reply_message, max_reply_per_thread, daily_reply_limit, reply_delay, followup_enabled, daily_followup_limit, require_recipient_reply_before_next_reply, skip_spam_emails, timezone, working_days, working_start, working_end, created_at)
                 VALUES 
-                (:acc, 0, NULL, 3, 100, 0, 0, 100, 0, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', {$now})";
+                (:acc, 0, NULL, 3, 100, 0, 0, 100, 0, 1, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', {$now})";
 
         Database::execute($sql, [
             'acc' => $accountId,
@@ -101,6 +103,7 @@ class AutomationSetting {
             'daily_followup_limit' => $this->daily_followup_limit,
             'require_recipient_reply_before_next_reply' => $this->require_recipient_reply_before_next_reply ? 1 : 0,
             'use_account_override' => $this->use_account_override ? 1 : 0,
+            'skip_spam_emails' => $this->skip_spam_emails ? 1 : 0,
             'timezone' => $this->timezone,
             'working_days' => $this->working_days,
             'working_start' => $this->working_start,
@@ -272,6 +275,7 @@ class AutomationSetting {
         $setting->daily_followup_limit = (int)($row['daily_followup_limit'] ?? 100);
         $setting->require_recipient_reply_before_next_reply = (bool)($row['require_recipient_reply_before_next_reply'] ?? false);
         $setting->use_account_override = (bool)($row['use_account_override'] ?? false);
+        $setting->skip_spam_emails = isset($row['skip_spam_emails']) ? (bool)$row['skip_spam_emails'] : true;
         $setting->timezone = $row['timezone'] ?? 'Asia/Dhaka';
         $setting->working_days = $row['working_days'] ?? 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday';
         $setting->working_start = $row['working_start'] ?? '00:00';
