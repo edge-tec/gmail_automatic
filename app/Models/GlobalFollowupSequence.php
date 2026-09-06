@@ -151,6 +151,16 @@ class GlobalFollowupSequence {
         return false;
     }
 
+    public function calculateDelaySeconds(): int {
+        return match ($this->delay_unit) {
+            'seconds' => (int)$this->delay_value,
+            'minutes' => (int)($this->delay_value * 60),
+            'hours' => (int)($this->delay_value * 3600),
+            'days' => (int)($this->delay_value * 86400),
+            default => (int)($this->delay_value * 86400),
+        };
+    }
+
     public static function fromRow(array $row): self {
         $s = new self();
         $s->id = (int)$row['id'];
