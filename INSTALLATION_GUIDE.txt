@@ -1,0 +1,178 @@
+================================================================================
+          GMAIL AUTOMATION & BULK SENDER - AAPANEL FULL INSTALLATION GUIDE
+================================================================================
+Domain Example: 2xbets.net
+Document Root: /public
+PHP Version: PHP 8.2 or PHP 8.3
+Web Server: Nginx (or Apache)
+Database: MySQL 8.0+ / MariaDB 10.4+
+================================================================================
+
+--------------------------------------------------------------------------------
+STEP 1: PRE-REQUISITES (AAPANEL APP STORE)
+--------------------------------------------------------------------------------
+1. Log into your aaPanel control panel.
+2. Go to "App Store" and ensure the following are installed:
+   - Nginx (v1.22+)
+   - MySQL (v5.7 or 8.0) or MariaDB
+   - PHP-8.2 or PHP-8.3
+   - Process Supervisor (Supervisor Manager)
+
+3. Configure PHP Extensions:
+   - Go to: App Store -> Installed -> PHP-8.2 (or 8.3) -> Settings
+   - Tab "Install extensions": Install the following:
+     * fileinfo
+     * curl
+     * pdo_mysql
+     * mbstring
+     * xml
+     * zip
+     * bcmath
+   - Tab "Disabled functions":
+     Remove 'putenv', 'exec', and 'proc_open' from the disabled list
+     (Required for Composer and background CLI workers).
+
+--------------------------------------------------------------------------------
+STEP 2: ADD WEBSITE & DATABASE IN AAPANEL
+--------------------------------------------------------------------------------
+1. In aaPanel left sidebar, click "Website" -> "Add site".
+2. Enter your domain: 2xbets.net
+3. Database: Select "MySQL" (Note down DB Name, Username, and Password).
+4. PHP Version: Select PHP-82 (or PHP-83).
+5. Click "Submit".
+
+--------------------------------------------------------------------------------
+STEP 3: DEPLOY CODE & INSTALL DEPENDENCIES
+--------------------------------------------------------------------------------
+Open aaPanel Terminal (or SSH into server) and execute:
+
+  cd /www/wwwroot/2xbets.net
+
+  # Clone or pull the repository:
+  git clone https://github.com/edge-tec/gmail_automatic.git .
+  # OR if already cloned:
+  git pull origin main
+
+  # Install composer dependencies:
+  composer install --no-dev --optimize-autoloader
+
+  # Set correct file ownership & permissions:
+  chown -R www:www /www/wwwroot/2xbets.net
+  chmod -R 775 /www/wwwroot/2xbets.net/storage
+
+--------------------------------------------------------------------------------
+STEP 4: SET RUNNING DIRECTORY (/public) [CRITICAL]
+--------------------------------------------------------------------------------
+1. In aaPanel, go to: Website -> Click "2xbets.net"
+2. Go to tab: "Site directory"
+3. Set "Running directory" to: /public
+4. Click "Save".
+
+--------------------------------------------------------------------------------
+STEP 5: CONFIGURE NGINX URL REWRITE
+--------------------------------------------------------------------------------
+In the same website settings window:
+1. Go to tab: "URL rewrite"
+2. Paste the following rewrite rules:
+
+location / {
+    try_files $uri $uri/ /index.php?$query_string;
+}
+
+3. Click "Save".
+
+--------------------------------------------------------------------------------
+STEP 6: ENABLE SSL (HTTPS) [MANDATORY FOR GOOGLE OAUTH]
+--------------------------------------------------------------------------------
+1. In website settings window, go to tab: "SSL"
+2. Select "Let's Encrypt"
+3. Check your domain name and click "Apply".
+4. Once SSL is active, toggle ON "Force HTTPS".
+
+--------------------------------------------------------------------------------
+STEP 7: CONFIGURE DATABASE (.env) & RUN MIGRATIONS
+--------------------------------------------------------------------------------
+1. In terminal or aaPanel File Manager, configure .env:
+   cp .env.example .env
+
+2. Edit .env with your MySQL details:
+   APP_NAME="Gmail Automation"
+   APP_ENV=production
+   APP_DEBUG=false
+   APP_URL=https://2xbets.net
+
+   DB_CONNECTION=mysql
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_DATABASE=your_db_name
+   DB_USERNAME=your_db_user
+   DB_PASSWORD=your_db_password
+
+3. Run database installer in terminal:
+   php install.php
+
+   Default Admin Account created:
+   Email: admin@example.com
+   Password: Admin@123456
+   (Log in and change password immediately in Admin Profile)
+
+--------------------------------------------------------------------------------
+STEP 8: GOOGLE CLOUD OAUTH CONFIGURATION
+--------------------------------------------------------------------------------
+1. Go to Google Cloud Console: https://console.cloud.google.com/
+2. Create a project and Enable "Gmail API".
+3. Configure OAuth Consent Screen (User Type: External, Scopes: Gmail API).
+4. Create Credentials -> OAuth Client ID:
+   - Application Type: Web application
+   - Authorized Redirect URI:
+     https://2xbets.net/auth/google/callback
+5. Copy Client ID & Client Secret into your web app:
+   Admin Panel -> System Settings / Google API Credentials.
+
+--------------------------------------------------------------------------------
+STEP 9: SETUP CRON JOB (POLLER & AUTO-SYNC)
+--------------------------------------------------------------------------------
+1. In aaPanel, go to "Cron" in the left menu.
+2. Add Cron Task:
+   - Type of Task: Shell Script
+   - Name of Task: Gmail Automation Poller
+   - Period: Every Minute (* * * * *)
+   - Script Content:
+     cd /www/wwwroot/2xbets.net && php cron.php >> storage/logs/cron.log 2>&1
+3. Click "Add Task".
+
+--------------------------------------------------------------------------------
+STEP 10: SETUP PROCESS SUPERVISOR (24/7 BACKGROUND WORKERS)
+--------------------------------------------------------------------------------
+1. In aaPanel, go to App Store -> Process Supervisor -> Setting.
+2. Add Process 1 (Real-time Auto-Reply & Follow-up Queue):
+   - Name: gmail-queue-worker
+   - Run User: www
+   - Run Dir: /www/wwwroot/2xbets.net
+   - Start Command: php /www/wwwroot/2xbets.net/worker.php --queue-only
+   - Processes: 2
+   - Click Confirm / Save.
+
+3. Add Process 2 (Bulk Campaign Dispatcher):
+   - Name: gmail-campaign-worker
+   - Run User: www
+   - Run Dir: /www/wwwroot/2xbets.net
+   - Start Command: php /www/wwwroot/2xbets.net/worker.php --campaign-only
+   - Processes: 1
+   - Click Confirm / Save.
+
+--------------------------------------------------------------------------------
+VERIFICATION & MONITORING
+--------------------------------------------------------------------------------
+- View Cron live logs:
+  tail -f /www/wwwroot/2xbets.net/storage/logs/cron.log
+
+- View Queue Worker logs:
+  tail -f /www/wwwroot/2xbets.net/storage/logs/worker-queue.log
+
+- View Campaign Worker logs:
+  tail -f /www/wwwroot/2xbets.net/storage/logs/worker-campaign.log
+
+================================================================================
+                    INSTALLATION COMPLETE & PRODUCTION READY!
+================================================================================
