@@ -191,9 +191,11 @@ class AutomationEngine {
 
         // 4. If recipient wrote back AFTER an outgoing message was sent, mark thread as replied and stop pending follow-up campaigns
         $hasSentOutgoing = ($thread->reply_count > 0 || $thread->followup_count > 0) && !empty($thread->last_outgoing_at);
-        $isReplyToUs = ($hasSentOutgoing && (strtotime($date) >= (strtotime($thread->last_outgoing_at) - 60)))
+        $isReplyToUs = $hasSentOutgoing && (
+            (strtotime($date) >= (strtotime($thread->last_outgoing_at) - 60))
             || !empty($msgData['in_reply_to'])
-            || (!empty($msgData['is_reply']) && $hasSentOutgoing);
+            || !empty($msgData['is_reply'])
+        );
 
         if ($isReplyToUs) {
             $campaign = FollowupCampaign::findByThreadId($thread->id);

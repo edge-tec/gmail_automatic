@@ -355,6 +355,28 @@ class DatabaseSanitizer {
                  WHERE subscription_status = 'active' AND (subscription_expires_at IS NULL OR subscription_expires_at = '')",
                 ['exp' => $oneMonthAhead]
             );
+            // 3.5. Auto-heal threads and follow-up campaigns falsely marked as 'replied' before any outgoing message was sent
+            try {
+                Database::execute(
+                    "UPDATE email_threads 
+                     SET automation_status = 'active' 
+                     WHERE automation_status = 'replied' 
+                       AND reply_count = 0 
+                       AND followup_count = 0 
+                       AND (last_outgoing_at IS NULL OR last_outgoing_at = '')"
+                );
+                Database::execute(
+                    "UPDATE followup_campaigns 
+                     SET campaign_status = 'active' 
+                     WHERE campaign_status = 'replied' 
+                       AND thread_id IN (
+                           SELECT id FROM email_threads 
+                           WHERE reply_count = 0 
+                             AND followup_count = 0 
+                             AND (last_outgoing_at IS NULL OR last_outgoing_at = '')
+                       )"
+                );
+            } catch (\Throwable $t) {}
 
             // 4. Create SEO & Blog tables if not exist
             $isMysql = config('database.default', 'mysql') === 'mysql';

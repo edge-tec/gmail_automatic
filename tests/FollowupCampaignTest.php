@@ -23,6 +23,23 @@ class FollowupCampaignTest extends TestCase {
     private GmailAccount $account;
     private AutomationSetting $settings;
 
+    public static function setUpBeforeClass(): void {
+        parent::setUpBeforeClass();
+        $sqlitePath = storage_path('database/test.sqlite');
+        putenv("APP_ENV=testing");
+        putenv("DB_CONNECTION=sqlite");
+        putenv("DB_DATABASE={$sqlitePath}");
+        putenv("APP_KEY=base64:32characterRandomSecretKeyForTesting==");
+        $_ENV['APP_ENV'] = 'testing';
+        $_ENV['DB_CONNECTION'] = 'sqlite';
+        $_ENV['DB_DATABASE'] = $sqlitePath;
+        $_ENV['APP_KEY'] = 'base64:32characterRandomSecretKeyForTesting==';
+
+        new \App\Core\App();
+        Database::resetConnection();
+        MigrationRunner::run();
+    }
+
     protected function setUp(): void {
         parent::setUp();
         new App();
