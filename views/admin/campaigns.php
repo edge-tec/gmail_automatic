@@ -3,6 +3,14 @@
         <h4 class="fw-bold mb-1"><i class="fa-solid fa-paper-plane text-warning me-2"></i>Admin Campaign Oversight</h4>
         <p class="text-muted small mb-0">System-wide monitoring of all bulk email campaigns, sending limits, quotas, and suppression records.</p>
     </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="<?= url('/admin/campaigns/export-leads') ?>" class="btn btn-sm btn-success shadow-sm">
+            <i class="fa-solid fa-file-csv me-1"></i> Download All Leads (CSV)
+        </a>
+        <a href="<?= url('/admin/auto-replies/export') ?>" class="btn btn-sm btn-primary shadow-sm">
+            <i class="fa-solid fa-envelope-circle-check me-1"></i> Download Auto-Replied Emails (CSV)
+        </a>
+    </div>
 </div>
 
 <!-- All System Campaigns -->
@@ -61,7 +69,11 @@
                         <td class="small text-muted"><?= e($c->start_time) ?> - <?= e($c->end_time) ?></td>
                         <td class="small text-muted"><?= $c->created_at ? date('M d, Y', strtotime($c->created_at)) : '-' ?></td>
                         <td class="text-end">
-                            <div class="d-inline-flex gap-1">
+                            <div class="d-inline-flex gap-1 align-items-center">
+                                <a href="<?= url('/admin/campaigns/export-leads?campaign_id=' . $c->id) ?>" class="btn btn-xs btn-outline-info" title="Download Imported Leads CSV">
+                                    <i class="fa-solid fa-download me-1"></i> Leads CSV
+                                </a>
+
                                 <?php if (in_array($c->status, ['active', 'completed'])): ?>
                                     <form action="<?= url('/admin/campaigns/' . $c->id . '/pause') ?>" method="POST" class="d-inline">
                                         <?= csrf_field() ?>

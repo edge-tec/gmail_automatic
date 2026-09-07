@@ -100,8 +100,11 @@
         <h6 class="fw-bold mb-0 text-dark">
             <i class="fa-solid fa-shield-halved text-success me-2"></i> Auto-Reply Duplicate Traffic Protection Analytics
         </h6>
-        <div class="d-flex align-items-center gap-2">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
             <span class="badge bg-success-subtle text-success border border-success-subtle">1 Reply Per Unique Traffic</span>
+            <a href="<?= url('/admin/auto-replies/export') ?>" class="btn btn-xs btn-outline-success fw-semibold" style="font-size: 0.78rem; padding: 0.25rem 0.6rem;" title="Download list of all auto-replied emails">
+                <i class="fa-solid fa-file-csv me-1"></i> Download Auto-Replied Emails (CSV)
+            </a>
             <a href="<?= url('/admin/skipped-emails') ?>" class="btn btn-xs btn-outline-warning text-dark fw-semibold" style="font-size: 0.78rem; padding: 0.25rem 0.6rem;">
                 <i class="fa-solid fa-list-check me-1"></i> Skipped Report
             </a>

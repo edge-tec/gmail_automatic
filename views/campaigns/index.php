@@ -158,6 +158,9 @@
                             <a href="<?= url('/campaigns/' . $c->id . '/edit') ?>" class="btn btn-sm btn-outline-secondary" title="Edit Campaign">
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </a>
+                            <a href="<?= url('/campaigns/' . $c->id . '/export-recipients') ?>" class="btn btn-sm btn-outline-success" title="Download Leads (CSV)">
+                                <i class="fa-solid fa-file-csv"></i>
+                            </a>
 
                             <?php if (in_array($c->status, ['active', 'completed'])): ?>
                                 <form action="<?= url('/campaigns/' . $c->id . '/pause') ?>" method="POST" class="d-inline">

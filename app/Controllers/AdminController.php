@@ -910,5 +910,317 @@ class AdminController {
         }
         redirect('/admin/campaigns');
     }
+
+    /**
+     * Export Bulk Campaign Leads to CSV (platform-wide or specific campaign)
+     */
+    public function exportCampaignLeads(Request $request): void {
+        $campaignId = $request->input('campaign_id') ? (int)$request->input('campaign_id') : null;
+        $status = $request->input('status');
+        $search = trim((string)$request->input('search', ''));
+
+        $where = [];
+        $params = [];
+
+        if ($campaignId) {
+            $where[] = "ecr.campaign_id = :cid";
+            $params['cid'] = $campaignId;
+        }
+
+        if ($status && $status !== 'all') {
+            $where[] = "ecr.status = :status";
+            $params['status'] = $status;
+        }
+
+        if ($search !== '') {
+            $where[] = "(ecr.email LIKE :search OR ecr.first_name LIKE :search OR ecr.last_name LIKE :search OR ecr.company LIKE :search OR c.name LIKE :search)";
+            $params['search'] = '%' . $search . '%';
+        }
+
+        $whereSql = !empty($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+        $sql = "
+            SELECT 
+                ecr.id as lead_id,
+                ecr.campaign_id,
+                c.name as campaign_name,
+                c.user_id,
+                u.name as user_name,
+                u.email as user_email,
+                ecr.email as recipient_email,
+                ecr.first_name,
+                ecr.last_name,
+                ecr.company,
+                ecr.custom_field_1,
+                ecr.custom_field_2,
+                ecr.status,
+                ga.gmail_email as sent_via_gmail,
+                ecr.sent_at,
+                ecr.skip_reason,
+                ecr.last_error,
+                ecr.created_at
+            FROM email_campaign_recipients ecr
+            JOIN email_campaigns c ON ecr.campaign_id = c.id
+            JOIN users u ON c.user_id = u.id
+            LEFT JOIN gmail_accounts ga ON ecr.sent_gmail_account_id = ga.id
+            {$whereSql}
+            ORDER BY ecr.id ASC
+        ";
+
+        $rows = Database::query($sql, $params);
+
+        $filename = $campaignId 
+            ? "campaign_{$campaignId}_leads_" . date('Y-m-d_His') . ".csv"
+            : "all_bulk_campaign_leads_" . date('Y-m-d_His') . ".csv";
+
+        if (!headers_sent()) {
+            header('Content-Type: text/csv; charset=utf-8');
+            header("Content-Disposition: attachment; filename=\"{$filename}\"");
+        }
+
+        $output = fopen('php://output', 'w');
+        fputcsv($output, [
+            'Lead ID',
+            'Campaign ID',
+            'Campaign Name',
+            'Owner User ID',
+            'Owner Name',
+            'Owner Email',
+            'Recipient Email',
+            'First Name',
+            'Last Name',
+            'Company',
+            'Custom Field 1',
+            'Custom Field 2',
+            'Status',
+            'Sent Via Gmail',
+            'Sent At',
+            'Skip Reason',
+            'Error Details',
+            'Imported Date',
+        ]);
+
+        foreach ($rows as $row) {
+            fputcsv($output, [
+                $row['lead_id'],
+                $row['campaign_id'],
+                $row['campaign_name'],
+                $row['user_id'],
+                $row['user_name'] ?? '',
+                $row['user_email'] ?? '',
+                $row['recipient_email'],
+                $row['first_name'] ?? '',
+                $row['last_name'] ?? '',
+                $row['company'] ?? '',
+                $row['custom_field_1'] ?? '',
+                $row['custom_field_2'] ?? '',
+                $row['status'],
+                $row['sent_via_gmail'] ?? 'N/A',
+                $row['sent_at'] ?? 'N/A',
+                $row['skip_reason'] ?? '',
+                $row['last_error'] ?? '',
+                $row['created_at'] ?? '',
+            ]);
+        }
+
+        fclose($output);
+        if (defined('TESTING') || (getenv('APP_ENV') === 'testing') || (isset($_ENV['APP_ENV']) && $_ENV['APP_ENV'] === 'testing')) {
+            return;
+        }
+        exit;
+    }
+
+    /**
+     * Export All Auto-Replied Emails List to CSV
+     */
+    public function exportAutoRepliedEmails(Request $request): void {
+        $accountId = $request->input('account_id') ? (int)$request->input('account_id') : null;
+        $search = trim((string)$request->input('search', ''));
+
+        // 1. Fetch from scheduled_jobs (job_type = 'auto_reply' AND status = 'completed')
+        $whereJobs = ["sj.job_type = 'auto_reply'", "sj.status = 'completed'"];
+        $paramsJobs = [];
+
+        if ($accountId) {
+            $whereJobs[] = "sj.gmail_account_id = :acc";
+            $paramsJobs['acc'] = $accountId;
+        }
+
+        if ($search !== '') {
+            $whereJobs[] = "(th.sender_email LIKE :search OR th.sender_name LIKE :search OR th.subject LIKE :search OR sj.payload LIKE :search)";
+            $paramsJobs['search'] = '%' . $search . '%';
+        }
+
+        $whereJobsSql = implode(' AND ', $whereJobs);
+
+        $sqlJobs = "
+            SELECT 
+                sj.id as record_id,
+                sj.gmail_account_id,
+                ga.gmail_email as sent_from_gmail,
+                u.id as user_id,
+                u.name as user_name,
+                u.email as user_email,
+                COALESCE(th.sender_email, '') as thread_sender_email,
+                COALESCE(th.sender_name, '') as thread_sender_name,
+                COALESCE(th.subject, '') as thread_subject,
+                th.gmail_thread_id,
+                sj.payload,
+                sj.status,
+                COALESCE(sj.processed_at, sj.scheduled_at, sj.created_at) as sent_at
+            FROM scheduled_jobs sj
+            JOIN gmail_accounts ga ON sj.gmail_account_id = ga.id
+            JOIN users u ON ga.user_id = u.id
+            LEFT JOIN email_threads th ON sj.thread_id = th.id
+            WHERE {$whereJobsSql}
+            ORDER BY COALESCE(sj.processed_at, sj.scheduled_at, sj.created_at) DESC
+        ";
+
+        $jobs = Database::query($sqlJobs, $paramsJobs);
+
+        // 2. Fetch from auto_reply_recipients (tracking completed/replied leads)
+        $whereArr = ["(arr.reply_status IN ('replied', 'completed', 'active') OR arr.reply_sent_at IS NOT NULL)"];
+        $paramsArr = [];
+
+        if ($accountId) {
+            $whereArr[] = "arr.gmail_account_id = :acc";
+            $paramsArr['acc'] = $accountId;
+        }
+
+        if ($search !== '') {
+            $whereArr[] = "(arr.normalized_sender_email LIKE :search OR th.subject LIKE :search OR th.sender_name LIKE :search)";
+            $paramsArr['search'] = '%' . $search . '%';
+        }
+
+        $whereArrSql = implode(' AND ', $whereArr);
+
+        $sqlArr = "
+            SELECT 
+                arr.id as record_id,
+                arr.normalized_sender_email as recipient_email,
+                ga.gmail_email as sent_from_gmail,
+                u.id as user_id,
+                u.name as user_name,
+                u.email as user_email,
+                arr.reply_sequence_step,
+                arr.reply_status,
+                COALESCE(arr.reply_sent_at, arr.updated_at, arr.created_at) as sent_at,
+                th.subject as thread_subject,
+                th.sender_name as recipient_name,
+                arr.first_thread_id as gmail_thread_id
+            FROM auto_reply_recipients arr
+            JOIN gmail_accounts ga ON arr.gmail_account_id = ga.id
+            JOIN users u ON arr.user_id = u.id
+            LEFT JOIN email_threads th ON (th.gmail_account_id = arr.gmail_account_id AND (th.gmail_thread_id = arr.first_thread_id OR th.sender_email = arr.normalized_sender_email))
+            WHERE {$whereArrSql}
+            ORDER BY arr.id DESC
+        ";
+
+        $recipients = Database::query($sqlArr, $paramsArr);
+
+        // Merge & deduplicate by (recipient_email + sent_from_gmail + date)
+        $exportedList = [];
+        $seenKeys = [];
+
+        foreach ($jobs as $j) {
+            $payload = !empty($j['payload']) ? (is_array($j['payload']) ? $j['payload'] : json_decode($j['payload'], true)) : [];
+            $recipEmail = $payload['recipient_email'] ?? $j['thread_sender_email'] ?? '';
+            $recipName = $payload['recipient_name'] ?? $j['thread_sender_name'] ?? '';
+            $subject = $payload['subject'] ?? $j['thread_subject'] ?? '(No Subject)';
+            $step = $payload['reply_step'] ?? 1;
+
+            if (empty($recipEmail)) {
+                continue;
+            }
+
+            $dedupKey = strtolower(trim($recipEmail)) . '_' . ($j['sent_from_gmail'] ?? '') . '_' . substr($j['sent_at'] ?? '', 0, 10);
+            $seenKeys[$dedupKey] = true;
+
+            $exportedList[] = [
+                'id' => 'JOB-' . $j['record_id'],
+                'recipient_email' => $recipEmail,
+                'recipient_name' => $recipName,
+                'subject' => $subject,
+                'sent_from_gmail' => $j['sent_from_gmail'] ?? '',
+                'user_name' => $j['user_name'] ?? '',
+                'user_email' => $j['user_email'] ?? '',
+                'reply_step' => 'Step #' . $step,
+                'status' => 'Sent / Completed',
+                'sent_at' => $j['sent_at'] ?? '',
+                'thread_id' => $j['gmail_thread_id'] ?? '',
+            ];
+        }
+
+        foreach ($recipients as $r) {
+            $recipEmail = $r['recipient_email'] ?? '';
+            if (empty($recipEmail)) {
+                continue;
+            }
+
+            $dedupKey = strtolower(trim($recipEmail)) . '_' . ($r['sent_from_gmail'] ?? '') . '_' . substr($r['sent_at'] ?? '', 0, 10);
+            if (!empty($seenKeys[$dedupKey])) {
+                continue;
+            }
+            $seenKeys[$dedupKey] = true;
+
+            $exportedList[] = [
+                'id' => 'REC-' . $r['record_id'],
+                'recipient_email' => $recipEmail,
+                'recipient_name' => $r['recipient_name'] ?? '',
+                'subject' => $r['thread_subject'] ?? '(Auto-Reply)',
+                'sent_from_gmail' => $r['sent_from_gmail'] ?? '',
+                'user_name' => $r['user_name'] ?? '',
+                'user_email' => $r['user_email'] ?? '',
+                'reply_step' => 'Step #' . ($r['reply_sequence_step'] ?: 1),
+                'status' => ucfirst($r['reply_status'] ?? 'Replied'),
+                'sent_at' => $r['sent_at'] ?? '',
+                'thread_id' => $r['gmail_thread_id'] ?? '',
+            ];
+        }
+
+        $filename = "auto_replied_emails_list_" . date('Y-m-d_His') . ".csv";
+
+        if (!headers_sent()) {
+            header('Content-Type: text/csv; charset=utf-8');
+            header("Content-Disposition: attachment; filename=\"{$filename}\"");
+        }
+
+        $output = fopen('php://output', 'w');
+        fputcsv($output, [
+            'Record ID',
+            'Recipient Email',
+            'Recipient Name',
+            'Subject',
+            'Sent From Gmail',
+            'Account Owner Name',
+            'Account Owner Email',
+            'Sequence Step',
+            'Status',
+            'Auto-Replied At',
+            'Gmail Thread ID',
+        ]);
+
+        foreach ($exportedList as $item) {
+            fputcsv($output, [
+                $item['id'],
+                $item['recipient_email'],
+                $item['recipient_name'],
+                $item['subject'],
+                $item['sent_from_gmail'],
+                $item['user_name'],
+                $item['user_email'],
+                $item['reply_step'],
+                $item['status'],
+                $item['sent_at'],
+                $item['thread_id'],
+            ]);
+        }
+
+        fclose($output);
+        if (defined('TESTING') || (getenv('APP_ENV') === 'testing') || (isset($_ENV['APP_ENV']) && $_ENV['APP_ENV'] === 'testing')) {
+            return;
+        }
+        exit;
+    }
 }
 

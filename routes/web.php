@@ -131,10 +131,13 @@ $router->post('/campaigns/{id}/pause', 'CampaignController@pause', [AuthMiddlewa
 $router->post('/campaigns/{id}/resume', 'CampaignController@resume', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/campaigns/{id}/cancel', 'CampaignController@cancel', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/campaigns/{id}/delete', 'CampaignController@delete', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->get('/campaigns/{id}/export-recipients', 'CampaignController@exportRecipients', [AuthMiddleware::class]);
 
 // Admin Panel Routes
 $router->get('/admin', 'AdminController@index', [AdminMiddleware::class]);
 $router->get('/admin/campaigns', 'AdminController@campaigns', [AdminMiddleware::class]);
+$router->get('/admin/campaigns/export-leads', 'AdminController@exportCampaignLeads', [AdminMiddleware::class]);
+$router->get('/admin/auto-replies/export', 'AdminController@exportAutoRepliedEmails', [AdminMiddleware::class]);
 $router->post('/admin/campaigns/{id}/pause', 'AdminController@adminPauseCampaign', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->post('/admin/campaigns/{id}/stop', 'AdminController@adminStopCampaign', [AdminMiddleware::class, CSRFMiddleware::class]);
 $router->get('/admin/users', 'AdminController@users', [AdminMiddleware::class]);

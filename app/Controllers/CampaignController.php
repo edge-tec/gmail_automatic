@@ -4,6 +4,7 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\Request;
 use App\Core\View;
+use App\Core\Database;
 use App\Models\EmailCampaign;
 use App\Models\EmailCampaignRecipient;
 use App\Models\EmailCampaignMessage;
@@ -592,5 +593,95 @@ class CampaignController {
         }
 
         redirect('/campaigns/' . $campaign->id);
+    }
+
+    /**
+     * Export Campaign Recipients to CSV
+     */
+    public function exportRecipients(Request $request, int $id): void {
+        if (!$this->authorizeBulkSender()) {
+            return;
+        }
+        $userId = Auth::id();
+        $user = Auth::user();
+        $campaign = ($user && $user->role === 'admin')
+            ? EmailCampaign::find($id)
+            : EmailCampaign::findByUserAndId($userId, $id);
+
+        if (!$campaign) {
+            flash('error', 'Campaign not found.');
+            redirect('/campaigns');
+            return;
+        }
+
+        $recipients = Database::query("
+            SELECT 
+                ecr.id,
+                ecr.email,
+                ecr.first_name,
+                ecr.last_name,
+                ecr.company,
+                ecr.custom_field_1,
+                ecr.custom_field_2,
+                ecr.status,
+                ga.gmail_email as sent_via_gmail,
+                ecr.sent_at,
+                ecr.skip_reason,
+                ecr.last_error,
+                ecr.created_at
+            FROM email_campaign_recipients ecr
+            LEFT JOIN gmail_accounts ga ON ecr.sent_gmail_account_id = ga.id
+            WHERE ecr.campaign_id = :cid
+            ORDER BY ecr.id ASC
+        ", ['cid' => $campaign->id]);
+
+        $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $campaign->name);
+        $filename = "campaign_{$campaign->id}_{$safeName}_leads_" . date('Y-m-d_His') . ".csv";
+
+        if (!headers_sent()) {
+            header('Content-Type: text/csv; charset=utf-8');
+            header("Content-Disposition: attachment; filename=\"{$filename}\"");
+        }
+
+        $output = fopen('php://output', 'w');
+        fputcsv($output, [
+            'Lead ID',
+            'Email',
+            'First Name',
+            'Last Name',
+            'Company',
+            'Custom Field 1',
+            'Custom Field 2',
+            'Status',
+            'Sent Via Gmail',
+            'Sent At',
+            'Skip Reason',
+            'Error Details',
+            'Imported Date',
+        ]);
+
+        foreach ($recipients as $r) {
+            fputcsv($output, [
+                $r['id'],
+                $r['email'],
+                $r['first_name'] ?? '',
+                $r['last_name'] ?? '',
+                $r['company'] ?? '',
+                $r['custom_field_1'] ?? '',
+                $r['custom_field_2'] ?? '',
+                $r['status'],
+                $r['sent_via_gmail'] ?? 'N/A',
+                $r['sent_at'] ?? 'N/A',
+                $r['skip_reason'] ?? '',
+                $r['last_error'] ?? '',
+                $r['created_at'] ?? '',
+            ]);
+        }
+
+        fclose($output);
+        if (defined('TESTING') || (getenv('APP_ENV') === 'testing') || (isset($_ENV['APP_ENV']) && $_ENV['APP_ENV'] === 'testing')) {
+            return;
+        }
+        exit;
     }
 }
