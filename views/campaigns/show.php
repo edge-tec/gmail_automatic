@@ -48,14 +48,14 @@
             </form>
         <?php endif; ?>
 
-        <?php if ($campaign->status === 'active'): ?>
+        <?php if (in_array($campaign->status, ['active', 'completed'])): ?>
             <form action="<?= url('/campaigns/' . $campaign->id . '/pause') ?>" method="POST">
                 <?= csrf_field() ?>
                 <button type="submit" class="btn btn-outline-warning">
                     <i class="fa-solid fa-pause me-1"></i> Pause Campaign
                 </button>
             </form>
-        <?php elseif (in_array($campaign->status, ['paused', 'draft'])): ?>
+        <?php elseif (in_array($campaign->status, ['paused', 'draft', 'cancelled'])): ?>
             <form action="<?= url('/campaigns/' . $campaign->id . '/resume') ?>" method="POST">
                 <?= csrf_field() ?>
                 <button type="submit" class="btn btn-outline-success">
@@ -67,16 +67,16 @@
         <?php if (in_array($campaign->status, ['active', 'paused', 'draft'])): ?>
             <form action="<?= url('/campaigns/' . $campaign->id . '/cancel') ?>" method="POST" onsubmit="return confirm('Are you sure you want to permanently cancel this campaign?');">
                 <?= csrf_field() ?>
-                <button type="submit" class="btn btn-outline-danger">
+                <button type="submit" class="btn btn-outline-secondary">
                     <i class="fa-solid fa-ban me-1"></i> Cancel
                 </button>
             </form>
         <?php endif; ?>
 
-        <form action="<?= url('/campaigns/' . $campaign->id . '/delete') ?>" method="POST" onsubmit="return confirm('Are you sure you want to delete this campaign and all its recipients?');">
+        <form action="<?= url('/campaigns/' . $campaign->id . '/delete') ?>" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete campaign \'<?= htmlspecialchars(addslashes($campaign->name), ENT_QUOTES) ?>\' and all its recipients?');">
             <?= csrf_field() ?>
-            <button type="submit" class="btn btn-outline-secondary" title="Delete Campaign">
-                <i class="fa-solid fa-trash-can"></i>
+            <button type="submit" class="btn btn-outline-danger" title="Delete Campaign">
+                <i class="fa-solid fa-trash-can me-1"></i> Delete Campaign
             </button>
         </form>
     </div>

@@ -62,7 +62,7 @@
                         <td class="small text-muted"><?= $c->created_at ? date('M d, Y', strtotime($c->created_at)) : '-' ?></td>
                         <td class="text-end">
                             <div class="d-inline-flex gap-1">
-                                <?php if ($c->status === 'active'): ?>
+                                <?php if (in_array($c->status, ['active', 'completed'])): ?>
                                     <form action="<?= url('/admin/campaigns/' . $c->id . '/pause') ?>" method="POST" class="d-inline">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="btn btn-xs btn-outline-warning" title="Pause Campaign">Pause</button>

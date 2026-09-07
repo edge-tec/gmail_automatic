@@ -307,11 +307,12 @@ class CampaignController {
         }
         $userId = Auth::id();
         $campaign = EmailCampaign::findByUserAndId($userId, $id);
-        if ($campaign && $campaign->status === 'active') {
+        if ($campaign && in_array($campaign->status, ['active', 'completed'])) {
             $campaign->update(['status' => 'paused']);
             flash('warning', "Campaign '{$campaign->name}' paused. No further emails will be sent until resumed.");
         }
-        redirect('/campaigns/' . $id);
+        $redirect = $request->input('redirect_to') ?: ('/campaigns/' . $id);
+        redirect($redirect);
     }
 
     public function resume(Request $request, int $id): void {
@@ -320,11 +321,12 @@ class CampaignController {
         }
         $userId = Auth::id();
         $campaign = EmailCampaign::findByUserAndId($userId, $id);
-        if ($campaign && in_array($campaign->status, ['paused', 'draft'])) {
+        if ($campaign && in_array($campaign->status, ['paused', 'draft', 'cancelled'])) {
             $campaign->update(['status' => 'active']);
             flash('success', "Campaign '{$campaign->name}' resumed and active.");
         }
-        redirect('/campaigns/' . $id);
+        $redirect = $request->input('redirect_to') ?: ('/campaigns/' . $id);
+        redirect($redirect);
     }
 
     public function cancel(Request $request, int $id): void {
@@ -344,7 +346,8 @@ class CampaignController {
             $campaign->recalculateStats();
             flash('info', "Campaign '{$campaign->name}' cancelled permanently.");
         }
-        redirect('/campaigns/' . $id);
+        $redirect = $request->input('redirect_to') ?: ('/campaigns/' . $id);
+        redirect($redirect);
     }
 
     public function delete(Request $request, int $id): void {
@@ -354,10 +357,12 @@ class CampaignController {
         $userId = Auth::id();
         $campaign = EmailCampaign::findByUserAndId($userId, $id);
         if ($campaign) {
+            $campaignName = $campaign->name;
             $campaign->delete();
-            flash('success', 'Campaign deleted successfully.');
+            flash('success', "Campaign '{$campaignName}' deleted successfully.");
         }
-        redirect('/campaigns');
+        $redirect = $request->input('redirect_to') ?: '/campaigns';
+        redirect($redirect);
     }
 
     public function accounts(Request $request): string {

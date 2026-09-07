@@ -151,7 +151,7 @@
                         <span class="small text-muted"><?= $c->created_at ? date('M d, Y', strtotime($c->created_at)) : '-' ?></span>
                     </td>
                     <td class="text-end">
-                        <div class="d-inline-flex gap-1">
+                        <div class="d-inline-flex gap-1 align-items-center">
                             <a href="<?= url('/campaigns/' . $c->id) ?>" class="btn btn-sm btn-outline-primary" title="View Dashboard">
                                 <i class="fa-solid fa-chart-pie"></i>
                             </a>
@@ -159,30 +159,31 @@
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </a>
 
-                            <?php if ($c->status === 'active'): ?>
+                            <?php if (in_array($c->status, ['active', 'completed'])): ?>
                                 <form action="<?= url('/campaigns/' . $c->id . '/pause') ?>" method="POST" class="d-inline">
                                     <?= csrf_field() ?>
+                                    <input type="hidden" name="redirect_to" value="/campaigns">
                                     <button type="submit" class="btn btn-sm btn-outline-warning" title="Pause Campaign">
                                         <i class="fa-solid fa-pause"></i>
                                     </button>
                                 </form>
-                            <?php elseif (in_array($c->status, ['paused', 'draft'])): ?>
+                            <?php elseif (in_array($c->status, ['paused', 'draft', 'cancelled'])): ?>
                                 <form action="<?= url('/campaigns/' . $c->id . '/resume') ?>" method="POST" class="d-inline">
                                     <?= csrf_field() ?>
+                                    <input type="hidden" name="redirect_to" value="/campaigns">
                                     <button type="submit" class="btn btn-sm btn-outline-success" title="Resume Campaign">
                                         <i class="fa-solid fa-play"></i>
                                     </button>
                                 </form>
                             <?php endif; ?>
 
-                            <?php if (in_array($c->status, ['active', 'paused', 'draft'])): ?>
-                                <form action="<?= url('/campaigns/' . $c->id . '/cancel') ?>" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to permanently cancel this campaign?');">
-                                    <?= csrf_field() ?>
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Cancel Campaign">
-                                        <i class="fa-solid fa-ban"></i>
-                                    </button>
-                                </form>
-                            <?php endif; ?>
+                            <form action="<?= url('/campaigns/' . $c->id . '/delete') ?>" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to permanently delete campaign \'<?= htmlspecialchars(addslashes($c->name), ENT_QUOTES) ?>\' and all its recipients?');">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="redirect_to" value="/campaigns">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Campaign">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </form>
                         </div>
                     </td>
                 </tr>

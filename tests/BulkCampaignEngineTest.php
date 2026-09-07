@@ -616,4 +616,48 @@ class BulkCampaignEngineTest extends TestCase {
         $claim3 = EmailCampaignRecipient::claimNextPending($campaign->id);
         $this->assertNull($claim3, "Worker 3 must get null when no pending recipients are available");
     }
+
+    public function testCampaignPauseResumeAndDeleteWithCascadeCleanup(): void {
+        $campaign = $this->createCampaign([
+            'name' => 'Delete Test Campaign',
+            'status' => 'completed',
+        ]);
+
+        // Add recipient, message variation, send record, and suppression
+        EmailCampaignRecipient::insertBatch($campaign->id, self::$testUser->id, [
+            ['email' => 'cascade_recip@example.com'],
+        ]);
+        EmailCampaignMessage::create([
+            'campaign_id' => $campaign->id,
+            'user_id' => self::$testUser->id,
+            'subject' => 'Cascade Test',
+            'body' => 'Hello test',
+        ]);
+        Database::execute("INSERT INTO email_campaign_sends (campaign_id, recipient_id, gmail_account_id, status) VALUES (:cid, 1, 1, 'sent')", [
+            'cid' => $campaign->id,
+        ]);
+        Database::execute("INSERT INTO email_campaign_suppressions (campaign_id, user_id, email, reason) VALUES (:cid, :uid, 'cascade_recip@example.com', 'unsubscribed')", [
+            'cid' => $campaign->id,
+            'uid' => self::$testUser->id,
+        ]);
+
+        // 1. Pause completed campaign
+        $campaign->update(['status' => 'paused']);
+        $this->assertEquals('paused', EmailCampaign::find($campaign->id)->status);
+
+        // 2. Resume paused campaign
+        $campaign->update(['status' => 'active']);
+        $this->assertEquals('active', EmailCampaign::find($campaign->id)->status);
+
+        // 3. Delete campaign and ensure child records are removed
+        $deleted = $campaign->delete();
+        $this->assertTrue($deleted);
+
+        $this->assertNull(EmailCampaign::find($campaign->id));
+        $this->assertEmpty(Database::query("SELECT * FROM email_campaign_recipients WHERE campaign_id = :id", ['id' => $campaign->id]));
+        $this->assertEmpty(Database::query("SELECT * FROM email_campaign_messages WHERE campaign_id = :id", ['id' => $campaign->id]));
+        $this->assertEmpty(Database::query("SELECT * FROM email_campaign_sends WHERE campaign_id = :id", ['id' => $campaign->id]));
+        $this->assertEmpty(Database::query("SELECT * FROM email_campaign_suppressions WHERE campaign_id = :id", ['id' => $campaign->id]));
+    }
 }
+

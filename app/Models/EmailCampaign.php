@@ -105,6 +105,10 @@ class EmailCampaign {
     }
 
     public function delete(): bool {
+        Database::execute("DELETE FROM email_campaign_sends WHERE campaign_id = :id", ['id' => $this->id]);
+        Database::execute("DELETE FROM email_campaign_recipients WHERE campaign_id = :id", ['id' => $this->id]);
+        Database::execute("DELETE FROM email_campaign_messages WHERE campaign_id = :id", ['id' => $this->id]);
+        Database::execute("DELETE FROM email_campaign_suppressions WHERE campaign_id = :id", ['id' => $this->id]);
         return Database::execute("DELETE FROM email_campaigns WHERE id = :id", ['id' => $this->id]);
     }
 
