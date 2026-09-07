@@ -90,10 +90,10 @@
 
 <div class="row g-4 mb-4">
     <!-- Connected Accounts Status -->
-    <div class="col-12 col-lg-5">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="fa-brands fa-google me-2 text-primary"></i> Gmail Accounts</span>
+    <div class="col-12 col-xl-5">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-dark"><i class="fa-brands fa-google me-2 text-danger"></i> Gmail Accounts</span>
                 <a href="<?= url('/accounts') ?>" class="btn btn-sm btn-outline-primary">Manage</a>
             </div>
             <div class="card-body p-0">
@@ -111,16 +111,16 @@
                         $sett = $acc->getSettings();
                     ?>
                     <div class="list-group-item p-3">
-                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
-                            <div class="min-w-0 flex-grow-1" style="max-width: 100%;">
-                                <div class="fw-semibold text-truncate text-dark" title="<?= e($acc->gmail_email) ?>">
-                                    <i class="fa-brands fa-google text-danger me-1" style="font-size: 0.85rem;"></i><?= e($acc->gmail_email) ?>
-                                </div>
-                                <div class="small text-muted" style="font-size: 0.78rem;">
-                                    <i class="fa-solid fa-rotate me-1" style="font-size: 0.7rem;"></i>Sync: <?= $acc->last_sync_at ? date('M d, H:i', strtotime($acc->last_sync_at)) : 'Never' ?>
-                                </div>
+                        <div class="d-flex justify-content-between align-items-center mb-1.5">
+                            <div class="fw-semibold text-truncate text-dark pe-2" title="<?= e($acc->gmail_email) ?>">
+                                <i class="fa-brands fa-google text-danger me-1.5" style="font-size: 0.85rem;"></i><?= e($acc->gmail_email) ?>
                             </div>
-                            <div class="d-flex gap-1.5 gap-sm-2 align-items-center flex-wrap flex-shrink-0">
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div class="small text-muted" style="font-size: 0.78rem;">
+                                <i class="fa-solid fa-rotate me-1" style="font-size: 0.7rem;"></i>Sync: <?= $acc->last_sync_at ? date('M d, H:i', strtotime($acc->last_sync_at)) : 'Never' ?>
+                            </div>
+                            <div class="d-flex gap-1.5 align-items-center flex-wrap">
                                 <?php if ($sett && $sett->auto_reply_enabled): ?>
                                     <span class="badge bg-success-subtle text-success border border-success-subtle text-nowrap"><i class="fa-solid fa-reply me-1"></i>Reply ON</span>
                                 <?php else: ?>
@@ -143,10 +143,10 @@
     </div>
 
     <!-- Recent Activity Logs -->
-    <div class="col-12 col-lg-7">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="fa-solid fa-list-check me-2 text-primary"></i> Real-time Automation Activity</span>
+    <div class="col-12 col-xl-7">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-dark"><i class="fa-solid fa-list-check me-2 text-primary"></i> Real-time Automation Activity</span>
                 <span class="badge bg-light text-muted border">Live Logs</span>
             </div>
             <div class="card-body p-0">
@@ -160,7 +160,7 @@
                         <tbody>
                             <?php foreach ($recentLogs as $log): ?>
                             <tr>
-                                <td style="width: 30px;">
+                                <td style="width: 35px;" class="ps-3">
                                     <?php if ($log['log_type'] === 'success'): ?>
                                         <i class="fa-solid fa-circle-check text-success"></i>
                                     <?php elseif ($log['log_type'] === 'error'): ?>
@@ -171,10 +171,10 @@
                                         <i class="fa-solid fa-circle-info text-primary"></i>
                                     <?php endif; ?>
                                 </td>
-                                <td>
-                                    <div class="text-truncate" style="max-width: min(420px, 60vw);"><?= e($log['message']) ?></div>
+                                <td class="min-w-0">
+                                    <div class="text-break" style="font-size: 0.82rem; line-height: 1.4;"><?= e($log['message']) ?></div>
                                 </td>
-                                <td class="text-end text-muted font-monospace" style="font-size: 0.75rem;">
+                                <td class="text-end text-muted font-monospace pe-3 text-nowrap" style="font-size: 0.75rem; width: 85px;">
                                     <?= date('H:i:s', strtotime($log['created_at'])) ?>
                                 </td>
                             </tr>

@@ -148,15 +148,17 @@
             </h4>
             <p class="text-muted small mb-0">Create up to 5+ multi-step sequential follow-up emails with rich formatting, links, images, and custom delay times.</p>
         </div>
-        <div class="d-flex align-items-center gap-2 account-select-wrapper">
+        <div class="d-flex align-items-center gap-2 account-select-wrapper flex-wrap w-100 w-sm-auto">
             <span class="small text-muted fw-semibold text-nowrap"><i class="fa-solid fa-user-circle me-1"></i>Account:</span>
-            <select class="form-select form-select-sm" style="min-width: 220px;" onchange="location.href = '<?= url('/settings/followups') ?>/' + this.value">
+            <select class="form-select form-select-sm" style="min-width: 180px; flex: 1;" onchange="location.href = '<?= url('/settings/followups') ?>/' + this.value">
                 <?php foreach ($accounts as $acc): ?>
                     <option value="<?= $acc->id ?>" <?= $acc->id === $selectedAccount->id ? 'selected' : '' ?>>
                         <?= e($acc->gmail_email) ?>
                     </option>
                 <?php endforeach; ?>
             </select>
+        </div>
+    </div>
 </div>
 
 <?php $stopOnReply = $settings->stop_followup_on_reply ?? true; ?>

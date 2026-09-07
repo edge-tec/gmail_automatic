@@ -9,15 +9,15 @@
     <div class="card-body p-4">
         <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
             <div>
-                <h4 class="fw-bold mb-1"><?= e($thread->subject) ?></h4>
-                <div class="d-flex align-items-center gap-3 text-muted small mt-2">
-                    <span><i class="fa-solid fa-user me-1 text-primary"></i> <strong><?= e($thread->sender_name ?: $thread->sender_email) ?></strong> &lt;<?= e($thread->sender_email) ?>&gt;</span>
+                <h4 class="fw-bold mb-1 text-break"><?= e($thread->subject) ?></h4>
+                <div class="d-flex align-items-center flex-wrap gap-2 text-muted small mt-2">
+                    <span class="text-break"><i class="fa-solid fa-user me-1 text-primary"></i> <strong><?= e($thread->sender_name ?: $thread->sender_email) ?></strong> &lt;<?= e($thread->sender_email) ?>&gt;</span>
                     <span><i class="fa-brands fa-google me-1 text-danger"></i> <?= e($account->gmail_email) ?></span>
-                    <span class="font-monospace"><i class="fa-solid fa-hashtag me-1"></i> <?= e($thread->gmail_thread_id) ?></span>
+                    <span class="font-monospace text-break"><i class="fa-solid fa-hashtag me-1"></i> <?= e($thread->gmail_thread_id) ?></span>
                 </div>
             </div>
 
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
                 <!-- Status Badge -->
                 <?php if ($thread->automation_status === 'active'): ?>
                     <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">

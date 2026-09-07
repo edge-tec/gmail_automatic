@@ -18,20 +18,20 @@
 <div class="card shadow-sm border-0 mb-4">
     <div class="card-body p-3">
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div class="btn-group btn-group-sm flex-wrap">
-                <a href="<?= url('/logs' . ($selectedAccountId ? "?account_id={$selectedAccountId}" : '')) ?>" class="btn <?= empty($selectedType) ? 'btn-primary' : 'btn-outline-secondary' ?>">
+            <div class="d-flex gap-1 flex-wrap">
+                <a href="<?= url('/logs' . ($selectedAccountId ? "?account_id={$selectedAccountId}" : '')) ?>" class="btn btn-sm <?= empty($selectedType) ? 'btn-primary' : 'btn-outline-secondary' ?>">
                     All Logs
                 </a>
-                <a href="<?= url('/logs?type=reply' . ($selectedAccountId ? "&account_id={$selectedAccountId}" : '')) ?>" class="btn <?= $selectedType === 'reply' ? 'btn-primary' : 'btn-outline-secondary' ?>">
+                <a href="<?= url('/logs?type=reply' . ($selectedAccountId ? "&account_id={$selectedAccountId}" : '')) ?>" class="btn btn-sm <?= $selectedType === 'reply' ? 'btn-primary' : 'btn-outline-secondary' ?>">
                     <i class="fa-solid fa-reply me-1"></i> Auto Replies
                 </a>
-                <a href="<?= url('/logs?type=followup' . ($selectedAccountId ? "&account_id={$selectedAccountId}" : '')) ?>" class="btn <?= $selectedType === 'followup' ? 'btn-primary' : 'btn-outline-secondary' ?>">
+                <a href="<?= url('/logs?type=followup' . ($selectedAccountId ? "&account_id={$selectedAccountId}" : '')) ?>" class="btn btn-sm <?= $selectedType === 'followup' ? 'btn-primary' : 'btn-outline-secondary' ?>">
                     <i class="fa-solid fa-share me-1"></i> Follow-ups
                 </a>
-                <a href="<?= url('/logs?type=error' . ($selectedAccountId ? "&account_id={$selectedAccountId}" : '')) ?>" class="btn <?= $selectedType === 'error' ? 'btn-primary' : 'btn-outline-secondary' ?>">
+                <a href="<?= url('/logs?type=error' . ($selectedAccountId ? "&account_id={$selectedAccountId}" : '')) ?>" class="btn btn-sm <?= $selectedType === 'error' ? 'btn-primary' : 'btn-outline-secondary' ?>">
                     <i class="fa-solid fa-triangle-exclamation me-1"></i> Errors
                 </a>
-                <a href="<?= url('/logs?type=success' . ($selectedAccountId ? "&account_id={$selectedAccountId}" : '')) ?>" class="btn <?= $selectedType === 'success' ? 'btn-primary' : 'btn-outline-secondary' ?>">
+                <a href="<?= url('/logs?type=success' . ($selectedAccountId ? "&account_id={$selectedAccountId}" : '')) ?>" class="btn btn-sm <?= $selectedType === 'success' ? 'btn-primary' : 'btn-outline-secondary' ?>">
                     <i class="fa-solid fa-circle-check me-1"></i> Success
                 </a>
             </div>

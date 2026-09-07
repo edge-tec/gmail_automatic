@@ -120,7 +120,7 @@ $connectedAccountsCount = count($accounts);
 </div>
 
 <!-- Tabs Navigation -->
-<ul class="nav nav-pills nav-pills-custom mb-4 gap-2" id="globalTabs" role="tablist">
+<ul class="nav nav-pills nav-pills-custom mb-4 gap-2 flex-column flex-sm-row" id="globalTabs" role="tablist">
     <li class="nav-item" role="presentation">
         <button class="nav-link active d-flex align-items-center gap-2" id="autoreply-tab" data-bs-toggle="pill" data-bs-target="#tab-autoreply" type="button" role="tab">
             <i class="fa-solid fa-robot"></i>

@@ -57,9 +57,9 @@ $replySteps = $settings->getReplyStepsData();
         <p class="text-muted small mb-0">Configure rich-text responses with links and images, per-step delay times, and 24/7 automation.</p>
     </div>
     <!-- Account Selector Dropdown -->
-    <div class="d-flex align-items-center gap-2">
-        <span class="small text-muted fw-semibold">Account:</span>
-        <select class="form-select form-select-sm" style="min-width: 220px;" onchange="location.href = '<?= url('/settings/automation') ?>/' + this.value">
+    <div class="d-flex align-items-center gap-2 flex-wrap w-100 w-sm-auto">
+        <span class="small text-muted fw-semibold text-nowrap">Account:</span>
+        <select class="form-select form-select-sm" style="min-width: 180px; flex: 1;" onchange="location.href = '<?= url('/settings/automation') ?>/' + this.value">
             <?php foreach ($accounts as $acc): ?>
                 <option value="<?= $acc->id ?>" <?= $acc->id === $selectedAccount->id ? 'selected' : '' ?>>
                     <?= e($acc->gmail_email) ?>

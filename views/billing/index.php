@@ -45,7 +45,7 @@
                     $percentLeft = max(5, min(100, round(($remainingSec / $totalDuration) * 100)));
                 ?>
                 <div class="bg-success bg-opacity-10 p-3 rounded-3 border border-success border-opacity-25 mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-2">
                         <span class="fw-bold text-success small"><i class="fa-solid fa-circle-check me-1"></i> Active Paid Subscription</span>
                         <span class="fw-bold text-dark small"><?= $remainingDays ?> Days Remaining (Renews / Expires: <?= date('d M Y', $expiresAt) ?>)</span>
                     </div>
@@ -62,7 +62,7 @@
                     $percentLeft = $totalTrialSeconds > 0 ? max(5, min(100, round(($remainingSeconds / $totalTrialSeconds) * 100))) : 0;
                 ?>
                 <div class="bg-primary bg-opacity-10 p-3 rounded-3 border border-primary border-opacity-25 mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-2">
                         <span class="fw-bold text-primary small"><i class="fa-solid fa-gift me-1"></i> Free Trial Active</span>
                         <span class="fw-bold text-dark small"><?= $remainingDays ?> Days Remaining (Expires: <?= date('d M Y', strtotime($user->trial_ends_at)) ?>)</span>
                     </div>

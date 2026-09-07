@@ -386,6 +386,24 @@ html, body {
     -webkit-overflow-scrolling: touch;
 }
 
+.list-group-item {
+    min-width: 0;
+}
+
+.list-group-item .text-truncate {
+    max-width: 100%;
+}
+
+/* Medium Screen & Tablet Optimizations (576px - 1199px) */
+@media (max-width: 1199.98px) {
+    .stat-card {
+        padding: 1rem;
+    }
+    .stat-card .fs-4 {
+        font-size: 1.35rem !important;
+    }
+}
+
 /* Small Smartphone (< 576px) */
 @media (max-width: 575.98px) {
     body {
