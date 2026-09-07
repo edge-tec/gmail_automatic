@@ -29,10 +29,45 @@
 
                     <!-- Append More Recipients (Optional) -->
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Append More Recipients (Optional)</label>
-                        <input type="file" name="recipient_file" class="form-control" accept=".txt,.csv,.xlsx">
-                        <div class="form-text small mt-1">
-                            Leave empty if you don't need to add new leads. Uploading a file will append new valid recipients without removing existing ones.
+                        <label class="form-label small fw-semibold d-flex justify-content-between align-items-center">
+                            <span>Append More Recipients (Optional)</span>
+                            <span class="text-muted fw-normal" style="font-size: 0.8rem;">.txt, .csv, .xlsx</span>
+                        </label>
+
+                        <!-- Drag and Drop Box -->
+                        <div class="lead-dropzone-box p-3 border border-2 border-dashed rounded-3 text-center position-relative" id="leadDropzone" style="border-color: #cbd5e1 !important; background-color: #f8fafc; cursor: pointer; transition: all 0.2s ease-in-out;">
+                            <input type="file" name="recipient_files[]" id="recipientFileInput" class="d-none" accept=".txt,.csv,.xlsx" multiple>
+                            <div class="dropzone-content py-2" style="pointer-events: none;">
+                                <div class="mb-2">
+                                    <div class="d-inline-flex p-2 rounded-circle bg-primary bg-opacity-10 text-primary mb-1">
+                                        <i class="fa-solid fa-cloud-arrow-up fs-3"></i>
+                                    </div>
+                                </div>
+                                <h6 class="fw-bold mb-1 text-dark" style="font-size: 0.95rem;">Drag &amp; drop multiple lead files to append</h6>
+                                <p class="text-muted small mb-2">or <span class="text-primary fw-semibold text-decoration-underline" style="cursor: pointer;">browse files</span> from your device</p>
+                                <div class="d-flex justify-content-center gap-1 flex-wrap">
+                                    <span class="badge bg-white text-dark border"><i class="fa-solid fa-file-csv text-success me-1"></i> .csv</span>
+                                    <span class="badge bg-white text-dark border"><i class="fa-solid fa-file-excel text-success me-1"></i> .xlsx</span>
+                                    <span class="badge bg-white text-dark border"><i class="fa-solid fa-file-lines text-secondary me-1"></i> .txt</span>
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle"><i class="fa-solid fa-layer-group me-1"></i> Multiple files</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Selected Files Preview List -->
+                        <div id="fileListContainer" class="d-none mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small fw-bold text-dark" id="fileCountSummary">0 files selected</span>
+                                <button type="button" class="btn btn-link text-danger btn-xs p-0 text-decoration-none small" id="clearFilesBtn">
+                                    <i class="fa-solid fa-trash-can me-1"></i> Clear all
+                                </button>
+                            </div>
+                            <div class="list-group list-group-flush border rounded-3 bg-white shadow-sm overflow-auto" id="selectedFilesList" style="max-height: 200px;">
+                            </div>
+                        </div>
+
+                        <div class="form-text small mt-2">
+                            Leave empty if you don't need to add new leads. Uploading files will append new unique recipients without removing existing ones.
                         </div>
                     </div>
                 </div>
@@ -299,5 +334,167 @@ function toggleScheduleMode() {
             document.getElementById('endTimeInput').value = '18:00';
         }
     }
+}
+
+// ----------------------------------------------------
+// Drag & Drop Multiple File Uploader (Append Leads)
+// ----------------------------------------------------
+const dropzone = document.getElementById('leadDropzone');
+const fileInput = document.getElementById('recipientFileInput');
+const fileListContainer = document.getElementById('fileListContainer');
+const selectedFilesList = document.getElementById('selectedFilesList');
+const fileCountSummary = document.getElementById('fileCountSummary');
+const clearFilesBtn = document.getElementById('clearFilesBtn');
+
+let dt = new DataTransfer();
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function updateFileListUI() {
+    selectedFilesList.innerHTML = '';
+    const files = dt.files;
+
+    if (files.length === 0) {
+        fileListContainer.classList.add('d-none');
+        fileInput.files = dt.files;
+        return;
+    }
+
+    fileListContainer.classList.remove('d-none');
+    let totalSize = 0;
+    for (let i = 0; i < files.length; i++) {
+        totalSize += files[i].size;
+    }
+    fileCountSummary.textContent = `${files.length} file${files.length > 1 ? 's' : ''} selected (${formatBytes(totalSize)})`;
+
+    Array.from(files).forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'list-group-item d-flex justify-content-between align-items-center py-2 px-3';
+
+        let iconClass = 'fa-file-lines text-secondary';
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext === 'csv') iconClass = 'fa-file-csv text-success';
+        else if (ext === 'xlsx') iconClass = 'fa-file-excel text-success';
+
+        item.innerHTML = `
+            <div class="d-flex align-items-center gap-2 text-truncate me-2">
+                <i class="fa-solid ${iconClass} fs-5"></i>
+                <div class="text-truncate">
+                    <span class="fw-semibold text-dark small d-block text-truncate" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
+                    <span class="text-muted" style="font-size: 0.75rem;">${formatBytes(file.size)}</span>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none" title="Remove file">
+                <i class="fa-solid fa-xmark fs-5"></i>
+            </button>
+        `;
+
+        item.querySelector('button').addEventListener('click', function(e) {
+            e.stopPropagation();
+            removeFile(index);
+        });
+
+        selectedFilesList.appendChild(item);
+    });
+
+    fileInput.files = dt.files;
+}
+
+function addFiles(newFiles) {
+    const allowed = ['txt', 'csv', 'xlsx'];
+    for (let i = 0; i < newFiles.length; i++) {
+        const file = newFiles[i];
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!allowed.includes(ext)) {
+            alert(`File "${file.name}" has an unsupported format. Allowed formats: .txt, .csv, .xlsx`);
+            continue;
+        }
+
+        // Avoid adding duplicate files with same name and size
+        let isDup = false;
+        for (let j = 0; j < dt.items.length; j++) {
+            const existing = dt.items[j].getAsFile();
+            if (existing && existing.name === file.name && existing.size === file.size) {
+                isDup = true;
+                break;
+            }
+        }
+
+        if (!isDup) {
+            dt.items.add(file);
+        }
+    }
+    updateFileListUI();
+}
+
+function removeFile(index) {
+    const newDt = new DataTransfer();
+    for (let i = 0; i < dt.files.length; i++) {
+        if (i !== index) {
+            newDt.items.add(dt.files[i]);
+        }
+    }
+    dt = newDt;
+    updateFileListUI();
+}
+
+if (clearFilesBtn) {
+    clearFilesBtn.addEventListener('click', function() {
+        dt = new DataTransfer();
+        updateFileListUI();
+    });
+}
+
+// Click anywhere on dropzone to browse
+if (dropzone) {
+    dropzone.addEventListener('click', function() {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            addFiles(e.target.files);
+        }
+    });
+
+    // Drag & Drop events with animation
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.style.borderColor = '#2563eb';
+            dropzone.style.backgroundColor = '#eff6ff';
+            dropzone.style.transform = 'scale(1.01)';
+        }, false);
+    });
+
+    ['dragleave', 'dragend', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.style.borderColor = '#cbd5e1';
+            dropzone.style.backgroundColor = '#f8fafc';
+            dropzone.style.transform = 'scale(1)';
+        }, false);
+    });
+
+    dropzone.addEventListener('drop', function(e) {
+        const dropped = e.dataTransfer.files;
+        if (dropped && dropped.length > 0) {
+            addFiles(dropped);
+        }
+    });
 }
 </script>

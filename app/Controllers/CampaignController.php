@@ -26,6 +26,62 @@ class CampaignController {
         return true;
     }
 
+    /**
+     * Helper to extract all uploaded lead files from $_FILES (supports single and multiple files)
+     *
+     * @return array<array{name: string, tmp_name: string, size: int, error: int}>
+     */
+    public function extractUploadedRecipientFiles(): array {
+        $files = [];
+
+        // Multiple files: recipient_files[]
+        if (isset($_FILES['recipient_files']) && is_array($_FILES['recipient_files']['name'])) {
+            $count = count($_FILES['recipient_files']['name']);
+            for ($i = 0; $i < $count; $i++) {
+                if (!empty($_FILES['recipient_files']['name'][$i]) &&
+                    $_FILES['recipient_files']['error'][$i] === UPLOAD_ERR_OK &&
+                    $_FILES['recipient_files']['size'][$i] > 0) {
+                    $files[] = [
+                        'name' => $_FILES['recipient_files']['name'][$i],
+                        'tmp_name' => $_FILES['recipient_files']['tmp_name'][$i],
+                        'size' => (int)$_FILES['recipient_files']['size'][$i],
+                        'error' => (int)$_FILES['recipient_files']['error'][$i],
+                    ];
+                }
+            }
+        }
+
+        // Single file: recipient_file
+        if (isset($_FILES['recipient_file'])) {
+            if (is_array($_FILES['recipient_file']['name'])) {
+                $count = count($_FILES['recipient_file']['name']);
+                for ($i = 0; $i < $count; $i++) {
+                    if (!empty($_FILES['recipient_file']['name'][$i]) &&
+                        $_FILES['recipient_file']['error'][$i] === UPLOAD_ERR_OK &&
+                        $_FILES['recipient_file']['size'][$i] > 0) {
+                        $files[] = [
+                            'name' => $_FILES['recipient_file']['name'][$i],
+                            'tmp_name' => $_FILES['recipient_file']['tmp_name'][$i],
+                            'size' => (int)$_FILES['recipient_file']['size'][$i],
+                            'error' => (int)$_FILES['recipient_file']['error'][$i],
+                        ];
+                    }
+                }
+            } elseif (!empty($_FILES['recipient_file']['name']) &&
+                      $_FILES['recipient_file']['error'] === UPLOAD_ERR_OK &&
+                      $_FILES['recipient_file']['size'] > 0) {
+                $files[] = [
+                    'name' => $_FILES['recipient_file']['name'],
+                    'tmp_name' => $_FILES['recipient_file']['tmp_name'],
+                    'size' => (int)$_FILES['recipient_file']['size'],
+                    'error' => (int)$_FILES['recipient_file']['error'],
+                ];
+            }
+        }
+
+        return $files;
+    }
+
     public function index(Request $request): string {
         if (!$this->authorizeBulkSender()) {
             return '';
@@ -147,35 +203,49 @@ class CampaignController {
             redirect('/campaigns/create');
         }
 
-        // Validate File Upload
-        if (!isset($_FILES['recipient_file']) || $_FILES['recipient_file']['error'] !== UPLOAD_ERR_OK) {
-            flash('danger', 'Please upload a valid recipient list (.txt, .csv, or .xlsx).');
+        // Validate and extract uploaded recipient files (supports multiple files and drag-and-drop)
+        $uploadedFiles = $this->extractUploadedRecipientFiles();
+        if (empty($uploadedFiles)) {
+            flash('danger', 'Please upload at least one valid recipient lead file (.txt, .csv, or .xlsx).');
             redirect('/campaigns/create');
         }
 
-        $file = $_FILES['recipient_file'];
-        $origName = $file['name'];
-        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
-
-        if (!in_array($ext, ['txt', 'csv', 'xlsx'])) {
-            flash('danger', "Invalid file format (.{$ext}). Allowed formats: .txt, .csv, .xlsx");
-            redirect('/campaigns/create');
-        }
-
-        if ($file['size'] > 25 * 1024 * 1024) {
-            flash('danger', 'Recipient file exceeds the maximum allowed size (25 MB).');
-            redirect('/campaigns/create');
-        }
-
-        // Move to safe temporary storage
+        $allowedExts = ['txt', 'csv', 'xlsx'];
         $tempUploadDir = storage_path('temp/uploads');
         if (!is_dir($tempUploadDir)) {
             mkdir($tempUploadDir, 0775, true);
         }
-        $tempPath = $tempUploadDir . '/' . uniqid('recip_') . '.' . $ext;
-        if (!move_uploaded_file($file['tmp_name'], $tempPath)) {
-            flash('danger', 'Failed to store uploaded file securely.');
-            redirect('/campaigns/create');
+
+        $tempFiles = [];
+        foreach ($uploadedFiles as $f) {
+            $origName = $f['name'];
+            $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+
+            if (!in_array($ext, $allowedExts)) {
+                flash('danger', "Invalid file format for '{$origName}' (.{$ext}). Allowed formats: .txt, .csv, .xlsx");
+                redirect('/campaigns/create');
+            }
+
+            if ($f['size'] > 50 * 1024 * 1024) {
+                flash('danger', "File '{$origName}' exceeds the maximum allowed size (50 MB).");
+                redirect('/campaigns/create');
+            }
+
+            $tempPath = $tempUploadDir . '/' . uniqid('recip_') . '.' . $ext;
+            if (!move_uploaded_file($f['tmp_name'], $tempPath)) {
+                if (file_exists($f['tmp_name']) && copy($f['tmp_name'], $tempPath)) {
+                    // copied successfully in testing / CLI mode
+                } else {
+                    flash('danger', "Failed to store uploaded file '{$origName}' securely.");
+                    redirect('/campaigns/create');
+                }
+            }
+
+            $tempFiles[] = [
+                'path' => $tempPath,
+                'ext' => $ext,
+                'name' => $origName,
+            ];
         }
 
         try {
@@ -202,11 +272,28 @@ class CampaignController {
                 ]);
             }
 
-            // 3. Process Streaming Import
+            // 3. Process Multiple Files Import
             $importService = new RecipientImportService();
-            $result = $importService->importFile($campaign->id, $userId, $tempPath, $ext);
+            $totals = [
+                'total_rows' => 0,
+                'valid_emails' => 0,
+                'duplicates' => 0,
+                'invalid_emails' => 0,
+                'imported' => 0,
+            ];
 
-            $msg = "Campaign '{$name}' created successfully! Imported {$result['imported']} recipients. (Total rows: {$result['total_rows']}, Valid: {$result['valid_emails']}, Duplicates: {$result['duplicates']}, Invalid: {$result['invalid_emails']})";
+            foreach ($tempFiles as $tf) {
+                $result = $importService->importFile($campaign->id, $userId, $tf['path'], $tf['ext']);
+                $totals['total_rows'] += $result['total_rows'];
+                $totals['valid_emails'] += $result['valid_emails'];
+                $totals['duplicates'] += $result['duplicates'];
+                $totals['invalid_emails'] += $result['invalid_emails'];
+                $totals['imported'] += $result['imported'];
+            }
+
+            $filesCount = count($tempFiles);
+            $fileLabel = $filesCount > 1 ? "{$filesCount} lead files" : "1 lead file";
+            $msg = "Campaign '{$name}' created successfully! Imported {$totals['imported']} recipients from {$fileLabel}. (Total rows: {$totals['total_rows']}, Valid: {$totals['valid_emails']}, Duplicates: {$totals['duplicates']}, Invalid: {$totals['invalid_emails']})";
             flash('success', $msg);
 
             // Kick off immediate sending batch if campaign is active
@@ -224,8 +311,10 @@ class CampaignController {
             flash('danger', 'Error creating campaign: ' . $e->getMessage());
             redirect('/campaigns/create');
         } finally {
-            if (file_exists($tempPath)) {
-                @unlink($tempPath);
+            foreach ($tempFiles as $tf) {
+                if (file_exists($tf['path'])) {
+                    @unlink($tf['path']);
+                }
             }
         }
     }
@@ -517,20 +606,40 @@ class CampaignController {
             }
         }
 
-        // Optional append more recipients if a file is provided
-        if (isset($_FILES['recipient_file']) && $_FILES['recipient_file']['error'] === UPLOAD_ERR_OK) {
-            $file = $_FILES['recipient_file'];
-            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            if (in_array($ext, ['txt', 'csv', 'xlsx'])) {
-                $tempUploadDir = storage_path('temp/uploads');
-                if (!is_dir($tempUploadDir)) mkdir($tempUploadDir, 0775, true);
-                $tempPath = $tempUploadDir . '/' . uniqid('recip_') . '.' . $ext;
-                if (move_uploaded_file($file['tmp_name'], $tempPath)) {
-                    $importService = new RecipientImportService();
-                    $importResult = $importService->importFile($campaign->id, $userId, $tempPath, $ext);
-                    @unlink($tempPath);
-                    flash('success', "Appended {$importResult['imported']} new recipient(s) to campaign!");
+        // Optional append more recipients if files are provided (multiple files & drag-and-drop supported)
+        $uploadedFiles = $this->extractUploadedRecipientFiles();
+        if (!empty($uploadedFiles)) {
+            $allowedExts = ['txt', 'csv', 'xlsx'];
+            $tempUploadDir = storage_path('temp/uploads');
+            if (!is_dir($tempUploadDir)) {
+                mkdir($tempUploadDir, 0775, true);
+            }
+
+            $importService = new RecipientImportService();
+            $appendedCount = 0;
+            $filesProcessed = 0;
+
+            foreach ($uploadedFiles as $f) {
+                $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+                if (in_array($ext, $allowedExts)) {
+                    $tempPath = $tempUploadDir . '/' . uniqid('recip_') . '.' . $ext;
+                    if (move_uploaded_file($f['tmp_name'], $tempPath) || (file_exists($f['tmp_name']) && copy($f['tmp_name'], $tempPath))) {
+                        try {
+                            $importResult = $importService->importFile($campaign->id, $userId, $tempPath, $ext);
+                            $appendedCount += $importResult['imported'];
+                            $filesProcessed++;
+                        } finally {
+                            if (file_exists($tempPath)) {
+                                @unlink($tempPath);
+                            }
+                        }
+                    }
                 }
+            }
+
+            if ($filesProcessed > 0) {
+                $fileText = $filesProcessed > 1 ? "{$filesProcessed} files" : "1 file";
+                flash('success', "Successfully appended {$appendedCount} new recipient(s) to campaign from {$fileText}!");
             }
         }
 

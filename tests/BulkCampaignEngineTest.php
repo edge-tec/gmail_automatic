@@ -206,6 +206,84 @@ class BulkCampaignEngineTest extends TestCase {
         $this->assertEquals(600, $campaign->getRemainingCount());
     }
 
+    public function testMultipleFilesSequentialImportAndDeduplication(): void {
+        $campaign = $this->createCampaign();
+
+        // Lead file 1: CSV
+        $file1Path = self::$tempDir . '/leads_part1.csv';
+        $content1 = "email,first_name\n" .
+                    "lead1@example.com,Lead One\n" .
+                    "lead2@example.com,Lead Two\n" .
+                    "shared_dup@example.com,Shared Lead\n";
+        file_put_contents($file1Path, $content1);
+
+        // Lead file 2: TXT with duplicate from file 1 and invalid email
+        $file2Path = self::$tempDir . '/leads_part2.txt';
+        $content2 = "lead3@example.com, Lead Three\n" .
+                    "shared_dup@example.com, Shared Again\n" .
+                    "invalid-address-here\n" .
+                    "lead4@example.com\n";
+        file_put_contents($file2Path, $content2);
+
+        $importService = new RecipientImportService();
+
+        // Import file 1
+        $res1 = $importService->importFile($campaign->id, self::$testUser->id, $file1Path, 'csv');
+        $this->assertEquals(3, $res1['imported']);
+        $this->assertEquals(0, $res1['duplicates']);
+
+        // Import file 2
+        $res2 = $importService->importFile($campaign->id, self::$testUser->id, $file2Path, 'txt');
+        $this->assertEquals(2, $res2['imported']); // lead3 and lead4
+        $this->assertEquals(1, $res2['duplicates']); // shared_dup
+        $this->assertEquals(1, $res2['invalid_emails']); // invalid-address-here
+
+        $campaign->recalculateStats();
+        $this->assertEquals(5, $campaign->total_recipients);
+        $this->assertEquals(5, $campaign->getRemainingCount());
+
+        $dup = EmailCampaignRecipient::findByCampaignAndEmail($campaign->id, 'shared_dup@example.com');
+        $this->assertNotNull($dup);
+        $this->assertEquals('Shared Lead', $dup->first_name); // Kept first import
+    }
+
+    public function testExtractUploadedRecipientFilesNormalization(): void {
+        $controller = new \App\Controllers\CampaignController();
+
+        // Test multiple files array format
+        $_FILES = [
+            'recipient_files' => [
+                'name' => ['list1.csv', 'list2.txt', 'empty.txt'],
+                'tmp_name' => ['/tmp/phpabc1', '/tmp/phpabc2', '/tmp/phpabc3'],
+                'size' => [1024, 2048, 0],
+                'error' => [UPLOAD_ERR_OK, UPLOAD_ERR_OK, UPLOAD_ERR_NO_FILE],
+            ],
+        ];
+
+        $files = $controller->extractUploadedRecipientFiles();
+        $this->assertCount(2, $files);
+        $this->assertEquals('list1.csv', $files[0]['name']);
+        $this->assertEquals('/tmp/phpabc1', $files[0]['tmp_name']);
+        $this->assertEquals('list2.txt', $files[1]['name']);
+        $this->assertEquals('/tmp/phpabc2', $files[1]['tmp_name']);
+
+        // Test single file format fallback
+        $_FILES = [
+            'recipient_file' => [
+                'name' => 'single_leads.xlsx',
+                'tmp_name' => '/tmp/phpxlsx',
+                'size' => 4096,
+                'error' => UPLOAD_ERR_OK,
+            ],
+        ];
+
+        $files = $controller->extractUploadedRecipientFiles();
+        $this->assertCount(1, $files);
+        $this->assertEquals('single_leads.xlsx', $files[0]['name']);
+
+        $_FILES = [];
+    }
+
     // ==========================================
     // 2. TRUE ROUND-ROBIN SENDING TESTS
     // ==========================================
