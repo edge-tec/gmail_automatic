@@ -153,7 +153,7 @@
                             <input type="number" name="sending_interval" class="form-control" value="<?= (int)$campaign->sending_interval ?>" min="5" max="3600" required>
                             <span class="input-group-text small text-muted">seconds</span>
                         </div>
-                        <div class="d-flex gap-1 mt-2">
+                        <div class="d-flex gap-1 mt-2 flex-wrap">
                             <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" onclick="document.querySelector('input[name=sending_interval]').value=5">5s (Fast)</button>
                             <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" onclick="document.querySelector('input[name=sending_interval]').value=10">10s</button>
                             <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" onclick="document.querySelector('input[name=sending_interval]').value=30">30s</button>
@@ -164,14 +164,14 @@
 
                     <!-- Connected Accounts Overview -->
                     <div class="p-3 bg-light rounded-3 border mt-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
                             <span class="small fw-semibold text-dark"><i class="fa-brands fa-google text-danger me-1"></i> Connected Gmail Accounts</span>
                             <a href="<?= url('/campaigns/accounts') ?>" target="_blank" class="small text-decoration-none">Configure Limits <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                         </div>
                         <?php foreach ($accounts as $acc): ?>
-                            <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light">
-                                <span class="small text-truncate" style="max-width: 180px;"><?= e($acc->gmail_email) ?></span>
-                                <span class="badge bg-secondary-subtle text-dark border"><?= $acc->bulk_daily_limit ?>/day</span>
+                            <div class="d-flex justify-content-between align-items-center py-1 border-bottom border-light gap-2">
+                                <span class="small text-truncate" style="max-width: min(180px, 55vw);"><?= e($acc->gmail_email) ?></span>
+                                <span class="badge bg-secondary-subtle text-dark border flex-shrink-0"><?= $acc->bulk_daily_limit ?>/day</span>
                             </div>
                         <?php endforeach; ?>
                         <div class="form-text small mt-2" style="font-size: 0.75rem;">

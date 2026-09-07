@@ -1,9 +1,9 @@
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-sm-center flex-column flex-sm-row gap-3 mb-4">
     <div>
         <h4 class="fw-bold mb-1">Gmail Accounts</h4>
         <p class="text-muted small mb-0">Connect and manage your authorized Gmail accounts for automated replies and follow-ups.</p>
     </div>
-    <a href="<?= url('/accounts/connect') ?>" class="btn btn-primary">
+    <a href="<?= url('/accounts/connect') ?>" class="btn btn-primary align-self-start align-self-sm-auto">
         <i class="fa-brands fa-google me-1"></i> Connect Gmail Account
     </a>
 </div>
@@ -26,15 +26,15 @@
     </div>
 </div>
 <?php else: ?>
-<div class="alert alert-primary d-flex align-items-center justify-content-between p-3 mb-4 rounded-3 border-0 bg-primary bg-opacity-10 text-primary">
+<div class="alert alert-primary d-flex align-items-md-center justify-content-between flex-column flex-md-row gap-3 p-3 mb-4 rounded-3 border-0 bg-primary bg-opacity-10 text-primary">
     <div class="d-flex align-items-center gap-3">
-        <i class="fa-solid fa-globe fs-4"></i>
+        <i class="fa-solid fa-globe fs-4 flex-shrink-0"></i>
         <div>
             <strong class="d-block text-dark">Global Auto-Reply &amp; Follow-up Active</strong>
             <span class="small text-muted">Configure once and all connected accounts automatically inherit multi-step random variation replies.</span>
         </div>
     </div>
-    <a href="<?= url('/settings/automation/global') ?>" class="btn btn-sm btn-primary text-nowrap">
+    <a href="<?= url('/settings/automation/global') ?>" class="btn btn-sm btn-primary text-nowrap align-self-start align-self-md-auto">
         <i class="fa-solid fa-sliders me-1"></i> Manage Global Automation
     </a>
 </div>
@@ -48,13 +48,13 @@
     <div class="col-12 col-xl-6">
         <div class="card card-hover h-100">
             <div class="card-body p-4">
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="p-3 bg-danger bg-opacity-10 text-danger rounded-3 fs-3">
+                <div class="d-flex justify-content-between align-items-start mb-3 gap-2">
+                    <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
+                        <div class="p-3 bg-danger bg-opacity-10 text-danger rounded-3 fs-3 flex-shrink-0">
                             <i class="fa-brands fa-google"></i>
                         </div>
-                        <div>
-                            <h5 class="fw-bold mb-1 text-truncate" style="max-width: 280px;"><?= e($acc->gmail_email) ?></h5>
+                        <div class="min-w-0 flex-grow-1">
+                            <h5 class="fw-bold mb-1 text-truncate text-dark" style="max-width: min(280px, 60vw);"><?= e($acc->gmail_email) ?></h5>
                             <div class="d-flex align-items-center flex-wrap gap-1">
                                 <?php if ($acc->status === 'connected'): ?>
                                     <span class="badge bg-success-subtle text-success border border-success-subtle">
@@ -155,8 +155,8 @@
                 </div>
 
                 <!-- Action Footer -->
-                <div class="d-flex justify-content-between align-items-center pt-2 border-top">
-                    <div class="d-flex gap-2">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2 border-top">
+                    <div class="d-flex gap-2 flex-wrap">
                         <a href="<?= url("/settings/automation/{$acc->id}") ?>" class="btn btn-sm btn-primary">
                             <i class="fa-solid fa-sliders me-1"></i> Auto Reply
                         </a>
@@ -166,7 +166,7 @@
                     </div>
 
                     <!-- Disconnect Button -->
-                    <form action="<?= url("/accounts/{$acc->id}/disconnect") ?>" method="POST" onsubmit="return confirm('Are you sure you want to disconnect this Gmail account? All scheduled jobs for this account will be removed.')">
+                    <form action="<?= url("/accounts/{$acc->id}/disconnect") ?>" method="POST" onsubmit="return confirm('Are you sure you want to disconnect this Gmail account? All scheduled jobs for this account will be removed.')" class="ms-auto ms-sm-0">
                         <?= csrf_field() ?>
                         <button type="submit" class="btn btn-sm btn-outline-danger">
                             <i class="fa-solid fa-link-slash me-1"></i> Disconnect

@@ -3,12 +3,12 @@
         <h4 class="fw-bold mb-1"><i class="fa-solid fa-paper-plane text-warning me-2"></i>Bulk Email Campaigns</h4>
         <p class="text-muted small mb-0">Multi-Gmail round-robin campaign engine with automated recipient import and personalization.</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
         <a href="<?= url('/campaigns/accounts') ?>" class="btn btn-outline-secondary">
-            <i class="fa-brands fa-google me-1"></i> Per-Gmail Sending Limits
+            <i class="fa-brands fa-google me-1"></i> <span class="d-none d-sm-inline">Per-Gmail Sending Limits</span><span class="d-sm-none">Gmail Limits</span>
         </a>
         <a href="<?= url('/campaigns/create') ?>" class="btn btn-primary">
-            <i class="fa-solid fa-plus me-1"></i> Create New Campaign
+            <i class="fa-solid fa-plus me-1"></i> <span class="d-none d-sm-inline">Create New Campaign</span><span class="d-sm-none">New Campaign</span>
         </a>
     </div>
 </div>

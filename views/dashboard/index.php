@@ -110,27 +110,29 @@
                     <?php foreach ($accounts as $acc): 
                         $sett = $acc->getSettings();
                     ?>
-                    <div class="list-group-item d-flex justify-content-between align-items-center p-3">
-                        <div>
-                            <div class="fw-semibold text-truncate" style="max-width: 220px;">
-                                <?= e($acc->gmail_email) ?>
+                    <div class="list-group-item p-3">
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+                            <div class="min-w-0 flex-grow-1" style="max-width: 100%;">
+                                <div class="fw-semibold text-truncate text-dark" title="<?= e($acc->gmail_email) ?>">
+                                    <i class="fa-brands fa-google text-danger me-1" style="font-size: 0.85rem;"></i><?= e($acc->gmail_email) ?>
+                                </div>
+                                <div class="small text-muted" style="font-size: 0.78rem;">
+                                    <i class="fa-solid fa-rotate me-1" style="font-size: 0.7rem;"></i>Sync: <?= $acc->last_sync_at ? date('M d, H:i', strtotime($acc->last_sync_at)) : 'Never' ?>
+                                </div>
                             </div>
-                            <div class="small text-muted">
-                                Sync: <?= $acc->last_sync_at ? date('M d, H:i', strtotime($acc->last_sync_at)) : 'Never' ?>
-                            </div>
-                        </div>
-                        <div class="d-flex gap-2 align-items-center">
-                            <?php if ($sett && $sett->auto_reply_enabled): ?>
-                                <span class="badge bg-success-subtle text-success border border-success-subtle">Reply ON</span>
-                            <?php else: ?>
-                                <span class="badge bg-secondary-subtle text-secondary border">Reply OFF</span>
-                            <?php endif; ?>
+                            <div class="d-flex gap-1.5 gap-sm-2 align-items-center flex-wrap flex-shrink-0">
+                                <?php if ($sett && $sett->auto_reply_enabled): ?>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle text-nowrap"><i class="fa-solid fa-reply me-1"></i>Reply ON</span>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary-subtle text-secondary border text-nowrap">Reply OFF</span>
+                                <?php endif; ?>
 
-                            <?php if ($sett && $sett->followup_enabled): ?>
-                                <span class="badge bg-info-subtle text-info border border-info-subtle">Follow-up ON</span>
-                            <?php else: ?>
-                                <span class="badge bg-secondary-subtle text-secondary border">Follow-up OFF</span>
-                            <?php endif; ?>
+                                <?php if ($sett && $sett->followup_enabled): ?>
+                                    <span class="badge bg-info-subtle text-info border border-info-subtle text-nowrap"><i class="fa-solid fa-arrows-split-up-and-left me-1"></i>Follow-up ON</span>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary-subtle text-secondary border text-nowrap">Follow-up OFF</span>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
                     <?php endforeach; ?>
@@ -170,7 +172,7 @@
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <div class="text-truncate" style="max-width: 420px;"><?= e($log['message']) ?></div>
+                                    <div class="text-truncate" style="max-width: min(420px, 60vw);"><?= e($log['message']) ?></div>
                                 </td>
                                 <td class="text-end text-muted font-monospace" style="font-size: 0.75rem;">
                                     <?= date('H:i:s', strtotime($log['created_at'])) ?>
