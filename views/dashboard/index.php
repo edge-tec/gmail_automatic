@@ -13,27 +13,33 @@
     </div>
     <!-- Stat 2: Daily Auto Replies -->
     <div class="col-12 col-sm-6 col-xl-auto flex-fill">
-        <div class="stat-card d-flex align-items-center justify-content-between p-3">
-            <div>
-                <div class="text-muted small fw-semibold">Daily Auto Replies</div>
-                <div class="fs-4 fw-bold mt-1 text-success"><?= $todayUsage['total_replies'] ?></div>
+        <a href="<?= url('/reports/replies?type=auto_reply&date_range=7days') ?>" class="text-decoration-none">
+            <div class="stat-card d-flex align-items-center justify-content-between p-3 h-100">
+                <div>
+                    <div class="text-muted small fw-semibold">Daily Auto Replies</div>
+                    <div class="fs-4 fw-bold mt-1 text-success"><?= $todayUsage['total_replies'] ?></div>
+                    <div class="text-success small" style="font-size: 0.75rem;"><i class="fa-solid fa-chart-line me-1"></i>Last 7 days report</div>
+                </div>
+                <div class="stat-icon bg-success bg-opacity-10 text-success">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </div>
             </div>
-            <div class="stat-icon bg-success bg-opacity-10 text-success">
-                <i class="fa-solid fa-paper-plane"></i>
-            </div>
-        </div>
+        </a>
     </div>
     <!-- Stat 3: Unique Traffic Replied -->
     <div class="col-12 col-sm-6 col-xl-auto flex-fill">
-        <div class="stat-card d-flex align-items-center justify-content-between p-3">
-            <div>
-                <div class="text-muted small fw-semibold">Unique Traffic Replied</div>
-                <div class="fs-4 fw-bold mt-1 text-info"><?= $uniqueTrafficReplied ?? $todayUsage['total_replies'] ?></div>
+        <a href="<?= url('/reports/replies?date_range=7days') ?>" class="text-decoration-none">
+            <div class="stat-card d-flex align-items-center justify-content-between p-3 h-100">
+                <div>
+                    <div class="text-muted small fw-semibold">Unique Traffic Replied</div>
+                    <div class="fs-4 fw-bold mt-1 text-info"><?= $uniqueTrafficReplied ?? $todayUsage['total_replies'] ?></div>
+                    <div class="text-info small" style="font-size: 0.75rem;"><i class="fa-solid fa-users me-1"></i>View report</div>
+                </div>
+                <div class="stat-icon bg-info bg-opacity-10 text-info">
+                    <i class="fa-solid fa-users"></i>
+                </div>
             </div>
-            <div class="stat-icon bg-info bg-opacity-10 text-info">
-                <i class="fa-solid fa-users"></i>
-            </div>
-        </div>
+        </a>
     </div>
     <!-- Stat 4: Duplicate Emails Skipped -->
     <div class="col-12 col-sm-6 col-xl-auto flex-fill">
@@ -52,27 +58,33 @@
     </div>
     <!-- Stat 5: Daily Follow Campaigns -->
     <div class="col-12 col-sm-6 col-xl-auto flex-fill">
-        <div class="stat-card d-flex align-items-center justify-content-between p-3">
-            <div>
-                <div class="text-muted small fw-semibold">Follow-up Campaigns</div>
-                <div class="fs-4 fw-bold mt-1 text-primary"><?= $todayUsage['total_followups'] ?> <span class="fs-6 fw-normal text-muted">/ conv</span></div>
+        <a href="<?= url('/reports/replies?type=follow_up&date_range=7days') ?>" class="text-decoration-none">
+            <div class="stat-card d-flex align-items-center justify-content-between p-3 h-100">
+                <div>
+                    <div class="text-muted small fw-semibold">Follow-up Campaigns</div>
+                    <div class="fs-4 fw-bold mt-1 text-primary"><?= $todayUsage['total_followups'] ?> <span class="fs-6 fw-normal text-muted">/ conv</span></div>
+                    <div class="text-primary small" style="font-size: 0.75rem;"><i class="fa-solid fa-chart-line me-1"></i>Last 7 days report</div>
+                </div>
+                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                    <i class="fa-solid fa-arrows-split-up-and-left"></i>
+                </div>
             </div>
-            <div class="stat-icon bg-primary bg-opacity-10 text-primary">
-                <i class="fa-solid fa-arrows-split-up-and-left"></i>
-            </div>
-        </div>
+        </a>
     </div>
     <!-- Stat 6: Pending Queue -->
     <div class="col-12 col-sm-6 col-xl-auto flex-fill">
-        <div class="stat-card d-flex align-items-center justify-content-between p-3">
-            <div>
-                <div class="text-muted small fw-semibold">Scheduled / Pending</div>
-                <div class="fs-4 fw-bold mt-1 text-secondary"><?= $pendingJobsCount ?></div>
+        <a href="<?= url('/reports/replies?status=pending') ?>" class="text-decoration-none">
+            <div class="stat-card d-flex align-items-center justify-content-between p-3 h-100">
+                <div>
+                    <div class="text-muted small fw-semibold">Scheduled / Pending</div>
+                    <div class="fs-4 fw-bold mt-1 text-secondary"><?= $pendingJobsCount ?></div>
+                    <div class="text-secondary small" style="font-size: 0.75rem;"><i class="fa-solid fa-hourglass-half me-1"></i>View queue</div>
+                </div>
+                <div class="stat-icon bg-secondary bg-opacity-10 text-secondary">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </div>
             </div>
-            <div class="stat-icon bg-secondary bg-opacity-10 text-secondary">
-                <i class="fa-solid fa-hourglass-half"></i>
-            </div>
-        </div>
+        </a>
     </div>
 </div>
 

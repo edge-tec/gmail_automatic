@@ -8,11 +8,11 @@ class Request {
     private array $files;
     private array $json;
 
-    public function __construct() {
-        $this->get = $_GET;
-        $this->post = $_POST;
-        $this->server = $_SERVER;
-        $this->files = $_FILES;
+    public function __construct(?array $get = null, ?array $post = null, ?array $server = null, ?array $files = null) {
+        $this->get = $get !== null ? $get : $_GET;
+        $this->post = $post !== null ? $post : $_POST;
+        $this->server = $server !== null ? $server : $_SERVER;
+        $this->files = $files !== null ? $files : $_FILES;
 
         $contentType = $this->server['CONTENT_TYPE'] ?? '';
         if (str_contains($contentType, 'application/json')) {

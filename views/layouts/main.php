@@ -107,6 +107,12 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
                     </a>
                 </li>
                 <li>
+                    <a href="<?= url('/reports/replies') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/reports/replies') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-chart-line text-success"></i>
+                        <span>Replies &amp; Follow-ups</span>
+                    </a>
+                </li>
+                <li>
                     <a href="<?= url('/skipped-emails') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/skipped-emails') ? 'active' : '' ?>">
                         <i class="fa-solid fa-shield-halved text-warning"></i>
                         <span>Duplicate &amp; Skipped Mails</span>

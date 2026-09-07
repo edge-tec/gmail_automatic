@@ -112,6 +112,10 @@ $router->get('/skipped-emails', 'SkippedEmailController@index', [AuthMiddleware:
 $router->get('/skipped-emails/export', 'SkippedEmailController@exportCsv', [AuthMiddleware::class]);
 $router->post('/skipped-emails/clear', 'SkippedEmailController@clear', [AuthMiddleware::class, CSRFMiddleware::class]);
 
+// Replies & Follow-ups Detailed Reports (Last 7 Days & Detailed Breakdown)
+$router->get('/reports/replies', 'ReplyReportController@index', [AuthMiddleware::class]);
+$router->get('/reports/replies/export', 'ReplyReportController@exportCsv', [AuthMiddleware::class]);
+
 // Bulk Email Campaigns
 $router->get('/campaigns', 'CampaignController@index', [AuthMiddleware::class]);
 $router->get('/campaigns/create', 'CampaignController@create', [AuthMiddleware::class]);
