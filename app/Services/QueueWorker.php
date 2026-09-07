@@ -200,8 +200,15 @@ class QueueWorker {
                 return true;
             }
 
+            // Check Account & Global Automation Settings
+            $settings = $account->getSettings();
+            $usage = $account->getTodayUsage();
+            $engine = new AutomationEngine($account);
+            $effective = $engine->getEffectiveSettings();
+            $shouldStopOnReply = (bool)($effective['stop_followup_on_reply'] ?? true);
+
             // Check if thread was replied by user or stopped manually
-            if ($job->job_type === 'follow_up' && $thread->automation_status === 'replied') {
+            if ($job->job_type === 'follow_up' && $thread->automation_status === 'replied' && $shouldStopOnReply) {
                 $job->update([
                     'status' => 'cancelled',
                     'last_error' => 'Thread status is replied. Cancelled automatically.',
@@ -233,12 +240,6 @@ class QueueWorker {
             if (empty($recipientEmail)) {
                 throw new Exception("Missing recipient email address in job payload");
             }
-
-            // Check Account & Global Automation Settings
-            $settings = $account->getSettings();
-            $usage = $account->getTodayUsage();
-            $engine = new AutomationEngine($account);
-            $effective = $engine->getEffectiveSettings();
 
             $finalBody = '';
 
@@ -322,7 +323,7 @@ class QueueWorker {
 
                 $campaignId = (int)($payload['campaign_id'] ?? 0);
                 $campaign = $campaignId ? FollowupCampaign::find($campaignId) : FollowupCampaign::findByThreadId($thread->id);
-                if ($campaign && in_array($campaign->campaign_status, ['replied', 'stopped', 'cancelled'])) {
+                if ($campaign && (in_array($campaign->campaign_status, ['stopped', 'cancelled']) || ($campaign->campaign_status === 'replied' && $shouldStopOnReply))) {
                     $job->cancel("Campaign status is '{$campaign->campaign_status}'. Cancelled automatically.");
                     echo "  ↳ Campaign status is {$campaign->campaign_status}. Job cancelled.\n";
                     return true;

@@ -290,7 +290,8 @@ class GlobalAutomationController {
 
         $settings->auto_reply_enabled = (bool)$request->input('auto_reply_enabled', false);
         $settings->followup_enabled = (bool)$request->input('followup_enabled', false);
-        $settings->require_recipient_reply_before_next_reply = (bool)$request->input('require_recipient_reply_before_next_reply', true);
+        $settings->stop_followup_on_reply = (bool)$request->input('stop_followup_on_reply', false);
+        $settings->require_recipient_reply_before_next_reply = (bool)$request->input('require_recipient_reply_before_next_reply', false);
         $settings->skip_spam_emails = (bool)$request->input('skip_spam_emails', false);
 
         $replyTimeType = $request->input('reply_time_type', 'instant');

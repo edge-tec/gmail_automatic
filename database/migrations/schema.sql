@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS automation_settings (
     daily_reply_limit INT NOT NULL DEFAULT 100,
     reply_delay INT NOT NULL DEFAULT 0, -- delay in seconds
     followup_enabled TINYINT(1) NOT NULL DEFAULT 0,
+    stop_followup_on_reply TINYINT(1) NOT NULL DEFAULT 1,
     daily_followup_limit INT NOT NULL DEFAULT 100,
     require_recipient_reply_before_next_reply TINYINT(1) NOT NULL DEFAULT 0,
     use_account_override TINYINT(1) NOT NULL DEFAULT 0,
@@ -609,6 +610,7 @@ CREATE TABLE IF NOT EXISTS global_automation_settings (
     user_id INT NOT NULL UNIQUE,
     auto_reply_enabled TINYINT(1) NOT NULL DEFAULT 1,
     followup_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    stop_followup_on_reply TINYINT(1) NOT NULL DEFAULT 1,
     require_recipient_reply_before_next_reply TINYINT(1) NOT NULL DEFAULT 0,
     skip_spam_emails TINYINT(1) NOT NULL DEFAULT 1,
     max_reply_per_thread INT NOT NULL DEFAULT 3,

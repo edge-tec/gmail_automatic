@@ -12,6 +12,7 @@ class AutomationSetting {
     public int $daily_reply_limit;
     public int $reply_delay;
     public bool $followup_enabled;
+    public bool $stop_followup_on_reply = true;
     public int $daily_followup_limit;
     public bool $require_recipient_reply_before_next_reply = false;
     public bool $use_account_override = false;
@@ -30,6 +31,7 @@ class AutomationSetting {
 
         $driver = config('database.default', 'mysql');
         $cols = [
+            'stop_followup_on_reply' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1'),
             'require_recipient_reply_before_next_reply' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
             'use_account_override' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
             'skip_spam_emails' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1'),
@@ -63,9 +65,9 @@ class AutomationSetting {
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
         $sql = "INSERT INTO automation_settings 
-                (gmail_account_id, auto_reply_enabled, reply_message, max_reply_per_thread, daily_reply_limit, reply_delay, followup_enabled, daily_followup_limit, require_recipient_reply_before_next_reply, skip_spam_emails, timezone, working_days, working_start, working_end, created_at)
+                (gmail_account_id, auto_reply_enabled, reply_message, max_reply_per_thread, daily_reply_limit, reply_delay, followup_enabled, stop_followup_on_reply, daily_followup_limit, require_recipient_reply_before_next_reply, skip_spam_emails, timezone, working_days, working_start, working_end, created_at)
                 VALUES 
-                (:acc, 0, NULL, 3, 100, 0, 0, 100, 0, 1, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', {$now})";
+                (:acc, 0, NULL, 3, 100, 0, 0, 1, 100, 0, 1, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', {$now})";
 
         Database::execute($sql, [
             'acc' => $accountId,
@@ -100,6 +102,7 @@ class AutomationSetting {
             'daily_reply_limit' => $this->daily_reply_limit,
             'reply_delay' => $this->reply_delay,
             'followup_enabled' => $this->followup_enabled ? 1 : 0,
+            'stop_followup_on_reply' => $this->stop_followup_on_reply ? 1 : 0,
             'daily_followup_limit' => $this->daily_followup_limit,
             'require_recipient_reply_before_next_reply' => $this->require_recipient_reply_before_next_reply ? 1 : 0,
             'use_account_override' => $this->use_account_override ? 1 : 0,
@@ -272,6 +275,7 @@ class AutomationSetting {
         $setting->daily_reply_limit = (int)($row['daily_reply_limit'] ?? 100);
         $setting->reply_delay = (int)($row['reply_delay'] ?? 0);
         $setting->followup_enabled = (bool)($row['followup_enabled'] ?? false);
+        $setting->stop_followup_on_reply = isset($row['stop_followup_on_reply']) ? (bool)$row['stop_followup_on_reply'] : true;
         $setting->daily_followup_limit = (int)($row['daily_followup_limit'] ?? 100);
         $setting->require_recipient_reply_before_next_reply = (bool)($row['require_recipient_reply_before_next_reply'] ?? false);
         $setting->use_account_override = (bool)($row['use_account_override'] ?? false);

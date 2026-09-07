@@ -205,7 +205,7 @@ class GmailAccount {
     }
 
     public function getSettings(): ?AutomationSetting {
-        return AutomationSetting::findByAccountId($this->id);
+        return AutomationSetting::createOrGet($this->id);
     }
 
     public function getTodayUsage(): array {

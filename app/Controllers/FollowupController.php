@@ -196,4 +196,52 @@ class FollowupController {
         flash('success', 'All follow-up steps deleted successfully and pending jobs cancelled.');
         redirect("/settings/followups/{$accountId}");
     }
+
+    public function toggleStopOnReply(Request $request, int $accountId): void {
+        $user = Auth::user();
+        $account = GmailAccount::find($accountId);
+        if (!$account || $account->user_id !== $user->id) {
+            if ($request->isAjax()) {
+                if (!headers_sent()) {
+                    header('Content-Type: application/json');
+                }
+                echo json_encode(['success' => false, 'message' => 'Account not found']);
+                return;
+            }
+            flash('error', 'Account not found.');
+            redirect('/settings/followups');
+            return;
+        }
+
+        $settings = $account->getSettings();
+        if ($request->has('stop_followup_on_reply')) {
+            $newVal = (bool)$request->input('stop_followup_on_reply');
+        } elseif ($request->has('enabled')) {
+            $newVal = (bool)$request->input('enabled');
+        } else {
+            $newVal = !$settings->stop_followup_on_reply;
+        }
+
+        $settings->stop_followup_on_reply = $newVal;
+        $settings->save();
+
+        $msg = $settings->stop_followup_on_reply 
+            ? 'Follow-up campaign will automatically STOP when recipient replies.' 
+            : 'Follow-up campaign will CONTINUE sending even after recipient replies.';
+
+        if ($request->isAjax()) {
+            if (!headers_sent()) {
+                header('Content-Type: application/json');
+            }
+            echo json_encode([
+                'success' => true,
+                'stop_followup_on_reply' => $settings->stop_followup_on_reply,
+                'message' => $msg
+            ]);
+            return;
+        }
+
+        flash('success', $msg);
+        redirect("/settings/followups/{$accountId}");
+    }
 }

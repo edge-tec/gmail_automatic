@@ -86,6 +86,7 @@ $router->get('/settings/followups/{id}', 'FollowupController@show', [AuthMiddlew
 $router->post('/settings/followups/{id}/create', 'FollowupController@create', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/settings/followups/{id}/clear-all', 'FollowupController@deleteAll', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/settings/followups/{id}/delete-all', 'FollowupController@deleteAll', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/settings/followups/{id}/toggle-stop-on-reply', 'FollowupController@toggleStopOnReply', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/settings/followups/step/{id}/update', 'FollowupController@update', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/settings/followups/step/{id}/delete', 'FollowupController@delete', [AuthMiddleware::class, CSRFMiddleware::class]);
 

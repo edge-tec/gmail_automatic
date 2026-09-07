@@ -47,6 +47,7 @@ class AutomationEngine {
             'account_settings' => $this->settings,
             'auto_reply_enabled' => ($useGlobal && $global) ? $global->auto_reply_enabled : ($this->settings?->auto_reply_enabled ?? false),
             'followup_enabled' => ($useGlobal && $global) ? $global->followup_enabled : ($this->settings?->followup_enabled ?? false),
+            'stop_followup_on_reply' => ($useGlobal && $global) ? ($global->stop_followup_on_reply ?? true) : ($this->settings?->stop_followup_on_reply ?? true),
             'require_recipient_reply' => ($useGlobal && $global) ? $global->require_recipient_reply_before_next_reply : ($this->settings?->require_recipient_reply_before_next_reply ?? false),
             'skip_spam_emails' => ($useGlobal && $global) ? ($global->skip_spam_emails ?? true) : ($this->settings?->skip_spam_emails ?? true),
             'max_reply_per_thread' => ($useGlobal && $global) ? $global->max_reply_per_thread : ($this->settings?->max_reply_per_thread ?? 3),
@@ -57,6 +58,11 @@ class AutomationEngine {
             'working_start' => ($useGlobal && $global) ? $global->working_start : ($this->settings?->working_start ?? '00:00'),
             'working_end' => ($useGlobal && $global) ? $global->working_end : ($this->settings?->working_end ?? '23:59'),
         ];
+    }
+
+    public function shouldStopFollowupOnReply(): bool {
+        $effective = $this->getEffectiveSettings();
+        return (bool)($effective['stop_followup_on_reply'] ?? true);
     }
 
     public function getTotalConfiguredReplySteps(): int {
@@ -98,12 +104,19 @@ class AutomationEngine {
     public function processIncomingMessage(array $msgData): array {
         $this->settings = $this->account->getSettings();
         $msgId = (string)($msgData['message_id'] ?? $msgData['id'] ?? '');
-        $threadId = (string)($msgData['thread_id'] ?? '');
-        $senderEmail = strtolower(trim($msgData['sender_email']));
-        $senderName = $msgData['sender_name'];
-        $subject = $msgData['subject'];
-        $body = $msgData['body'] ?: $msgData['snippet'];
-        $date = $msgData['date'];
+        $threadId = (string)($msgData['thread_id'] ?? $msgData['threadId'] ?? '');
+        $rawSender = $msgData['sender_email'] ?? $msgData['from'] ?? '';
+        $senderEmail = strtolower(trim($rawSender));
+        if (preg_match('/<([^>]+)>/', $senderEmail, $matches)) {
+            $senderEmail = strtolower(trim($matches[1]));
+        }
+        $senderName = $msgData['sender_name'] ?? $msgData['from_name'] ?? null;
+        if (!$senderName && preg_match('/^([^<]+)</', $rawSender, $matches)) {
+            $senderName = trim($matches[1], " \"'");
+        }
+        $subject = $msgData['subject'] ?? '';
+        $body = $msgData['body'] ?? ($msgData['snippet'] ?? '');
+        $date = $msgData['date'] ?? date('Y-m-d H:i:s');
 
         // Ignore messages sent by the account itself
         if (strtolower(trim($this->account->gmail_email)) === $senderEmail) {
@@ -198,19 +211,24 @@ class AutomationEngine {
         );
 
         if ($isReplyToUs) {
-            $campaign = FollowupCampaign::findByThreadId($thread->id);
-            if ($campaign && $campaign->campaign_status === 'active') {
-                $campaign->markReplied();
+            $shouldStop = $this->shouldStopFollowupOnReply();
+            if ($shouldStop) {
+                $campaign = FollowupCampaign::findByThreadId($thread->id);
+                if ($campaign && $campaign->campaign_status === 'active') {
+                    $campaign->markReplied();
+                }
+                \App\Core\Database::execute(
+                    "UPDATE scheduled_jobs SET status = 'cancelled', last_error = 'Recipient replied to email', processed_at = :now WHERE thread_id = :tid AND job_type = 'follow_up' AND status = 'pending'",
+                    ['tid' => $thread->id, 'now' => date('Y-m-d H:i:s')]
+                );
+                $thread->update([
+                    'automation_status' => 'replied',
+                    'next_followup_at' => null,
+                ]);
+                logger("Recipient replied in thread {$threadId}. Follow-up campaign stopped.", 'info', $this->account->user_id, $this->account->id);
+            } else {
+                logger("Recipient replied in thread {$threadId}. Follow-up campaign kept active (stop_followup_on_reply is disabled).", 'info', $this->account->user_id, $this->account->id);
             }
-            \App\Core\Database::execute(
-                "UPDATE scheduled_jobs SET status = 'cancelled', last_error = 'Recipient replied to email', processed_at = :now WHERE thread_id = :tid AND job_type = 'follow_up' AND status = 'pending'",
-                ['tid' => $thread->id, 'now' => date('Y-m-d H:i:s')]
-            );
-            $thread->update([
-                'automation_status' => 'replied',
-                'next_followup_at' => null,
-            ]);
-            logger("Recipient replied in thread {$threadId}. Follow-up campaign stopped.", 'info', $this->account->user_id, $this->account->id);
         }
 
         // Check if thread automation is stopped manually
@@ -905,7 +923,8 @@ class AutomationEngine {
         }
 
         // If recipient replied or automation stopped, do not schedule follow-up
-        if ($thread->automation_status === 'replied' || $thread->automation_status === 'stopped') {
+        $stopOnReply = (bool)($effective['stop_followup_on_reply'] ?? true);
+        if (($thread->automation_status === 'replied' && $stopOnReply) || $thread->automation_status === 'stopped') {
             return null;
         }
 

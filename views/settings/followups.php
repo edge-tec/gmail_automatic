@@ -157,6 +157,43 @@
                     </option>
                 <?php endforeach; ?>
             </select>
+</div>
+
+<?php $stopOnReply = $settings->stop_followup_on_reply ?? true; ?>
+<!-- System Toggle Button: Stop Follow-up When Recipient Replies -->
+<div class="card shadow-sm border-0 mb-4 bg-white" style="border-radius: 12px; border-left: 4px solid <?= $stopOnReply ? '#4f46e5' : '#f59e0b' ?> !important;">
+    <div class="card-body p-3 p-sm-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="d-flex align-items-start gap-3">
+                <div class="p-3 rounded-3 <?= $stopOnReply ? 'bg-primary-subtle text-primary' : 'bg-warning-subtle text-warning-emphasis' ?>" style="font-size: 1.5rem; line-height: 1;">
+                    <i class="fa-solid <?= $stopOnReply ? 'fa-shield-halved' : 'fa-forward' ?>" id="stopFollowupIcon"></i>
+                </div>
+                <div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                        <h6 class="fw-bold text-dark mb-0">Stop Follow-up When Recipient Replies</h6>
+                        <span id="stopFollowupBadge" class="badge <?= $stopOnReply ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' ?> px-2 py-1">
+                            <?= $stopOnReply ? '<i class="fa-solid fa-circle-check me-1"></i> Auto-Stop Enabled (Recommended)' : '<i class="fa-solid fa-forward me-1"></i> Auto-Stop Disabled (Keep Sending)' ?>
+                        </span>
+                    </div>
+                    <p id="stopFollowupDesc" class="text-muted small mb-0" style="max-width: 720px;">
+                        <?= $stopOnReply 
+                            ? 'When enabled (default), the follow-up campaign will automatically STOP and pending follow-ups are cancelled the moment a lead replies.' 
+                            : 'When disabled, follow-up messages will continue sending sequentially on schedule even if the lead has replied.' ?>
+                    </p>
+                </div>
+            </div>
+            <div class="d-flex align-items-center">
+                <form id="toggleStopFollowupForm" action="<?= url("/settings/followups/{$selectedAccount->id}/toggle-stop-on-reply") ?>" method="POST" class="d-inline m-0">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="stop_followup_on_reply" id="toggleStopFollowupInput" value="<?= $stopOnReply ? '0' : '1' ?>">
+                    <div class="form-check form-switch m-0 d-flex align-items-center gap-2">
+                        <input class="form-check-input fs-3" type="checkbox" role="switch" id="toggleStopFollowupSwitch" <?= $stopOnReply ? 'checked' : '' ?> style="cursor: pointer;" onchange="handleStopFollowupToggle(this)">
+                        <label class="form-check-label fw-bold small text-dark d-none d-sm-inline" for="toggleStopFollowupSwitch" id="toggleSwitchLabel" style="cursor: pointer;">
+                            <?= $stopOnReply ? 'Stop on Reply: ON' : 'Stop on Reply: OFF' ?>
+                        </label>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -373,11 +410,15 @@
                         </div>
                     </div>
 
-                    <div class="alert alert-info py-2 px-3 small mb-3 border-0 bg-info-subtle text-info-emphasis rounded-3">
+                    <div id="createStepStopAlert" class="alert <?= ($stopOnReply ?? true) ? 'alert-info bg-info-subtle text-info-emphasis' : 'alert-warning bg-warning-subtle text-warning-emphasis' ?> py-2 px-3 small mb-3 border-0 rounded-3">
                         <div class="d-flex align-items-start gap-2">
-                            <i class="fa-solid fa-circle-info mt-1 flex-shrink-0"></i>
-                            <div>
-                                <strong>Smart Stop:</strong> If the recipient replies at any time, all pending follow-up steps for that conversation are cancelled immediately!
+                            <i class="fa-solid <?= ($stopOnReply ?? true) ? 'fa-circle-info' : 'fa-triangle-exclamation' ?> mt-1 flex-shrink-0" id="createStepStopAlertIcon"></i>
+                            <div id="createStepStopAlertText">
+                                <?php if ($stopOnReply ?? true): ?>
+                                <strong>Smart Stop Active:</strong> If the recipient replies at any time, all pending follow-up steps for that thread will automatically be stopped and cancelled.
+                                <?php else: ?>
+                                <strong>Continuous Sequence Active:</strong> "Stop Follow-up When Recipient Replies" is turned OFF. Follow-up emails will continue sending according to schedule even after the recipient replies.
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -536,5 +577,69 @@ function handleEditSubmit(e, stepId) {
         hidden.value = quill.root.innerHTML;
     }
     return true;
+}
+
+function handleStopFollowupToggle(switchEl) {
+    const isChecked = switchEl.checked;
+    const form = document.getElementById('toggleStopFollowupForm');
+    const badge = document.getElementById('stopFollowupBadge');
+    const desc = document.getElementById('stopFollowupDesc');
+    const label = document.getElementById('toggleSwitchLabel');
+    const icon = document.getElementById('stopFollowupIcon');
+    const input = document.getElementById('toggleStopFollowupInput');
+    const createAlert = document.getElementById('createStepStopAlert');
+    const createAlertIcon = document.getElementById('createStepStopAlertIcon');
+    const createAlertText = document.getElementById('createStepStopAlertText');
+
+    // Optimistic UI updates
+    if (label) label.textContent = isChecked ? 'Stop on Reply: ON' : 'Stop on Reply: OFF';
+    if (badge) {
+        badge.className = 'badge px-2 py-1 ' + (isChecked ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle');
+        badge.innerHTML = isChecked ? '<i class="fa-solid fa-circle-check me-1"></i> Auto-Stop Enabled (Recommended)' : '<i class="fa-solid fa-forward me-1"></i> Auto-Stop Disabled (Keep Sending)';
+    }
+    if (icon) {
+        icon.className = 'fa-solid ' + (isChecked ? 'fa-shield-halved' : 'fa-forward');
+    }
+    if (desc) {
+        desc.textContent = isChecked 
+            ? 'When enabled (default), the follow-up campaign will automatically STOP and pending follow-ups are cancelled the moment a lead replies.'
+            : 'When disabled, follow-up messages will continue sending sequentially on schedule even if the lead has replied.';
+    }
+    if (input) input.value = isChecked ? '1' : '0';
+
+    if (createAlert && createAlertText && createAlertIcon) {
+        if (isChecked) {
+            createAlert.className = 'alert alert-info bg-info-subtle text-info-emphasis py-2 px-3 small mb-3 border-0 rounded-3';
+            createAlertIcon.className = 'fa-solid fa-circle-info mt-1 flex-shrink-0';
+            createAlertText.innerHTML = '<strong>Smart Stop Active:</strong> If the recipient replies at any time, all pending follow-up steps for that thread will automatically be stopped and cancelled.';
+        } else {
+            createAlert.className = 'alert alert-warning bg-warning-subtle text-warning-emphasis py-2 px-3 small mb-3 border-0 rounded-3';
+            createAlertIcon.className = 'fa-solid fa-triangle-exclamation mt-1 flex-shrink-0';
+            createAlertText.innerHTML = '<strong>Continuous Sequence Active:</strong> "Stop Follow-up When Recipient Replies" is turned OFF. Follow-up emails will continue sending according to schedule even after the recipient replies.';
+        }
+    }
+
+    const formData = new FormData();
+    formData.append('stop_followup_on_reply', isChecked ? '1' : '0');
+    const csrfInput = form ? form.querySelector('input[name="_csrf_token"]') : null;
+    if (csrfInput) formData.append('_csrf_token', csrfInput.value);
+
+    fetch(form.action, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data || !data.success) {
+            alert(data && data.message ? data.message : 'Could not save setting. Reverting.');
+            location.reload();
+        }
+    })
+    .catch(err => {
+        if (form) form.submit();
+    });
 }
 </script>

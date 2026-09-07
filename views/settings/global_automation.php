@@ -455,6 +455,16 @@ $connectedAccountsCount = count($accounts);
 
                             <div class="p-3 border rounded-3 bg-light d-flex justify-content-between align-items-center">
                                 <div>
+                                    <strong class="d-block text-dark"><i class="fa-solid fa-shield-halved text-primary me-1"></i> Stop Follow-up When Recipient Replies</strong>
+                                    <span class="small text-muted">Automatically stop the follow-up sequence when a lead replies to an email. When disabled (OFF), follow-ups keep sending sequentially even after the lead replies.</span>
+                                </div>
+                                <div class="form-check form-switch m-0">
+                                    <input class="form-check-input fs-5" type="checkbox" role="switch" name="stop_followup_on_reply" value="1" <?= (!isset($settings->stop_followup_on_reply) || $settings->stop_followup_on_reply) ? 'checked' : '' ?>>
+                                </div>
+                            </div>
+
+                            <div class="p-3 border rounded-3 bg-light d-flex justify-content-between align-items-center">
+                                <div>
                                     <strong class="d-block text-dark"><i class="fa-solid fa-shield-halved text-success me-1"></i> Only Reply When Recipient Replies</strong>
                                     <span class="small text-muted">Strictly prevent sending sequential reply steps (Reply #2, #3) unless the recipient has replied back.</span>
                                 </div>

@@ -8,6 +8,7 @@ class GlobalAutomationSetting {
     public int $user_id;
     public bool $auto_reply_enabled = true;
     public bool $followup_enabled = true;
+    public bool $stop_followup_on_reply = true;
     public bool $require_recipient_reply_before_next_reply = false;
     public bool $skip_spam_emails = true;
     public int $max_reply_per_thread = 3;
@@ -22,6 +23,20 @@ class GlobalAutomationSetting {
     public int $version = 1;
     public ?string $created_at = null;
     public ?string $updated_at = null;
+
+    public static function ensureSchema(): void {
+        static $ensured = false;
+        if ($ensured) return;
+        $ensured = true;
+
+        $driver = config('database.default', 'mysql');
+        $cols = [
+            'stop_followup_on_reply' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1'),
+            'require_recipient_reply_before_next_reply' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+            'skip_spam_emails' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 1' : 'INTEGER NOT NULL DEFAULT 1'),
+        ];
+        \App\Core\DatabaseSanitizer::ensureTableColumns('global_automation_settings', $cols);
+    }
 
     public function __get(string $name) {
         if ($name === 'daily_reply_limit_per_account') {
@@ -44,11 +59,13 @@ class GlobalAutomationSetting {
     }
 
     public static function findByUserId(int $userId): ?self {
+        self::ensureSchema();
         $row = Database::first("SELECT * FROM global_automation_settings WHERE user_id = :uid LIMIT 1", ['uid' => $userId]);
         return $row ? self::fromRow($row) : null;
     }
 
     public static function getOrCreate(int $userId): self {
+        self::ensureSchema();
         $existing = self::findByUserId($userId);
         if ($existing) {
             return $existing;
@@ -58,9 +75,9 @@ class GlobalAutomationSetting {
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
         $sql = "INSERT INTO global_automation_settings 
-                (user_id, auto_reply_enabled, followup_enabled, require_recipient_reply_before_next_reply, skip_spam_emails, max_reply_per_thread, daily_reply_limit, daily_followup_limit, reply_delay, timezone, working_days, working_start, working_end, version, created_at)
+                (user_id, auto_reply_enabled, followup_enabled, stop_followup_on_reply, require_recipient_reply_before_next_reply, skip_spam_emails, max_reply_per_thread, daily_reply_limit, daily_followup_limit, reply_delay, timezone, working_days, working_start, working_end, version, created_at)
                 VALUES 
-                (:uid, 1, 1, 0, 1, 3, 100, 100, 0, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', 1, {$now})";
+                (:uid, 1, 1, 1, 0, 1, 3, 100, 100, 0, 'Asia/Dhaka', 'Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday', '00:00', '23:59', 1, {$now})";
 
         try {
             Database::execute($sql, ['uid' => $userId]);
@@ -84,6 +101,7 @@ class GlobalAutomationSetting {
             return $this->update([
                 'auto_reply_enabled' => $this->auto_reply_enabled ? 1 : 0,
                 'followup_enabled' => $this->followup_enabled ? 1 : 0,
+                'stop_followup_on_reply' => $this->stop_followup_on_reply ? 1 : 0,
                 'require_recipient_reply_before_next_reply' => $this->require_recipient_reply_before_next_reply ? 1 : 0,
                 'skip_spam_emails' => $this->skip_spam_emails ? 1 : 0,
                 'max_reply_per_thread' => $this->max_reply_per_thread,
@@ -102,6 +120,7 @@ class GlobalAutomationSetting {
     }
 
     public function update(array $data): bool {
+        self::ensureSchema();
         $fields = [];
         $params = ['id' => $this->id];
         foreach ($data as $key => $val) {
@@ -128,6 +147,7 @@ class GlobalAutomationSetting {
         $setting->user_id = (int)$row['user_id'];
         $setting->auto_reply_enabled = (bool)($row['auto_reply_enabled'] ?? true);
         $setting->followup_enabled = (bool)($row['followup_enabled'] ?? true);
+        $setting->stop_followup_on_reply = isset($row['stop_followup_on_reply']) ? (bool)$row['stop_followup_on_reply'] : true;
         $setting->require_recipient_reply_before_next_reply = (bool)($row['require_recipient_reply_before_next_reply'] ?? false);
         $setting->skip_spam_emails = (bool)($row['skip_spam_emails'] ?? true);
         $setting->max_reply_per_thread = (int)($row['max_reply_per_thread'] ?? 3);
