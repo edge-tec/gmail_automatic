@@ -205,9 +205,10 @@ class AutoReplyTrafficProtectionTest extends TestCase {
     }
 
     /**
-     * TEST 3: Different Connected Gmail Accounts Scoping.
-     * Same sender sends to Account A and Account B.
-     * Both Account A and Account B must independently send 1 Auto Reply each.
+     * TEST 3: Account-Lock Protection.
+     * Same sender sends to Account A and Account B (same user).
+     * Account A must send auto-reply. Account B must be SKIPPED (account_locked).
+     * Only the first Gmail account that claimed the traffic can reply.
      */
     public function testDifferentGmailAccountsScopedIndependently(): void {
         $engineA = new AutomationEngine($this->accountA);
@@ -228,7 +229,7 @@ class AutoReplyTrafficProtectionTest extends TestCase {
         ]);
         $this->assertEquals('scheduled', $resA1['status']);
 
-        // Send second email to Account A -> must be skipped
+        // Send second email to Account A -> must be skipped (duplicate)
         $resA2 = $engineA->processIncomingMessage([
             'message_id' => 'msg_acc_a_2_' . uniqid(),
             'thread_id' => 'th_acc_a_2_' . uniqid(),
@@ -241,7 +242,7 @@ class AutoReplyTrafficProtectionTest extends TestCase {
         ]);
         $this->assertEquals('skipped', $resA2['status']);
 
-        // Send to Account B -> must be SCHEDULED because Account B is independent
+        // Send to Account B -> must be SKIPPED because traffic is locked to Account A
         $resB1 = $engineB->processIncomingMessage([
             'message_id' => 'msg_acc_b_1_' . uniqid(),
             'thread_id' => 'th_acc_b_1_' . uniqid(),
@@ -252,21 +253,19 @@ class AutoReplyTrafficProtectionTest extends TestCase {
             'body' => 'Details',
             'date' => date('Y-m-d H:i:s'),
         ]);
-        $this->assertEquals('scheduled', $resB1['status']);
+        $this->assertEquals('skipped', $resB1['status']);
+        $this->assertEquals('account_locked', $resB1['skip_type'] ?? '');
 
-        // Process jobs
+        // Process jobs - only Account A's job should exist
         foreach (ScheduledJob::getReadyJobs(10) as $job) {
             $worker->processJob($job);
         }
 
-        // Verify recipient records for both accounts
+        // Verify recipient record exists and is locked to Account A
         $recA = AutoReplyRecipient::findByAccountAndSender($this->accountA->id, $sender);
-        $recB = AutoReplyRecipient::findByAccountAndSender($this->accountB->id, $sender);
-
         $this->assertNotNull($recA);
         $this->assertEquals('replied', $recA->reply_status);
-        $this->assertNotNull($recB);
-        $this->assertEquals('replied', $recB->reply_status);
+        $this->assertEquals($this->accountA->id, $recA->gmail_account_id);
     }
 
     /**

@@ -282,8 +282,19 @@ class AutoReplyRecipient {
             ];
         }
 
-        // Update latest account ID on the recipient record for activity reference
-        $existing->update(['gmail_account_id' => $accountId]);
+        // ACCOUNT-LOCK: Once a traffic is claimed by a specific Gmail account,
+        // only that account can continue the sequence. Other accounts must skip.
+        if ($existing->gmail_account_id !== $accountId && $existing->gmail_account_id > 0) {
+            logger("Traffic: {$senderEmail} | User: {$userId} | LOCKED to Account #{$existing->gmail_account_id} | Current Account: #{$accountId} | Decision: SKIP_ACCOUNT_LOCKED", 'info', $userId, $accountId);
+            return [
+                'recipient' => $existing,
+                'next_step' => $existing->reply_sequence_step,
+                'is_eligible' => false,
+                'is_duplicate' => false,
+                'skip_type' => 'account_locked',
+                'skip_reason' => "This traffic is locked to another Gmail account (Account #{$existing->gmail_account_id}). Only the original account can send replies.",
+            ];
+        }
 
         // Sync latest total steps if user increased sequence configuration
         if ($totalConfiguredSteps > $existing->reply_sequence_total) {

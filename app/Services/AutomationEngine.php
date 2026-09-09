@@ -381,6 +381,33 @@ class AutomationEngine {
                 ];
             }
 
+            if (($claimResult['skip_type'] ?? '') === 'account_locked') {
+                $reason = $claimResult['skip_reason'] ?? "This traffic is locked to another Gmail account";
+                try {
+                    SkippedEmailLog::create([
+                        'user_id' => $this->account->user_id,
+                        'gmail_account_id' => $this->account->id,
+                        'thread_id' => $thread->id,
+                        'gmail_thread_id' => $threadId,
+                        'gmail_message_id' => $msgId,
+                        'sender_email' => $senderEmail,
+                        'sender_name' => $senderName,
+                        'recipient_email' => $this->account->gmail_email,
+                        'subject' => $subject,
+                        'snippet' => $msgData['snippet'] ?? '',
+                        'skip_reason' => $reason,
+                        'skip_type' => 'account_locked',
+                        'received_at' => $date,
+                    ]);
+                } catch (\Throwable $t) {}
+                logger("Skipped incoming email from {$senderEmail}: {$reason}", 'info', $this->account->user_id, $this->account->id);
+                return [
+                    'status' => 'skipped',
+                    'reason' => $reason,
+                    'skip_type' => 'account_locked',
+                ];
+            }
+
             if ($claimResult['is_duplicate']) {
                 $reason = "Duplicate traffic: Auto-reply sequence ({$totalConfiguredSteps}/{$totalConfiguredSteps} steps) already completed for {$senderEmail} on this account";
                 $firstReplySentAt = $claimResult['recipient']?->reply_sent_at;
