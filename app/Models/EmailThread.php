@@ -40,16 +40,16 @@ class EmailThread {
 
     public static function findByAccountAndThreadId(int $accountId, string $threadId): ?self {
         $row = Database::first(
-            "SELECT * FROM email_threads WHERE (gmail_account_id = :acc OR source_mailbox_id = :acc) AND gmail_thread_id = :tid LIMIT 1",
-            ['acc' => $accountId, 'tid' => $threadId]
+            "SELECT * FROM email_threads WHERE (gmail_account_id = :acc_g OR source_mailbox_id = :acc_s) AND gmail_thread_id = :tid LIMIT 1",
+            ['acc_g' => $accountId, 'acc_s' => $accountId, 'tid' => $threadId]
         );
         return $row ? self::fromRow($row) : null;
     }
 
     public static function findByAccountId(int $accountId, int $limit = 50): array {
         $rows = Database::query(
-            "SELECT * FROM email_threads WHERE (gmail_account_id = :acc OR source_mailbox_id = :acc) ORDER BY COALESCE(last_incoming_at, created_at) DESC LIMIT {$limit}",
-            ['acc' => $accountId]
+            "SELECT * FROM email_threads WHERE (gmail_account_id = :acc_g OR source_mailbox_id = :acc_s) ORDER BY COALESCE(last_incoming_at, created_at) DESC LIMIT {$limit}",
+            ['acc_g' => $accountId, 'acc_s' => $accountId]
         );
         return array_map([self::class, 'fromRow'], $rows);
     }

@@ -44,8 +44,8 @@ class EmailMessage {
     public static function findByAccountAndMessageId(int $accountId, string $msgId): ?self {
         self::ensureSchema();
         $row = Database::first(
-            "SELECT * FROM email_messages WHERE (gmail_account_id = :acc OR source_mailbox_id = :acc) AND gmail_message_id = :mid LIMIT 1",
-            ['acc' => $accountId, 'mid' => $msgId]
+            "SELECT * FROM email_messages WHERE (gmail_account_id = :acc_g OR source_mailbox_id = :acc_s) AND gmail_message_id = :mid LIMIT 1",
+            ['acc_g' => $accountId, 'acc_s' => $accountId, 'mid' => $msgId]
         );
         return $row ? self::fromRow($row) : null;
     }

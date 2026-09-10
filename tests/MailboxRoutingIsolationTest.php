@@ -294,8 +294,8 @@ class MailboxRoutingIsolationTest extends TestCase {
 
         // Verify zero sends from Account B
         $accountBMessages = Database::query(
-            "SELECT * FROM email_messages WHERE (gmail_account_id = :b OR source_mailbox_id = :b) AND recipient = :cust",
-            ['b' => $this->accountB->id, 'cust' => $customerEmail]
+            "SELECT * FROM email_messages WHERE (gmail_account_id = :bg OR source_mailbox_id = :bs) AND recipient = :cust",
+            ['bg' => $this->accountB->id, 'bs' => $this->accountB->id, 'cust' => $customerEmail]
         );
         $this->assertEmpty($accountBMessages);
 

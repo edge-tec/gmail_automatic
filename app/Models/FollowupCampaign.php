@@ -36,8 +36,8 @@ class FollowupCampaign {
 
     public static function findByAccountAndThread(int $accountId, string $gmailThreadId): ?self {
         $row = Database::first(
-            "SELECT * FROM followup_campaigns WHERE (gmail_account_id = :acc OR source_mailbox_id = :acc) AND gmail_thread_id = :tid LIMIT 1",
-            ['acc' => $accountId, 'tid' => $gmailThreadId]
+            "SELECT * FROM followup_campaigns WHERE (gmail_account_id = :acc_g OR source_mailbox_id = :acc_s) AND gmail_thread_id = :tid LIMIT 1",
+            ['acc_g' => $accountId, 'acc_s' => $accountId, 'tid' => $gmailThreadId]
         );
         return $row ? self::fromRow($row) : null;
     }
