@@ -120,8 +120,35 @@ class DatabaseSanitizer {
 
                 $messageCols = [
                     'is_historical' => 'TINYINT(1) NOT NULL DEFAULT 0',
+                    'source_mailbox_id' => 'INT NULL',
                 ];
                 self::ensureTableColumns('email_messages', $messageCols);
+
+                $mailboxRoutingCols = ['source_mailbox_id' => 'INT NULL'];
+                self::ensureTableColumns('email_threads', $mailboxRoutingCols);
+                self::ensureTableColumns('scheduled_jobs', $mailboxRoutingCols);
+                self::ensureTableColumns('followup_campaigns', $mailboxRoutingCols);
+                self::ensureTableColumns('followup_jobs', $mailboxRoutingCols);
+                self::ensureTableColumns('auto_reply_recipients', $mailboxRoutingCols);
+
+                // Ensure indexes for source_mailbox_id
+                $indexTables = [
+                    'email_threads' => 'idx_th_source_mailbox',
+                    'email_messages' => 'idx_msg_source_mailbox',
+                    'scheduled_jobs' => 'idx_job_source_mailbox',
+                    'followup_campaigns' => 'idx_fc_source_mailbox',
+                    'followup_jobs' => 'idx_fj_source_mailbox',
+                    'auto_reply_recipients' => 'idx_arr_source_mailbox',
+                ];
+                foreach ($indexTables as $tName => $idxName) {
+                    try {
+                        $idxs = Database::query("SHOW INDEX FROM {$tName}");
+                        $names = array_map(fn($i) => $i['Key_name'] ?? $i['key_name'] ?? '', $idxs);
+                        if (!in_array($idxName, $names)) {
+                            Database::execute("ALTER TABLE {$tName} ADD INDEX {$idxName} (source_mailbox_id)");
+                        }
+                    } catch (\Throwable $t) {}
+                }
 
                 // Ensure columns with large text / rich content / JSON / base64 images use LONGTEXT to prevent 1406 truncation errors
                 $longtextCols = [
@@ -170,6 +197,7 @@ class DatabaseSanitizer {
                     'counted_date' => 'TEXT NULL',
                     'recipient_replied_for_step' => 'INTEGER NOT NULL DEFAULT 0',
                     'last_recipient_reply_at' => 'TEXT NULL',
+                    'source_mailbox_id' => 'INTEGER NULL',
                 ];
                 self::ensureTableColumns('auto_reply_recipients', $recipientColsSqlite);
 
@@ -188,14 +216,31 @@ class DatabaseSanitizer {
 
                 $messageColsSqlite = [
                     'is_historical' => 'INTEGER NOT NULL DEFAULT 0',
+                    'source_mailbox_id' => 'INTEGER NULL',
                 ];
                 self::ensureTableColumns('email_messages', $messageColsSqlite);
+
+                $mailboxRoutingColsSqlite = ['source_mailbox_id' => 'INTEGER NULL'];
+                self::ensureTableColumns('email_threads', $mailboxRoutingColsSqlite);
+                self::ensureTableColumns('scheduled_jobs', $mailboxRoutingColsSqlite);
+                self::ensureTableColumns('followup_campaigns', $mailboxRoutingColsSqlite);
+                self::ensureTableColumns('followup_jobs', $mailboxRoutingColsSqlite);
 
                 $userColsSqlite = [
                     'can_bulk_send' => 'INTEGER NOT NULL DEFAULT 0',
                 ];
                 self::ensureTableColumns('users', $userColsSqlite);
             }
+
+            // Safe idempotent backfill for existing records to bind source_mailbox_id
+            try {
+                Database::execute("UPDATE email_threads SET source_mailbox_id = gmail_account_id WHERE (source_mailbox_id IS NULL OR source_mailbox_id = 0) AND gmail_account_id > 0");
+                Database::execute("UPDATE email_messages SET source_mailbox_id = gmail_account_id WHERE (source_mailbox_id IS NULL OR source_mailbox_id = 0) AND gmail_account_id > 0");
+                Database::execute("UPDATE scheduled_jobs SET source_mailbox_id = gmail_account_id WHERE (source_mailbox_id IS NULL OR source_mailbox_id = 0) AND gmail_account_id > 0");
+                Database::execute("UPDATE followup_campaigns SET source_mailbox_id = gmail_account_id WHERE (source_mailbox_id IS NULL OR source_mailbox_id = 0) AND gmail_account_id > 0");
+                Database::execute("UPDATE followup_jobs SET source_mailbox_id = gmail_account_id WHERE (source_mailbox_id IS NULL OR source_mailbox_id = 0) AND gmail_account_id > 0");
+                Database::execute("UPDATE auto_reply_recipients SET source_mailbox_id = gmail_account_id WHERE (source_mailbox_id IS NULL OR source_mailbox_id = 0) AND gmail_account_id > 0");
+            } catch (\Throwable $t) {}
 
             // Ensure professional plan features include bulk campaigns and sync active subscribers
             try {

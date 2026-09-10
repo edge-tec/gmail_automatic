@@ -55,7 +55,16 @@
                             <div class="text-muted font-monospace" style="font-size: 0.75rem;">Thread ID: <?= e(substr($t['gmail_thread_id'], 0, 16)) ?>...</div>
                         </td>
                         <td>
-                            <span class="badge bg-light text-dark border"><?= e($t['gmail_email']) ?></span>
+                            <?php if (!empty($t['source_mailbox_email'])): ?>
+                                <span class="badge bg-light text-dark border"><i class="fa-regular fa-envelope me-1"></i><?= e($t['source_mailbox_email']) ?></span>
+                            <?php elseif (!empty($t['gmail_email'])): ?>
+                                <span class="badge bg-light text-dark border"><i class="fa-regular fa-envelope me-1"></i><?= e($t['gmail_email']) ?></span>
+                            <?php else: ?>
+                                <span class="badge bg-danger text-white"><i class="fa-solid fa-triangle-exclamation me-1"></i>Unresolved Mailbox</span>
+                            <?php endif; ?>
+                            <?php if (empty($t['source_mailbox_id']) && empty($t['gmail_account_id'])): ?>
+                                <div class="mt-1"><span class="badge bg-danger text-white">Unresolved Mailbox</span></div>
+                            <?php endif; ?>
                         </td>
                         <td>
                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle"><?= $t['reply_count'] ?></span>

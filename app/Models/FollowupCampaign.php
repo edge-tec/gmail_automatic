@@ -7,6 +7,7 @@ class FollowupCampaign {
     public int $id;
     public int $user_id;
     public int $gmail_account_id;
+    public ?int $source_mailbox_id = null;
     public int $thread_id;
     public string $gmail_thread_id;
     public ?string $message_id = null;
@@ -35,7 +36,7 @@ class FollowupCampaign {
 
     public static function findByAccountAndThread(int $accountId, string $gmailThreadId): ?self {
         $row = Database::first(
-            "SELECT * FROM followup_campaigns WHERE gmail_account_id = :acc AND gmail_thread_id = :tid LIMIT 1",
+            "SELECT * FROM followup_campaigns WHERE (gmail_account_id = :acc OR source_mailbox_id = :acc) AND gmail_thread_id = :tid LIMIT 1",
             ['acc' => $accountId, 'tid' => $gmailThreadId]
         );
         return $row ? self::fromRow($row) : null;
@@ -54,16 +55,18 @@ class FollowupCampaign {
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
         $cleanSubject = preg_replace('/^Re:\s*/i', '', $details['subject'] ?? '');
+        $sourceMailboxId = (int)($details['source_mailbox_id'] ?? $accountId);
 
         $sql = "INSERT INTO followup_campaigns 
-                (user_id, gmail_account_id, thread_id, gmail_thread_id, message_id, sender_email, recipient_email, normalized_subject, campaign_status, daily_follow_counted, total_steps, current_step, created_at)
+                (user_id, gmail_account_id, source_mailbox_id, thread_id, gmail_thread_id, message_id, sender_email, recipient_email, normalized_subject, campaign_status, daily_follow_counted, total_steps, current_step, created_at)
                 VALUES 
-                (:uid, :acc, :tid, :gtid, :mid, :sender, :recipient, :subject, 'active', 0, :total_steps, 0, {$now})";
+                (:uid, :acc, :smb, :tid, :gtid, :mid, :sender, :recipient, :subject, 'active', 0, :total_steps, 0, {$now})";
 
         try {
             Database::execute($sql, [
                 'uid' => $userId,
                 'acc' => $accountId,
+                'smb' => $sourceMailboxId,
                 'tid' => $threadId,
                 'gtid' => $gmailThreadId,
                 'mid' => $details['message_id'] ?? null,
@@ -183,6 +186,7 @@ class FollowupCampaign {
         $c->id = (int)$row['id'];
         $c->user_id = (int)$row['user_id'];
         $c->gmail_account_id = (int)$row['gmail_account_id'];
+        $c->source_mailbox_id = isset($row['source_mailbox_id']) && $row['source_mailbox_id'] !== null ? (int)$row['source_mailbox_id'] : (int)$row['gmail_account_id'];
         $c->thread_id = (int)$row['thread_id'];
         $c->gmail_thread_id = $row['gmail_thread_id'];
         $c->message_id = $row['message_id'] ?? null;

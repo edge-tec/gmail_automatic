@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS automation_settings (
 CREATE TABLE IF NOT EXISTS email_threads (
     id INT AUTO_INCREMENT PRIMARY KEY,
     gmail_account_id INT NOT NULL,
+    source_mailbox_id INT NULL,
     gmail_thread_id VARCHAR(191) NOT NULL,
     sender_email VARCHAR(255) NOT NULL,
     sender_name VARCHAR(255) NULL,
@@ -111,6 +112,7 @@ CREATE TABLE IF NOT EXISTS email_threads (
     UNIQUE KEY uk_account_thread (gmail_account_id, gmail_thread_id),
     FOREIGN KEY (gmail_account_id) REFERENCES gmail_accounts(id) ON DELETE CASCADE,
     INDEX idx_acc_thread (gmail_account_id, gmail_thread_id),
+    INDEX idx_th_source_mailbox (source_mailbox_id),
     INDEX idx_auto_status (automation_status),
     INDEX idx_next_followup (next_followup_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -119,6 +121,7 @@ CREATE TABLE IF NOT EXISTS email_messages (
     id INT AUTO_INCREMENT PRIMARY KEY,
     thread_id INT NOT NULL,
     gmail_account_id INT NOT NULL,
+    source_mailbox_id INT NULL,
     gmail_message_id VARCHAR(191) NOT NULL,
     direction VARCHAR(20) NOT NULL DEFAULT 'incoming', -- incoming, outgoing
     sender VARCHAR(255) NOT NULL,
@@ -135,6 +138,7 @@ CREATE TABLE IF NOT EXISTS email_messages (
     FOREIGN KEY (thread_id) REFERENCES email_threads(id) ON DELETE CASCADE,
     FOREIGN KEY (gmail_account_id) REFERENCES gmail_accounts(id) ON DELETE CASCADE,
     INDEX idx_thread_id (thread_id),
+    INDEX idx_msg_source_mailbox (source_mailbox_id),
     INDEX idx_gmail_msg (gmail_message_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -171,6 +175,7 @@ CREATE TABLE IF NOT EXISTS followup_templates (
 CREATE TABLE IF NOT EXISTS scheduled_jobs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     gmail_account_id INT NOT NULL,
+    source_mailbox_id INT NULL,
     thread_id INT NOT NULL,
     job_type VARCHAR(50) NOT NULL, -- auto_reply, follow_up, sync_account
     payload JSON NULL,
@@ -185,6 +190,7 @@ CREATE TABLE IF NOT EXISTS scheduled_jobs (
     FOREIGN KEY (gmail_account_id) REFERENCES gmail_accounts(id) ON DELETE CASCADE,
     FOREIGN KEY (thread_id) REFERENCES email_threads(id) ON DELETE CASCADE,
     INDEX idx_job_status_sched (status, scheduled_at),
+    INDEX idx_job_source_mailbox (source_mailbox_id),
     INDEX idx_job_thread (thread_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -224,6 +230,7 @@ CREATE TABLE IF NOT EXISTS followup_campaigns (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     gmail_account_id INT NOT NULL,
+    source_mailbox_id INT NULL,
     thread_id INT NOT NULL,
     gmail_thread_id VARCHAR(191) NOT NULL,
     message_id VARCHAR(191) NULL,
@@ -245,6 +252,7 @@ CREATE TABLE IF NOT EXISTS followup_campaigns (
     FOREIGN KEY (thread_id) REFERENCES email_threads(id) ON DELETE CASCADE,
     INDEX idx_fc_user (user_id),
     INDEX idx_fc_acc (gmail_account_id),
+    INDEX idx_fc_source_mailbox (source_mailbox_id),
     INDEX idx_fc_thread (thread_id),
     INDEX idx_fc_status (campaign_status),
     INDEX idx_fc_date (counted_date)
@@ -254,6 +262,7 @@ CREATE TABLE IF NOT EXISTS followup_jobs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     campaign_id INT NOT NULL,
     gmail_account_id INT NOT NULL,
+    source_mailbox_id INT NULL,
     thread_id INT NOT NULL,
     followup_step INT NOT NULL DEFAULT 1,
     template_id INT NULL,
@@ -271,6 +280,7 @@ CREATE TABLE IF NOT EXISTS followup_jobs (
     FOREIGN KEY (thread_id) REFERENCES email_threads(id) ON DELETE CASCADE,
     INDEX idx_fj_camp (campaign_id),
     INDEX idx_fj_status (status, scheduled_at),
+    INDEX idx_fj_source_mailbox (source_mailbox_id),
     INDEX idx_fj_acc (gmail_account_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -278,6 +288,7 @@ CREATE TABLE IF NOT EXISTS auto_reply_recipients (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     gmail_account_id INT NOT NULL,
+    source_mailbox_id INT NULL,
     normalized_sender_email VARCHAR(255) NOT NULL,
     first_message_id VARCHAR(191) NULL,
     first_thread_id VARCHAR(191) NULL,
@@ -298,6 +309,7 @@ CREATE TABLE IF NOT EXISTS auto_reply_recipients (
     FOREIGN KEY (gmail_account_id) REFERENCES gmail_accounts(id) ON DELETE CASCADE,
     INDEX idx_arr_user (user_id),
     INDEX idx_arr_acc (gmail_account_id),
+    INDEX idx_arr_source_mailbox (source_mailbox_id),
     INDEX idx_arr_status (reply_status),
     INDEX idx_arr_seq_status (reply_sequence_status),
     INDEX idx_arr_counted (daily_counted, counted_date)

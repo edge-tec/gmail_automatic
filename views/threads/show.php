@@ -12,7 +12,10 @@
                 <h4 class="fw-bold mb-1 text-break"><?= e($thread->subject) ?></h4>
                 <div class="d-flex align-items-center flex-wrap gap-2 text-muted small mt-2">
                     <span class="text-break"><i class="fa-solid fa-user me-1 text-primary"></i> <strong><?= e($thread->sender_name ?: $thread->sender_email) ?></strong> &lt;<?= e($thread->sender_email) ?>&gt;</span>
-                    <span><i class="fa-brands fa-google me-1 text-danger"></i> <?= e($account->gmail_email) ?></span>
+                    <span class="badge bg-light text-dark border"><i class="fa-solid fa-inbox me-1 text-danger"></i> Source Mailbox: <?= e($sourceMailbox ? $sourceMailbox->gmail_email : ($account ? $account->gmail_email : 'None')) ?></span>
+                    <?php if ($thread->isUnresolved() || empty($thread->source_mailbox_id)): ?>
+                        <span class="badge bg-danger text-white"><i class="fa-solid fa-triangle-exclamation me-1"></i> Unresolved Mailbox</span>
+                    <?php endif; ?>
                     <span class="font-monospace text-break"><i class="fa-solid fa-hashtag me-1"></i> <?= e($thread->gmail_thread_id) ?></span>
                 </div>
             </div>
@@ -120,6 +123,43 @@
                         <div class="small text-pre-wrap mt-2 p-2 bg-white rounded border" style="white-space: pre-wrap; font-family: inherit; font-size: 0.92rem; line-height: 1.5;"><?= e($msg->message_body ?: $msg->snippet) ?></div>
                     </div>
                     <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Manual Reply Form -->
+        <div class="card mt-4 border-primary shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span class="fw-semibold"><i class="fa-solid fa-reply me-2"></i> Send Manual Reply</span>
+                <small class="badge bg-white text-primary">Sends strictly via: <?= e($sourceMailbox ? $sourceMailbox->gmail_email : $account->gmail_email) ?></small>
+            </div>
+            <div class="card-body">
+                <?php if ($thread->isUnresolved()): ?>
+                    <div class="alert alert-danger mb-0">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                        <strong>Sending Blocked:</strong> Source mailbox is not assigned for this conversation.
+                    </div>
+                <?php elseif ($account->status !== 'connected'): ?>
+                    <div class="alert alert-danger mb-0">
+                        <i class="fa-solid fa-circle-exclamation me-2"></i>
+                        <strong>Sending Blocked:</strong> Source mailbox (<?= e($account->gmail_email) ?>) is disconnected or revoked. Cross-account sending is strictly prohibited.
+                    </div>
+                <?php else: ?>
+                    <form action="<?= url("/threads/{$thread->id}/reply") ?>" method="POST">
+                        <?= csrf_field() ?>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">Reply Content</label>
+                            <textarea name="body" class="form-control" rows="4" placeholder="Write your reply message here... (will be sent strictly from <?= e($account->gmail_email) ?>)" required></textarea>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div class="small text-muted">
+                                <i class="fa-solid fa-lock text-success me-1"></i> Strict mailbox binding enforced. No fallback to other accounts.
+                            </div>
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="fa-solid fa-paper-plane me-1"></i> Send Reply
+                            </button>
+                        </div>
+                    </form>
                 <?php endif; ?>
             </div>
         </div>

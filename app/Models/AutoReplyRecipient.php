@@ -7,6 +7,7 @@ class AutoReplyRecipient {
     public int $id;
     public int $user_id;
     public int $gmail_account_id;
+    public ?int $source_mailbox_id = null;
     public string $normalized_sender_email;
     public ?string $first_message_id = null;
     public ?string $first_thread_id = null;
@@ -49,6 +50,7 @@ class AutoReplyRecipient {
             'counted_date' => ($driver === 'mysql' ? 'DATE NULL' : 'TEXT NULL'),
             'recipient_replied_for_step' => ($driver === 'mysql' ? 'INT NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
             'last_recipient_reply_at' => ($driver === 'mysql' ? 'DATETIME NULL' : 'TEXT NULL'),
+            'source_mailbox_id' => ($driver === 'mysql' ? 'INT NULL' : 'INTEGER NULL'),
         ];
         \App\Core\DatabaseSanitizer::ensureTableColumns('auto_reply_recipients', $recipientCols);
 
@@ -243,12 +245,13 @@ class AutoReplyRecipient {
             try {
                 Database::execute(
                     "INSERT INTO auto_reply_recipients 
-                    (user_id, gmail_account_id, normalized_sender_email, first_message_id, first_thread_id, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status, created_at)
+                    (user_id, gmail_account_id, source_mailbox_id, normalized_sender_email, first_message_id, first_thread_id, reply_sequence_step, reply_sequence_total, reply_sequence_status, reply_status, created_at)
                     VALUES 
-                    (:uid, :acc, :sender, :mid, :tid, 0, :total, 'active', 'pending', {$now})",
+                    (:uid, :acc, :smb, :sender, :mid, :tid, 0, :total, 'active', 'pending', {$now})",
                     [
                         'uid' => $userId,
                         'acc' => $accountId,
+                        'smb' => $accountId,
                         'sender' => $normalized,
                         'mid' => $msgId,
                         'tid' => $threadId,
@@ -284,15 +287,16 @@ class AutoReplyRecipient {
 
         // ACCOUNT-LOCK: Once a traffic is claimed by a specific Gmail account,
         // only that account can continue the sequence. Other accounts must skip.
-        if ($existing->gmail_account_id !== $accountId && $existing->gmail_account_id > 0) {
-            logger("Traffic: {$senderEmail} | User: {$userId} | LOCKED to Account #{$existing->gmail_account_id} | Current Account: #{$accountId} | Decision: SKIP_ACCOUNT_LOCKED", 'info', $userId, $accountId);
+        $assignedMailboxId = (int)($existing->source_mailbox_id ?: $existing->gmail_account_id);
+        if ($assignedMailboxId !== $accountId && $assignedMailboxId > 0) {
+            logger("Traffic: {$senderEmail} | User: {$userId} | LOCKED to Account #{$assignedMailboxId} | Current Account: #{$accountId} | Decision: SKIP_ACCOUNT_LOCKED", 'info', $userId, $accountId);
             return [
                 'recipient' => $existing,
                 'next_step' => $existing->reply_sequence_step,
                 'is_eligible' => false,
                 'is_duplicate' => false,
                 'skip_type' => 'account_locked',
-                'skip_reason' => "This traffic is locked to another Gmail account (Account #{$existing->gmail_account_id}). Only the original account can send replies.",
+                'skip_reason' => "This traffic is locked to another Gmail account (Account #{$assignedMailboxId}). Only the original account can send replies.",
             ];
         }
 
@@ -551,6 +555,7 @@ class AutoReplyRecipient {
         $m->id = (int)$row['id'];
         $m->user_id = (int)$row['user_id'];
         $m->gmail_account_id = (int)($row['gmail_account_id'] ?? 0);
+        $m->source_mailbox_id = isset($row['source_mailbox_id']) && $row['source_mailbox_id'] !== null ? (int)$row['source_mailbox_id'] : (int)($row['gmail_account_id'] ?? 0);
         $m->normalized_sender_email = $row['normalized_sender_email'];
         $m->first_message_id = $row['first_message_id'] ?? null;
         $m->first_thread_id = $row['first_thread_id'] ?? null;

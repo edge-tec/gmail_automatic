@@ -7,6 +7,7 @@ class FollowupJob {
     public int $id;
     public int $campaign_id;
     public int $gmail_account_id;
+    public ?int $source_mailbox_id = null;
     public int $thread_id;
     public int $followup_step;
     public ?int $template_id = null;
@@ -36,15 +37,17 @@ class FollowupJob {
     public static function create(array $data): self {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
+        $sourceMailboxId = (int)($data['source_mailbox_id'] ?? $data['gmail_account_id']);
 
         $sql = "INSERT INTO followup_jobs 
-                (campaign_id, gmail_account_id, thread_id, followup_step, template_id, message, scheduled_at, status, attempts, max_attempts, created_at)
+                (campaign_id, gmail_account_id, source_mailbox_id, thread_id, followup_step, template_id, message, scheduled_at, status, attempts, max_attempts, created_at)
                 VALUES 
-                (:cid, :acc, :tid, :step, :tpl, :msg, :sched, :status, :att, :max_att, {$now})";
+                (:cid, :acc, :smb, :tid, :step, :tpl, :msg, :sched, :status, :att, :max_att, {$now})";
 
         Database::execute($sql, [
             'cid' => $data['campaign_id'],
             'acc' => $data['gmail_account_id'],
+            'smb' => $sourceMailboxId,
             'tid' => $data['thread_id'],
             'step' => $data['followup_step'] ?? 1,
             'tpl' => $data['template_id'] ?? null,
@@ -81,6 +84,7 @@ class FollowupJob {
         $j->id = (int)$row['id'];
         $j->campaign_id = (int)$row['campaign_id'];
         $j->gmail_account_id = (int)$row['gmail_account_id'];
+        $j->source_mailbox_id = isset($row['source_mailbox_id']) && $row['source_mailbox_id'] !== null ? (int)$row['source_mailbox_id'] : (int)$row['gmail_account_id'];
         $j->thread_id = (int)$row['thread_id'];
         $j->followup_step = (int)$row['followup_step'];
         $j->template_id = isset($row['template_id']) ? (int)$row['template_id'] : null;

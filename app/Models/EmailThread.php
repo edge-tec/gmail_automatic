@@ -6,6 +6,7 @@ use App\Core\Database;
 class EmailThread {
     public int $id;
     public int $gmail_account_id;
+    public ?int $source_mailbox_id = null;
     public string $gmail_thread_id;
     public string $sender_email;
     public ?string $sender_name = null;
@@ -25,9 +26,21 @@ class EmailThread {
         return $row ? self::fromRow($row) : null;
     }
 
+    public function getSourceMailbox(): ?GmailAccount {
+        $mbId = (int)($this->source_mailbox_id ?: $this->gmail_account_id);
+        return $mbId > 0 ? GmailAccount::find($mbId) : null;
+    }
+
+    public function isUnresolved(): bool {
+        $mbId = (int)($this->source_mailbox_id ?: 0);
+        if ($mbId <= 0) return true;
+        $acc = GmailAccount::find($mbId);
+        return !$acc || $acc->status !== 'connected';
+    }
+
     public static function findByAccountAndThreadId(int $accountId, string $threadId): ?self {
         $row = Database::first(
-            "SELECT * FROM email_threads WHERE gmail_account_id = :acc AND gmail_thread_id = :tid LIMIT 1",
+            "SELECT * FROM email_threads WHERE (gmail_account_id = :acc OR source_mailbox_id = :acc) AND gmail_thread_id = :tid LIMIT 1",
             ['acc' => $accountId, 'tid' => $threadId]
         );
         return $row ? self::fromRow($row) : null;
@@ -35,18 +48,18 @@ class EmailThread {
 
     public static function findByAccountId(int $accountId, int $limit = 50): array {
         $rows = Database::query(
-            "SELECT * FROM email_threads WHERE gmail_account_id = :acc ORDER BY COALESCE(last_incoming_at, created_at) DESC LIMIT {$limit}",
+            "SELECT * FROM email_threads WHERE (gmail_account_id = :acc OR source_mailbox_id = :acc) ORDER BY COALESCE(last_incoming_at, created_at) DESC LIMIT {$limit}",
             ['acc' => $accountId]
         );
         return array_map([self::class, 'fromRow'], $rows);
     }
 
     public static function findByUserId(int $userId, int $limit = 50, ?string $status = null): array {
-        $sql = "SELECT t.*, g.gmail_email 
+        $sql = "SELECT t.*, g.gmail_email, g.gmail_email AS source_mailbox_email, g.status AS account_status 
                 FROM email_threads t
-                JOIN gmail_accounts g ON t.gmail_account_id = g.id
-                WHERE g.user_id = :uid ";
-        $params = ['uid' => $userId];
+                LEFT JOIN gmail_accounts g ON COALESCE(NULLIF(t.source_mailbox_id, 0), t.gmail_account_id) = g.id
+                WHERE (g.user_id = :uid OR t.gmail_account_id IN (SELECT id FROM gmail_accounts WHERE user_id = :uid2)) ";
+        $params = ['uid' => $userId, 'uid2' => $userId];
 
         if ($status) {
             $sql .= "AND t.automation_status = :status ";
@@ -67,14 +80,16 @@ class EmailThread {
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
 
         $status = $data['automation_status'] ?? 'active';
+        $sourceMailboxId = (int)($data['source_mailbox_id'] ?? $accountId);
 
         $sql = "INSERT INTO email_threads 
-                (gmail_account_id, gmail_thread_id, sender_email, sender_name, subject, reply_count, followup_count, automation_status, last_incoming_at, created_at)
+                (gmail_account_id, source_mailbox_id, gmail_thread_id, sender_email, sender_name, subject, reply_count, followup_count, automation_status, last_incoming_at, created_at)
                 VALUES 
-                (:acc, :tid, :email, :name, :subject, 0, 0, :status, {$now}, {$now})";
+                (:acc, :smb, :tid, :email, :name, :subject, 0, 0, :status, {$now}, {$now})";
 
         Database::execute($sql, [
             'acc' => $accountId,
+            'smb' => $sourceMailboxId,
             'tid' => $threadId,
             'email' => $data['sender_email'],
             'name' => $data['sender_name'] ?? null,
@@ -150,6 +165,7 @@ class EmailThread {
         $t = new self();
         $t->id = (int)$row['id'];
         $t->gmail_account_id = (int)$row['gmail_account_id'];
+        $t->source_mailbox_id = isset($row['source_mailbox_id']) && $row['source_mailbox_id'] !== null ? (int)$row['source_mailbox_id'] : null;
         $t->gmail_thread_id = $row['gmail_thread_id'];
         $t->sender_email = $row['sender_email'];
         $t->sender_name = $row['sender_name'] ?? null;

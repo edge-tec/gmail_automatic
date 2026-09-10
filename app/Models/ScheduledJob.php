@@ -6,6 +6,7 @@ use App\Core\Database;
 class ScheduledJob {
     public int $id;
     public int $gmail_account_id;
+    public ?int $source_mailbox_id = null;
     public int $thread_id;
     public string $job_type; // auto_reply, follow_up, sync_account
     public ?string $payload = null;
@@ -48,14 +49,16 @@ class ScheduledJob {
     public static function create(array $data): self {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
+        $sourceMailboxId = (int)($data['source_mailbox_id'] ?? $data['gmail_account_id']);
 
         $sql = "INSERT INTO scheduled_jobs 
-                (gmail_account_id, thread_id, job_type, payload, scheduled_at, status, attempts, max_attempts, created_at)
+                (gmail_account_id, source_mailbox_id, thread_id, job_type, payload, scheduled_at, status, attempts, max_attempts, created_at)
                 VALUES 
-                (:acc, :tid, :type, :payload, :sched, :status, 0, :max_att, {$now})";
+                (:acc, :smb, :tid, :type, :payload, :sched, :status, 0, :max_att, {$now})";
 
         Database::execute($sql, [
             'acc' => $data['gmail_account_id'],
+            'smb' => $sourceMailboxId,
             'tid' => $data['thread_id'],
             'type' => $data['job_type'],
             'payload' => isset($data['payload']) ? (is_array($data['payload']) ? json_encode($data['payload']) : $data['payload']) : null,
@@ -123,6 +126,7 @@ class ScheduledJob {
         $j = new self();
         $j->id = (int)$row['id'];
         $j->gmail_account_id = (int)$row['gmail_account_id'];
+        $j->source_mailbox_id = isset($row['source_mailbox_id']) && $row['source_mailbox_id'] !== null ? (int)$row['source_mailbox_id'] : (int)$row['gmail_account_id'];
         $j->thread_id = (int)$row['thread_id'];
         $j->job_type = $row['job_type'];
         $j->payload = $row['payload'] ?? null;

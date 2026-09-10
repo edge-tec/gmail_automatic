@@ -150,11 +150,13 @@ class AutomationEngine {
                 'sender_name' => $senderName,
                 'subject' => $subject,
                 'automation_status' => 'historical',
+                'source_mailbox_id' => $this->account->id,
             ]);
 
             EmailMessage::create([
                 'thread_id' => $hThread->id,
                 'gmail_account_id' => $this->account->id,
+                'source_mailbox_id' => $this->account->id,
                 'gmail_message_id' => $msgId,
                 'direction' => 'incoming',
                 'sender' => $senderEmail,
@@ -174,17 +176,19 @@ class AutomationEngine {
             ];
         }
 
-        // 2. Find or create EmailThread
+        // 2. Find or create EmailThread with permanent source mailbox binding
         $thread = EmailThread::createOrGet($this->account->id, $threadId, [
             'sender_email' => $senderEmail,
             'sender_name' => $senderName,
             'subject' => $subject,
+            'source_mailbox_id' => $this->account->id,
         ]);
 
-        // 3. Save incoming EmailMessage
+        // 3. Save incoming EmailMessage with source_mailbox_id
         $savedMsg = EmailMessage::create([
             'thread_id' => $thread->id,
             'gmail_account_id' => $this->account->id,
+            'source_mailbox_id' => $this->account->id,
             'gmail_message_id' => $msgId,
             'direction' => 'incoming',
             'sender' => $senderEmail,
@@ -480,6 +484,7 @@ class AutomationEngine {
         // 11. Schedule the Auto Reply Job (Step #$nextReplyStep)
         $job = ScheduledJob::create([
             'gmail_account_id' => $this->account->id,
+            'source_mailbox_id' => $this->account->id,
             'thread_id' => $thread->id,
             'job_type' => 'auto_reply',
             'payload' => [
@@ -979,16 +984,21 @@ class AutomationEngine {
             $templateId = $nextTemplate ? $nextTemplate->id : null;
         }
 
+        // Enforce source mailbox permanently linked to this conversation
+        $sourceMailboxId = (int)($thread->source_mailbox_id ?: $this->account->id);
+        $sourceAccount = ($sourceMailboxId === $this->account->id) ? $this->account : (GmailAccount::find($sourceMailboxId) ?: $this->account);
+
         // Get or create unique FollowupCampaign for this thread
         $campaign = FollowupCampaign::getOrCreate(
-            $this->account->user_id,
-            $this->account->id,
+            $sourceAccount->user_id,
+            $sourceAccount->id,
             $thread->id,
             $thread->gmail_thread_id,
             [
                 'message_id' => $thread->last_processed_message_id,
+                'source_mailbox_id' => $sourceAccount->id,
                 'sender_email' => $thread->sender_email,
-                'recipient_email' => $this->account->gmail_email,
+                'recipient_email' => $sourceAccount->gmail_email,
                 'subject' => $thread->subject,
                 'total_steps' => $totalSteps,
             ]
@@ -1007,7 +1017,7 @@ class AutomationEngine {
             return null;
         }
 
-        $usage = $this->account->getTodayUsage();
+        $usage = $sourceAccount->getTodayUsage();
 
         // Check if daily follow quota was already counted for this campaign
         // New campaign (not counted yet today) vs Existing campaign in sequence
@@ -1026,7 +1036,8 @@ class AutomationEngine {
         ]);
 
         $job = ScheduledJob::create([
-            'gmail_account_id' => $this->account->id,
+            'gmail_account_id' => $sourceAccount->id,
+            'source_mailbox_id' => $sourceAccount->id,
             'thread_id' => $thread->id,
             'job_type' => 'follow_up',
             'payload' => [
@@ -1046,7 +1057,8 @@ class AutomationEngine {
 
         FollowupJob::create([
             'campaign_id' => $campaign->id,
-            'gmail_account_id' => $this->account->id,
+            'gmail_account_id' => $sourceAccount->id,
+            'source_mailbox_id' => $sourceAccount->id,
             'thread_id' => $thread->id,
             'followup_step' => $stepNumber,
             'template_id' => $templateId,

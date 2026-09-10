@@ -7,6 +7,7 @@ class EmailMessage {
     public int $id;
     public int $thread_id;
     public int $gmail_account_id;
+    public ?int $source_mailbox_id = null;
     public string $gmail_message_id;
     public string $direction; // incoming, outgoing
     public string $sender;
@@ -29,6 +30,7 @@ class EmailMessage {
         $driver = config('database.default', 'mysql');
         $messageCols = [
             'is_historical' => ($driver === 'mysql' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0'),
+            'source_mailbox_id' => ($driver === 'mysql' ? 'INT NULL' : 'INTEGER NULL'),
         ];
         \App\Core\DatabaseSanitizer::ensureTableColumns('email_messages', $messageCols);
     }
@@ -42,7 +44,7 @@ class EmailMessage {
     public static function findByAccountAndMessageId(int $accountId, string $msgId): ?self {
         self::ensureSchema();
         $row = Database::first(
-            "SELECT * FROM email_messages WHERE gmail_account_id = :acc AND gmail_message_id = :mid LIMIT 1",
+            "SELECT * FROM email_messages WHERE (gmail_account_id = :acc OR source_mailbox_id = :acc) AND gmail_message_id = :mid LIMIT 1",
             ['acc' => $accountId, 'mid' => $msgId]
         );
         return $row ? self::fromRow($row) : null;
@@ -67,16 +69,18 @@ class EmailMessage {
 
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
+        $sourceMailboxId = (int)($data['source_mailbox_id'] ?? $data['gmail_account_id']);
 
         $sql = "INSERT INTO email_messages 
-                (thread_id, gmail_account_id, gmail_message_id, direction, sender, recipient, subject, snippet, message_body, received_at, sent_at, status, is_historical, created_at)
+                (thread_id, gmail_account_id, source_mailbox_id, gmail_message_id, direction, sender, recipient, subject, snippet, message_body, received_at, sent_at, status, is_historical, created_at)
                 VALUES 
-                (:tid, :acc, :mid, :dir, :sender, :recipient, :subject, :snippet, :body, :rec_at, :sent_at, :status, :is_hist, {$now})";
+                (:tid, :acc, :smb, :mid, :dir, :sender, :recipient, :subject, :snippet, :body, :rec_at, :sent_at, :status, :is_hist, {$now})";
 
         try {
             Database::execute($sql, [
                 'tid' => $data['thread_id'],
                 'acc' => $data['gmail_account_id'],
+                'smb' => $sourceMailboxId,
                 'mid' => $data['gmail_message_id'],
                 'dir' => $data['direction'] ?? 'incoming',
                 'sender' => $data['sender'],
@@ -118,6 +122,7 @@ class EmailMessage {
         $m->id = (int)$row['id'];
         $m->thread_id = (int)$row['thread_id'];
         $m->gmail_account_id = (int)$row['gmail_account_id'];
+        $m->source_mailbox_id = isset($row['source_mailbox_id']) && $row['source_mailbox_id'] !== null ? (int)$row['source_mailbox_id'] : (int)$row['gmail_account_id'];
         $m->gmail_message_id = $row['gmail_message_id'];
         $m->direction = $row['direction'] ?? 'incoming';
         $m->sender = $row['sender'];

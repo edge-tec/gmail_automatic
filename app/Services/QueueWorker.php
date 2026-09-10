@@ -16,6 +16,7 @@ use App\Models\GlobalAutomationSetting;
 use App\Models\GlobalAutoReplyMessage;
 use App\Models\GlobalFollowupSequence;
 use App\Models\GlobalFollowupMessage;
+use App\Services\MailboxRoutingService;
 use Exception;
 
 class QueueWorker {
@@ -179,14 +180,10 @@ class QueueWorker {
         echo "[" . date('Y-m-d H:i:s') . "] Processing Job #{$job->id} (Type: {$job->job_type}, Thread: {$job->thread_id})...\n";
 
         try {
-            $account = GmailAccount::find($job->gmail_account_id);
-            if (!$account || $account->status !== 'connected') {
-                throw new Exception("Gmail account not found or disconnected");
-            }
-
             $thread = EmailThread::find($job->thread_id);
             if (!$thread) {
-                throw new Exception("Email thread not found");
+                $job->cancel("Email thread not found");
+                return true;
             }
 
             // Guard: Immediately cancel if thread is historical baseline from before account connection
@@ -199,6 +196,44 @@ class QueueWorker {
                 echo "  ↳ Historical thread from before account connection. Job cancelled.\n";
                 return true;
             }
+
+            $payload = $job->getPayloadArray();
+            $recipientEmail = $payload['recipient_email'] ?? $thread->sender_email;
+            $subject = $payload['subject'] ?? $thread->subject;
+            
+            if (empty($recipientEmail)) {
+                throw new Exception("Missing recipient email address in job payload");
+            }
+
+            // Mailbox Routing Gatekeeper: Verify thread's permanent receiving mailbox
+            $targetMailboxId = $job->source_mailbox_id ?: $job->gmail_account_id;
+            $validation = MailboxRoutingService::validateAndResolveForSending(
+                $thread->id,
+                $targetMailboxId,
+                $payload['expected_sender'] ?? null
+            );
+
+            if (!$validation['allowed']) {
+                $blockReason = $validation['reason'];
+                MailboxRoutingService::logOutgoingAttempt([
+                    'thread_id' => $thread->id,
+                    'job_id' => $job->id,
+                    'attempted_mailbox_id' => $targetMailboxId,
+                    'source_mailbox_id' => $thread->source_mailbox_id,
+                    'recipient_email' => $recipientEmail,
+                    'sender_email' => null,
+                    'status' => 'blocked',
+                    'reason' => $blockReason,
+                ]);
+
+                $job->cancel($blockReason);
+                logger("[QueueWorker] Blocked Job #{$job->id}: {$blockReason}", 'warning', null, $targetMailboxId);
+                echo "  ↳ Blocked by MailboxRoutingService: {$blockReason}. Job cancelled.\n";
+                return true;
+            }
+
+            /** @var GmailAccount $account */
+            $account = $validation['account'];
 
             // Check Account & Global Automation Settings
             $settings = $account->getSettings();
@@ -231,14 +266,6 @@ class QueueWorker {
             // Check Global Automation Setting
             if (SystemSetting::get('global_automation_enabled', '1') !== '1') {
                 throw new Exception("Global automation is temporarily disabled by admin");
-            }
-
-            $payload = $job->getPayloadArray();
-            $recipientEmail = $payload['recipient_email'] ?? $thread->sender_email;
-            $subject = $payload['subject'] ?? $thread->subject;
-            
-            if (empty($recipientEmail)) {
-                throw new Exception("Missing recipient email address in job payload");
             }
 
             $finalBody = '';
@@ -392,6 +419,11 @@ class QueueWorker {
                 return true;
             }
 
+            // Final safety assertion: confirm sending account strictly matches conversation source mailbox
+            if ((int)$account->id !== (int)$thread->source_mailbox_id) {
+                throw new Exception("Mailbox security violation: Attempted to send via mailbox #{$account->id} instead of source mailbox #{$thread->source_mailbox_id}");
+            }
+
             // Send via Gmail API - Strictly User-Configured Content Only
             $gmailService = new GmailService($account);
             $sent = $gmailService->sendThreadReply(
@@ -406,10 +438,11 @@ class QueueWorker {
             $sentMessageId = $sent['id'];
             $sentAt = date('Y-m-d H:i:s');
 
-            // Record outgoing message
+            // Record outgoing message with permanent source mailbox link
             EmailMessage::create([
                 'thread_id' => $thread->id,
                 'gmail_account_id' => $account->id,
+                'source_mailbox_id' => $account->id,
                 'gmail_message_id' => $sentMessageId,
                 'direction' => 'outgoing',
                 'sender' => $account->gmail_email,
@@ -419,6 +452,18 @@ class QueueWorker {
                 'message_body' => $finalBody,
                 'sent_at' => $sentAt,
                 'status' => 'sent',
+            ]);
+
+            // Audit log outgoing transmission
+            MailboxRoutingService::logOutgoingAttempt([
+                'thread_id' => $thread->id,
+                'job_id' => $job->id,
+                'attempted_mailbox_id' => $account->id,
+                'source_mailbox_id' => $thread->source_mailbox_id,
+                'recipient_email' => $recipientEmail,
+                'sender_email' => $account->gmail_email,
+                'status' => 'sent',
+                'reason' => "Successfully sent {$job->job_type} message via {$account->gmail_email}",
             ]);
 
             // Update thread counters & timestamps

@@ -31,7 +31,8 @@ class ThreadController {
             redirect('/threads');
         }
 
-        $account = GmailAccount::find($thread->gmail_account_id);
+        $sourceMailbox = $thread->getSourceMailbox();
+        $account = $sourceMailbox ?: GmailAccount::find($thread->gmail_account_id);
         if (!$account || $account->user_id !== Auth::id()) {
             flash('error', 'Unauthorized.');
             redirect('/threads');
@@ -43,9 +44,97 @@ class ThreadController {
         return View::render('threads/show', [
             'thread' => $thread,
             'account' => $account,
+            'sourceMailbox' => $sourceMailbox,
             'messages' => $messages,
             'pendingJobs' => $pendingJobs,
         ]);
+    }
+
+    public function reply(Request $request, int $id): void {
+        $thread = EmailThread::find($id);
+        if (!$thread) {
+            flash('error', 'Conversation thread not found.');
+            redirect('/threads');
+            return;
+        }
+
+        $validation = \App\Services\MailboxRoutingService::validateAndResolveForSending($thread->id);
+        if (!$validation['allowed']) {
+            flash('error', $validation['reason']);
+            redirect("/threads/{$thread->id}");
+            return;
+        }
+
+        /** @var GmailAccount $account */
+        $account = $validation['account'];
+        if ($account->user_id !== Auth::id()) {
+            flash('error', 'Unauthorized.');
+            redirect('/threads');
+            return;
+        }
+
+        $body = trim((string)$request->input('body', ''));
+        if (empty($body)) {
+            flash('error', 'Reply message cannot be empty.');
+            redirect("/threads/{$thread->id}");
+            return;
+        }
+
+        try {
+            $messages = EmailMessage::findByThreadId($thread->id);
+            $lastMsg = !empty($messages) ? end($messages) : null;
+            $inReplyTo = $lastMsg ? $lastMsg->gmail_message_id : null;
+
+            $gmailService = new \App\Services\GmailService($account);
+            $sent = $gmailService->sendThreadReply(
+                $thread->sender_email,
+                $thread->subject,
+                $body,
+                $thread->gmail_thread_id,
+                $inReplyTo,
+                $inReplyTo
+            );
+
+            $sentMessageId = $sent['id'];
+            $sentAt = date('Y-m-d H:i:s');
+
+            EmailMessage::create([
+                'thread_id' => $thread->id,
+                'gmail_account_id' => $account->id,
+                'source_mailbox_id' => $account->id,
+                'gmail_message_id' => $sentMessageId,
+                'direction' => 'outgoing',
+                'sender' => $account->gmail_email,
+                'recipient' => $thread->sender_email,
+                'subject' => 'Re: ' . preg_replace('/^Re:\s*/i', '', $thread->subject),
+                'snippet' => substr(strip_tags($body), 0, 150),
+                'message_body' => $body,
+                'sent_at' => $sentAt,
+                'status' => 'sent',
+            ]);
+
+            \App\Services\MailboxRoutingService::logOutgoingAttempt([
+                'thread_id' => $thread->id,
+                'job_id' => null,
+                'attempted_mailbox_id' => $account->id,
+                'source_mailbox_id' => $thread->source_mailbox_id,
+                'recipient_email' => $thread->sender_email,
+                'sender_email' => $account->gmail_email,
+                'status' => 'sent',
+                'reason' => "Manual reply sent via {$account->gmail_email}",
+            ]);
+
+            $thread->update([
+                'reply_count' => $thread->reply_count + 1,
+                'last_outgoing_at' => $sentAt,
+            ]);
+
+            flash('success', "Manual reply sent successfully from {$account->gmail_email}.");
+        } catch (\Throwable $e) {
+            flash('error', 'Failed to send reply: ' . $e->getMessage());
+        }
+
+        redirect("/threads/{$thread->id}");
     }
 
     public function toggleAutomation(Request $request, int $id): void {

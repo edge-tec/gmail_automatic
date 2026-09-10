@@ -23,13 +23,13 @@ echo " Gmail Automation: Follow-up Rescheduling Tool\n";
 echo "========================================================\n\n";
 
 // 1. Find all threads where:
-// - Account is connected
+// - Source mailbox is connected
 // - Not historical baseline and not manually stopped
 // - No pending follow-up job currently waiting in scheduled_jobs
 // - Either auto-reply was already sent (reply_count >= 1) or campaign was stopped/replied
 $sql = "
     SELECT t.* FROM email_threads t
-    INNER JOIN gmail_accounts a ON a.id = t.gmail_account_id
+    INNER JOIN gmail_accounts a ON a.id = COALESCE(NULLIF(t.source_mailbox_id, 0), t.gmail_account_id)
     WHERE a.status = 'connected'
       AND t.automation_status NOT IN ('historical', 'stopped')
       AND t.id NOT IN (
@@ -49,7 +49,8 @@ foreach ($threads as $tRow) {
     $thread = EmailThread::find((int)$tRow['id']);
     if (!$thread) continue;
 
-    $account = GmailAccount::find($thread->gmail_account_id);
+    $sourceMailboxId = (int)($thread->source_mailbox_id ?: $thread->gmail_account_id);
+    $account = GmailAccount::find($sourceMailboxId);
     if (!$account || $account->status !== 'connected') continue;
 
     // Check if recipient genuinely replied AFTER our last outgoing message
