@@ -737,5 +737,43 @@ class BulkCampaignEngineTest extends TestCase {
         $this->assertEmpty(Database::query("SELECT * FROM email_campaign_sends WHERE campaign_id = :id", ['id' => $campaign->id]));
         $this->assertEmpty(Database::query("SELECT * FROM email_campaign_suppressions WHERE campaign_id = :id", ['id' => $campaign->id]));
     }
+
+    // ==========================================
+    // 12. SCHEDULE & MANUAL BYPASS TEST
+    // ==========================================
+
+    public function testManualSendBatchBypassesScheduleOutsideActiveHours(): void {
+        $acc = $this->createAccount('schedule_test@gmail.com', 50);
+
+        // Schedule that is guaranteed to be outside current time (e.g. 03:00 to 03:01 UTC)
+        $campaign = $this->createCampaign([
+            'start_time' => '03:00',
+            'end_time' => '03:01',
+            'timezone' => 'UTC',
+            'daily_campaign_limit' => 100,
+        ]);
+
+        EmailCampaignMessage::create([
+            'campaign_id' => $campaign->id,
+            'user_id' => self::$testUser->id,
+            'subject' => 'Schedule Test',
+            'body' => 'Hello {{email}}',
+        ]);
+
+        EmailCampaignRecipient::insertBatch($campaign->id, self::$testUser->id, [
+            ['email' => 'sched_recip_1@example.com'],
+            ['email' => 'sched_recip_2@example.com'],
+        ]);
+
+        // If outside schedule, regular processCampaign should send 0
+        if (!$campaign->isWithinSendingSchedule()) {
+            $sentDefault = CampaignEngine::processCampaign($campaign, 2, false, false);
+            $this->assertEquals(0, $sentDefault, "Automated cron run must NOT send outside scheduled hours");
+        }
+
+        // Manual dispatch with bypassSchedule = true MUST send successfully
+        $sentManual = CampaignEngine::processCampaign($campaign, 2, true, true);
+        $this->assertGreaterThan(0, $sentManual, "Manual batch send with bypassSchedule must dispatch successfully");
+    }
 }
 

@@ -128,6 +128,7 @@ $router->get('/campaigns/{id}', 'CampaignController@show', [AuthMiddleware::clas
 $router->get('/campaigns/{id}/edit', 'CampaignController@edit', [AuthMiddleware::class]);
 $router->post('/campaigns/{id}/edit', 'CampaignController@update', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/campaigns/{id}/send-batch-now', 'CampaignController@sendBatchNow', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/campaigns/{id}/toggle-schedule-24h', 'CampaignController@toggleSchedule24h', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/campaigns/{id}/pause', 'CampaignController@pause', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/campaigns/{id}/resume', 'CampaignController@resume', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/campaigns/{id}/cancel', 'CampaignController@cancel', [AuthMiddleware::class, CSRFMiddleware::class]);

@@ -13,6 +13,19 @@
                 <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
                     <i class="fa-solid fa-play me-1"></i> Active
                 </span>
+                <?php if (!empty($todayStats['is_24_hours'])): ?>
+                    <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1">
+                        <i class="fa-solid fa-infinity me-1"></i> 24/7 Mode
+                    </span>
+                <?php elseif (!empty($todayStats['is_within_schedule'])): ?>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                        <i class="fa-solid fa-circle-dot me-1"></i> In Schedule
+                    </span>
+                <?php else: ?>
+                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1">
+                        <i class="fa-solid fa-clock me-1"></i> Outside Active Hours
+                    </span>
+                <?php endif; ?>
             <?php elseif ($campaign->status === 'paused'): ?>
                 <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1">
                     <i class="fa-solid fa-pause me-1"></i> Paused
@@ -86,7 +99,132 @@
     </div>
 </div>
 
-<!-- KPI Stat Cards -->
+<!-- Schedule Notification Banner -->
+<?php if ($campaign->status === 'active' && empty($todayStats['is_within_schedule']) && empty($todayStats['is_24_hours'])): ?>
+<div class="alert alert-warning border-warning-subtle shadow-sm mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-3">
+            <div class="rounded-circle bg-warning bg-opacity-25 p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; min-width: 44px;">
+                <i class="fa-solid fa-clock-rotate-left text-warning fs-5"></i>
+            </div>
+            <div>
+                <h6 class="fw-bold mb-1 text-dark">
+                    Outside Active Sending Hours (Schedule Paused)
+                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-1">Auto-Sending On Hold</span>
+                </h6>
+                <div class="small text-muted mb-0">
+                    Campaign is set to send between <strong><?= e($campaign->start_time) ?> and <?= e($campaign->end_time) ?> (<?= e($campaign->timezone) ?>)</strong>.
+                    Current time in <strong><?= e($campaign->timezone) ?></strong> is <strong><?= $todayStats['campaign_datetime'] ?? '' ?></strong>.
+                    Automated sending will automatically resume at <strong><?= e($campaign->start_time) ?> (<?= e($campaign->timezone) ?>)</strong>.
+                </div>
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <form action="<?= url('/campaigns/' . $campaign->id . '/toggle-schedule-24h') ?>" method="POST" class="m-0">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-sm btn-primary shadow-sm">
+                    <i class="fa-solid fa-bolt me-1"></i> Switch to 24/7 (Instant Send)
+                </button>
+            </form>
+            <a href="<?= url('/campaigns/' . $campaign->id . '/edit') ?>" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-pen-to-square me-1"></i> Edit Hours
+            </a>
+        </div>
+    </div>
+</div>
+<?php elseif ($campaign->status === 'active' && !empty($todayStats['campaign_sent_today']) && $todayStats['campaign_sent_today'] >= $todayStats['campaign_daily_limit']): ?>
+<div class="alert alert-info border-info-subtle shadow-sm mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-2">
+        <i class="fa-solid fa-circle-info text-info fs-5"></i>
+        <div>
+            <strong>Campaign Daily Limit Reached:</strong> <?= number_format($todayStats['campaign_sent_today']) ?> of <?= number_format($todayStats['campaign_daily_limit']) ?> emails sent today.
+            Sending will resume tomorrow or you can increase the daily limit in campaign settings.
+        </div>
+    </div>
+    <a href="<?= url('/campaigns/' . $campaign->id . '/edit') ?>" class="btn btn-sm btn-outline-primary">
+        Increase Daily Limit
+    </a>
+</div>
+<?php endif; ?>
+
+<!-- Today's Sending Telemetry Strip -->
+<?php if (!empty($todayStats)): ?>
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-4">
+        <div class="card p-3 border-0 shadow-sm h-100 bg-white border-start border-4 border-primary">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="text-muted small mb-1"><i class="fa-solid fa-paper-plane text-primary me-1"></i> Sent Today (Campaign)</div>
+                    <div class="d-flex align-items-baseline gap-2">
+                        <h3 class="fw-bold mb-0 text-dark"><?= number_format($todayStats['campaign_sent_today']) ?></h3>
+                        <span class="text-muted small">/ <?= number_format($todayStats['campaign_daily_limit']) ?> limit</span>
+                    </div>
+                </div>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1"><?= $todayStats['campaign_today_percent'] ?>%</span>
+            </div>
+            <div class="progress mt-3" style="height: 6px;">
+                <div class="progress-bar bg-primary" style="width: <?= $todayStats['campaign_today_percent'] ?>%;"></div>
+            </div>
+            <div class="d-flex justify-content-between small text-muted mt-2">
+                <span>Remaining Today: <strong class="text-dark"><?= number_format($todayStats['campaign_remaining_today']) ?></strong></span>
+                <span>Daily Cap: <?= number_format($todayStats['campaign_daily_limit']) ?>/day</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card p-3 border-0 shadow-sm h-100 bg-white border-start border-4 border-success">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="text-muted small mb-1"><i class="fa-brands fa-google text-danger me-1"></i> Inboxes Pool Capacity Today</div>
+                    <div class="d-flex align-items-baseline gap-2">
+                        <h3 class="fw-bold mb-0 text-success"><?= number_format($todayStats['total_account_sent_today']) ?></h3>
+                        <span class="text-muted small">/ <?= number_format($todayStats['total_account_limit']) ?> total limit</span>
+                    </div>
+                </div>
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                    <?= $todayStats['total_account_limit'] > 0 ? min(100, round(($todayStats['total_account_sent_today'] / $todayStats['total_account_limit']) * 100, 1)) : 0 ?>%
+                </span>
+            </div>
+            <div class="progress mt-3" style="height: 6px;">
+                <div class="progress-bar bg-success" style="width: <?= $todayStats['total_account_limit'] > 0 ? min(100, round(($todayStats['total_account_sent_today'] / $todayStats['total_account_limit']) * 100, 1)) : 0 ?>%;"></div>
+            </div>
+            <div class="d-flex justify-content-between small text-muted mt-2">
+                <span>Remaining Across Inboxes: <strong class="text-success"><?= number_format($todayStats['total_account_remaining']) ?></strong></span>
+                <span><?= $todayStats['eligible_accounts_count'] ?> / <?= count($accounts) ?> inboxes eligible</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card p-3 border-0 shadow-sm h-100 bg-white border-start border-4 <?= !empty($todayStats['is_within_schedule']) || !empty($todayStats['is_24_hours']) ? 'border-success' : 'border-warning' ?>">
+            <div class="text-muted small mb-1"><i class="fa-regular fa-clock text-info me-1"></i> Active Sending Window &amp; Schedule</div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <?php if (!empty($todayStats['is_24_hours'])): ?>
+                    <span class="badge bg-success text-white"><i class="fa-solid fa-infinity me-1"></i> 24/7 Instant Sending</span>
+                <?php elseif (!empty($todayStats['is_within_schedule'])): ?>
+                    <span class="badge bg-success text-white"><i class="fa-solid fa-circle-dot me-1"></i> Active Window Open</span>
+                <?php else: ?>
+                    <span class="badge bg-warning text-dark"><i class="fa-solid fa-pause me-1"></i> Window Closed (Paused)</span>
+                <?php endif; ?>
+            </div>
+            <div class="small fw-semibold text-dark mt-1">
+                Active Hours: <?= e($campaign->start_time) ?> – <?= e($campaign->end_time) ?> (<?= e($campaign->timezone) ?>)
+            </div>
+            <div class="small text-muted mt-1">
+                Current Time in <?= e($campaign->timezone) ?>: <strong class="text-dark"><?= $todayStats['campaign_datetime'] ?? '' ?></strong>
+            </div>
+            <div class="small text-muted mt-1">
+                <?php if (empty($todayStats['is_within_schedule']) && empty($todayStats['is_24_hours'])): ?>
+                    <span class="text-danger"><i class="fa-solid fa-hourglass-half me-1"></i> Resumes at <?= e($campaign->start_time) ?> (<?= e($campaign->timezone) ?>)</span>
+                <?php else: ?>
+                    <span class="text-success"><i class="fa-solid fa-check-circle me-1"></i> Sending actively enabled</span>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<!-- Overall KPI Stat Cards -->
 <?php $progress = $campaign->getProgressPercentage(); ?>
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3 col-xl">
@@ -97,7 +235,7 @@
     </div>
     <div class="col-6 col-md-3 col-xl">
         <div class="card p-3 border-0 shadow-sm">
-            <div class="text-muted small mb-1"><i class="fa-solid fa-check-double text-success me-1"></i> Sent</div>
+            <div class="text-muted small mb-1"><i class="fa-solid fa-check-double text-success me-1"></i> Total Sent</div>
             <h3 class="fw-bold text-success mb-0"><?= number_format($campaign->sent_count) ?></h3>
         </div>
     </div>
@@ -121,7 +259,7 @@
     </div>
     <div class="col-6 col-md-3 col-xl">
         <div class="card p-3 border-0 shadow-sm">
-            <div class="text-muted small mb-1"><i class="fa-solid fa-chart-line text-info me-1"></i> Completion</div>
+            <div class="text-muted small mb-1"><i class="fa-solid fa-chart-line text-info me-1"></i> Overall Completion</div>
             <h3 class="fw-bold text-info mb-0"><?= $progress ?>%</h3>
         </div>
     </div>
@@ -133,12 +271,23 @@
         <span class="small fw-semibold text-muted">Overall Campaign Progress</span>
         <span class="small fw-bold text-dark"><?= number_format($campaign->sent_count) ?> / <?= number_format($campaign->total_recipients) ?> sent (<?= $progress ?>%)</span>
     </div>
-    <div class="progress" style="height: 10px;">
+    <div class="progress mb-3" style="height: 10px;">
         <div class="progress-bar bg-success" style="width: <?= $progress ?>%;"></div>
     </div>
-    <div class="d-flex justify-content-between small text-muted mt-2">
+
+    <?php if (!empty($todayStats)): ?>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="small fw-semibold text-muted"><i class="fa-solid fa-calendar-day text-primary me-1"></i> Today's Daily Limit Progress</span>
+        <span class="small fw-bold text-dark"><?= number_format($todayStats['campaign_sent_today']) ?> / <?= number_format($todayStats['campaign_daily_limit']) ?> sent today (<?= $todayStats['campaign_today_percent'] ?>%)</span>
+    </div>
+    <div class="progress mb-2" style="height: 8px;">
+        <div class="progress-bar bg-primary" style="width: <?= $todayStats['campaign_today_percent'] ?>%;"></div>
+    </div>
+    <?php endif; ?>
+
+    <div class="d-flex justify-content-between small text-muted mt-2 flex-wrap gap-2">
         <span><i class="fa-solid fa-gauge me-1"></i> Pace: 1 email / <?= $campaign->sending_interval ?>s</span>
-        <span><i class="fa-regular fa-clock me-1"></i> Active Hours: <?= e($campaign->start_time) ?> - <?= e($campaign->end_time) ?> (<?= e($campaign->timezone) ?>)</span>
+        <span><i class="fa-regular fa-clock me-1"></i> Active Hours: <?= e($campaign->start_time) ?> - <?= e($campaign->end_time) ?> (<?= e($campaign->timezone) ?>) <?php if (!empty($todayStats['campaign_time'])): ?>• Current: <strong><?= $todayStats['campaign_time'] ?></strong><?php endif; ?></span>
     </div>
 </div>
 
@@ -200,6 +349,21 @@
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
+                        <?php if (!empty($todayStats)): ?>
+                        <tfoot class="table-light border-top border-2">
+                            <tr class="fw-bold small">
+                                <td>Total (<?= count($accounts) ?> Accounts)</td>
+                                <td><?= number_format($todayStats['total_account_limit']) ?></td>
+                                <td class="text-dark"><?= number_format($todayStats['total_account_sent_today']) ?></td>
+                                <td class="text-success"><?= number_format($todayStats['total_account_remaining']) ?></td>
+                                <td>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;">
+                                        <?= $todayStats['eligible_accounts_count'] ?> / <?= count($accounts) ?> Eligible
+                                    </span>
+                                </td>
+                            </tr>
+                        </tfoot>
+                        <?php endif; ?>
                     </table>
                 </div>
             </div>

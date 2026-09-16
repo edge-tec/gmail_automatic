@@ -47,7 +47,7 @@ class CampaignEngine {
     /**
      * Process sending for a specific campaign
      */
-    public static function processCampaign(EmailCampaign $campaign, int $limit = 10, bool $bypassInterval = false): int {
+    public static function processCampaign(EmailCampaign $campaign, int $limit = 10, bool $bypassInterval = false, bool $bypassSchedule = false): int {
         $sentCount = 0;
 
         for ($i = 0; $i < $limit; $i++) {
@@ -59,7 +59,7 @@ class CampaignEngine {
             $campaign = $freshCampaign;
 
             // 2. Check Schedule & Timezone
-            if (!$campaign->isWithinSendingSchedule()) {
+            if (!$bypassSchedule && !$campaign->isWithinSendingSchedule()) {
                 break;
             }
 

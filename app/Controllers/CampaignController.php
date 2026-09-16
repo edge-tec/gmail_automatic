@@ -352,6 +352,30 @@ class CampaignController {
         // Message Variations Stats
         $messages = EmailCampaignMessage::findByCampaignId($campaign->id);
 
+        // Today's Campaign Sending Stats
+        $campaignSentToday = $campaign->getSendsCountToday();
+        $campaignDailyLimit = $campaign->daily_campaign_limit;
+        $campaignRemainingToday = max(0, $campaignDailyLimit - $campaignSentToday);
+        $campaignTodayPercent = $campaignDailyLimit > 0 ? min(100, round(($campaignSentToday / $campaignDailyLimit) * 100, 1)) : 0;
+
+        // Inboxes pool capacity telemetry
+        $totalAccountLimit = array_sum(array_column($accountStats, 'limit'));
+        $totalAccountSentToday = array_sum(array_column($accountStats, 'sent'));
+        $totalAccountRemaining = array_sum(array_column($accountStats, 'remaining'));
+        $eligibleAccountsCount = count(array_filter($accountStats, fn($a) => $a['eligible']));
+
+        // Campaign schedule & timezone telemetry
+        try {
+            $tz = new \DateTimeZone($campaign->timezone ?: 'Asia/Dhaka');
+        } catch (\Throwable $e) {
+            $tz = new \DateTimeZone('UTC');
+        }
+        $campaignNow = new \DateTime('now', $tz);
+        $campaignTimeFormatted = $campaignNow->format('H:i');
+        $campaignDateTimeFormatted = $campaignNow->format('d M Y, H:i');
+        $isWithinSchedule = $campaign->isWithinSendingSchedule();
+        $is24Hours = ($campaign->start_time === '00:00' && $campaign->end_time === '23:59') || empty($campaign->start_time);
+
         // Recipients list with filtering & pagination
         $page = max(1, (int)$request->input('page', 1));
         $limit = 25;
@@ -388,6 +412,20 @@ class CampaignController {
                 'q' => $searchQuery,
             ],
             'auditLogs' => $auditLogs,
+            'todayStats' => [
+                'campaign_sent_today' => $campaignSentToday,
+                'campaign_daily_limit' => $campaignDailyLimit,
+                'campaign_remaining_today' => $campaignRemainingToday,
+                'campaign_today_percent' => $campaignTodayPercent,
+                'total_account_limit' => $totalAccountLimit,
+                'total_account_sent_today' => $totalAccountSentToday,
+                'total_account_remaining' => $totalAccountRemaining,
+                'eligible_accounts_count' => $eligibleAccountsCount,
+                'is_within_schedule' => $isWithinSchedule,
+                'is_24_hours' => $is24Hours,
+                'campaign_time' => $campaignTimeFormatted,
+                'campaign_datetime' => $campaignDateTimeFormatted,
+            ],
         ]);
     }
 
@@ -676,24 +714,24 @@ class CampaignController {
         }
 
         try {
-            // Check schedule hours
-            if (!$campaign->isWithinSendingSchedule()) {
-                flash('warning', "Cannot send now: Current time is outside campaign active hours ({$campaign->start_time} – {$campaign->end_time} {$campaign->timezone}). Please edit the campaign to 'Instant Send (No Schedule)' or adjust the hours to send right now.");
-                redirect('/campaigns/' . $campaign->id);
-            }
-
-            // Process next batch for this specific campaign with interval bypass
-            $sentCount = CampaignEngine::processCampaign($campaign, 5, true);
+            // Process next batch for this specific campaign with interval & schedule bypass for manual action
+            $sentCount = CampaignEngine::processCampaign($campaign, 5, true, true);
             $campaign->recalculateStats();
 
             if ($sentCount > 0) {
-                flash('success', "Dispatched {$sentCount} campaign email(s) successfully!");
+                $scheduleNote = !$campaign->isWithinSendingSchedule()
+                    ? " (Note: Automated background sending is currently outside active hours [{$campaign->start_time}–{$campaign->end_time} {$campaign->timezone}] and will resume at {$campaign->start_time})"
+                    : "";
+                flash('success', "Dispatched {$sentCount} campaign email(s) successfully!{$scheduleNote}");
             } else {
                 $remaining = $campaign->getRemainingCount();
+                $sendsToday = $campaign->getSendsCountToday();
                 if ($remaining === 0) {
                     flash('info', 'All recipients have already been processed for this campaign.');
+                } elseif ($sendsToday >= $campaign->daily_campaign_limit) {
+                    flash('warning', "Campaign daily limit reached ({$sendsToday}/{$campaign->daily_campaign_limit} sent today). Increase the daily campaign limit in Edit Campaign to send more today.");
                 } else {
-                    flash('warning', 'No emails were sent in this run. Please verify your Gmail accounts daily limits, OAuth connection, or campaign limits.');
+                    flash('warning', 'No emails were sent in this run. Please verify your Gmail accounts daily limits, OAuth connection, or message variations.');
                 }
             }
         } catch (\Throwable $e) {
@@ -792,5 +830,21 @@ class CampaignController {
             return;
         }
         exit;
+    }
+
+    public function toggleSchedule24h(Request $request, int $id): void {
+        if (!$this->authorizeBulkSender()) {
+            return;
+        }
+        $userId = Auth::id();
+        $campaign = EmailCampaign::findByUserAndId($userId, $id);
+        if ($campaign) {
+            $campaign->update([
+                'start_time' => '00:00',
+                'end_time' => '23:59',
+            ]);
+            flash('success', "Campaign '{$campaign->name}' schedule updated to Instant 24/7 sending! Automated sending is now active around the clock.");
+        }
+        redirect('/campaigns/' . $id);
     }
 }
