@@ -8,11 +8,39 @@ class Request {
     private array $files;
     private array $json;
 
-    public function __construct(?array $get = null, ?array $post = null, ?array $server = null, ?array $files = null) {
-        $this->get = $get !== null ? $get : $_GET;
-        $this->post = $post !== null ? $post : $_POST;
-        $this->server = $server !== null ? $server : $_SERVER;
-        $this->files = $files !== null ? $files : $_FILES;
+    public function __construct(
+        mixed $get = null, 
+        mixed $post = null, 
+        mixed $server = null, 
+        ?array $files = null,
+        mixed $extra = null
+    ) {
+        if (is_string($get)) {
+            $method = $get;
+            $uri = is_string($post) ? $post : '/';
+            $args = func_get_args();
+            $postData = [];
+            for ($i = 2; $i < count($args); $i++) {
+                if (is_array($args[$i]) && !empty($args[$i])) {
+                    $postData = array_merge($postData, $args[$i]);
+                }
+            }
+            $this->get = [];
+            $this->post = $postData;
+            $this->server = array_merge($_SERVER ?? [], ['REQUEST_METHOD' => $method, 'REQUEST_URI' => $uri]);
+            $this->files = [];
+            $this->json = [];
+            return;
+        }
+
+        if (is_array($extra) && (isset($extra['REQUEST_URI']) || isset($extra['REQUEST_METHOD']))) {
+            $server = array_merge(is_array($server) ? $server : [], $extra);
+        }
+
+        $this->get = is_array($get) ? $get : $_GET;
+        $this->post = is_array($post) ? $post : $_POST;
+        $this->server = is_array($server) ? $server : $_SERVER;
+        $this->files = is_array($files) ? $files : $_FILES;
 
         $contentType = $this->server['CONTENT_TYPE'] ?? '';
         if (str_contains($contentType, 'application/json')) {
@@ -50,6 +78,10 @@ class Request {
 
     public function has(string $key): bool {
         return isset($this->post[$key]) || isset($this->get[$key]) || isset($this->json[$key]);
+    }
+
+    public function server(string $key, mixed $default = null): mixed {
+        return $this->server[$key] ?? $default;
     }
 
     public function all(): array {

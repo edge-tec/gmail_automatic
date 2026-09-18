@@ -39,6 +39,9 @@ $router->get('/data-security', 'LegalController@dataSecurity');
 // Public Unsubscribe Endpoint
 $router->get('/unsubscribe', 'UnsubscribeController@handle');
 
+// Public Email Open Tracking Pixel Endpoint
+$router->get('/tracking/open/{token}', 'TrackingController@trackOpen');
+
 // Webhook Routes (Exempt from CSRF)
 $router->post('/webhook/gmail/pubsub', 'WebhookController@handlePubSub');
 $router->post('/webhook/stripe', 'StripeWebhookController@handle');
@@ -117,6 +120,8 @@ $router->post('/skipped-emails/clear', 'SkippedEmailController@clear', [AuthMidd
 // Replies & Follow-ups Detailed Reports (Last 7 Days & Detailed Breakdown)
 $router->get('/reports/replies', 'ReplyReportController@index', [AuthMiddleware::class]);
 $router->get('/reports/replies/export', 'ReplyReportController@exportCsv', [AuthMiddleware::class]);
+$router->get('/reports/open-rate/stats', 'ReplyReportController@openRateStats', [AuthMiddleware::class]);
+$router->get('/reports/open-rate/events/{trackingId}', 'ReplyReportController@openEventDetails', [AuthMiddleware::class]);
 
 // Bulk Email Campaigns
 $router->get('/campaigns', 'CampaignController@index', [AuthMiddleware::class]);

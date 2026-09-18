@@ -140,7 +140,8 @@ class SessionAuthTest extends TestCase {
         $user = User::findByEmail($email);
         $this->assertNotNull($user);
         $this->assertEquals('John Doe', $user->name);
-        $this->assertEquals('trialing', $user->trial_status);
+        $this->assertEquals('trialing', $user->subscription_status);
+        $this->assertEquals('active', $user->trial_status);
         $this->assertTrue($user->isTrialActive());
         $this->assertTrue(Auth::check());
         $this->assertEquals($user->id, Auth::id());

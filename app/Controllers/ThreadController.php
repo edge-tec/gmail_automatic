@@ -40,6 +40,15 @@ class ThreadController {
 
         $messages = EmailMessage::findByThreadId($thread->id);
         $pendingJobs = ScheduledJob::findPendingByThreadId($thread->id);
+        
+        // Fetch open tracking records for this conversation
+        $trackingRecords = \App\Models\EmailOpenTracking::findByThreadId($thread->id);
+        $trackingByMsgId = [];
+        foreach ($trackingRecords as $tr) {
+            if ($tr->message_id) {
+                $trackingByMsgId[$tr->message_id] = $tr;
+            }
+        }
 
         return View::render('threads/show', [
             'thread' => $thread,
@@ -47,6 +56,8 @@ class ThreadController {
             'sourceMailbox' => $sourceMailbox,
             'messages' => $messages,
             'pendingJobs' => $pendingJobs,
+            'trackingByMsgId' => $trackingByMsgId,
+            'trackingRecords' => $trackingRecords,
         ]);
     }
 
@@ -85,11 +96,30 @@ class ThreadController {
             $lastMsg = !empty($messages) ? end($messages) : null;
             $inReplyTo = $lastMsg ? $lastMsg->gmail_message_id : null;
 
+            // Prepare open tracking pixel
+            $trackedBody = $body;
+            $trackingRecord = null;
+            try {
+                [$trackedBody, $trackingRecord] = \App\Services\EmailOpenTrackingService::prepareTracking(
+                    $body,
+                    [
+                        'user_id' => $account->user_id,
+                        'gmail_account_id' => $account->id,
+                        'recipient_email' => $thread->sender_email,
+                        'thread_id' => $thread->id,
+                        'source_type' => 'manual',
+                        'subject' => $thread->subject,
+                    ]
+                );
+            } catch (\Throwable $trackErr) {
+                logger("Open tracking prep notice (Thread #{$thread->id}): " . $trackErr->getMessage(), 'warning');
+            }
+
             $gmailService = new \App\Services\GmailService($account);
             $sent = $gmailService->sendThreadReply(
                 $thread->sender_email,
                 $thread->subject,
-                $body,
+                $trackedBody,
                 $thread->gmail_thread_id,
                 $inReplyTo,
                 $inReplyTo
@@ -97,6 +127,10 @@ class ThreadController {
 
             $sentMessageId = $sent['id'];
             $sentAt = date('Y-m-d H:i:s');
+
+            if ($trackingRecord) {
+                \App\Services\EmailOpenTrackingService::finalizeTracking($trackingRecord->id, $sentMessageId);
+            }
 
             EmailMessage::create([
                 'thread_id' => $thread->id,

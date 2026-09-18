@@ -112,9 +112,26 @@
                                 <?php else: ?>
                                     <span class="badge bg-primary text-white me-1"><i class="fa-solid fa-robot me-1"></i> Auto Reply #<?= $replyNumber ?></span>
                                     <span class="fw-bold text-primary"><?= e($msg->sender) ?> &rarr; <?= e($msg->recipient) ?></span>
+                                    <?php 
+                                    $msgTracking = $trackingByMsgId[$msg->gmail_message_id] ?? null;
+                                    if ($msgTracking): 
+                                    ?>
+                                        <?php if ($msgTracking->open_count > 0): ?>
+                                            <span class="badge bg-success text-white ms-1" title="First opened: <?= e($msgTracking->first_opened_at) ?> | Last opened: <?= e($msgTracking->last_opened_at) ?>">
+                                                <i class="fa-solid fa-envelope-open me-1"></i> Opened (<?= $msgTracking->open_count ?>x)
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="badge bg-light text-muted border ms-1">
+                                                <i class="fa-regular fa-envelope me-1"></i> Unopened
+                                            </span>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </div>
-                            <div class="small text-muted font-monospace d-flex align-items-center gap-1">
+                            <div class="small text-muted font-monospace d-flex align-items-center gap-2">
+                                <?php if (!empty($msgTracking) && $msgTracking->open_count > 0): ?>
+                                    <span class="text-success small me-1"><i class="fa-solid fa-check-double me-1"></i> Opened <?= date('M d, h:i A', strtotime($msgTracking->first_opened_at)) ?></span>
+                                <?php endif; ?>
                                 <i class="fa-regular fa-clock text-secondary"></i>
                                 <span><?= date('M d, Y - h:i:s A', strtotime($msg->received_at ?? $msg->sent_at ?? $msg->created_at)) ?></span>
                             </div>

@@ -62,6 +62,16 @@ class ReplyReportController {
                     'unique_leads' => 0,
                 ],
                 'dailyBreakdown' => [],
+                'openStats' => [
+                    'total_tracked' => 0,
+                    'total_recipients' => 0,
+                    'unique_opened' => 0,
+                    'total_opens' => 0,
+                    'not_opened' => 0,
+                    'open_rate' => 0.0,
+                ],
+                'openRecipients' => [],
+                'totalOpenRecipients' => 0,
                 'filters' => $filters,
                 'currentPage' => 1,
                 'totalPages' => 1,
@@ -78,6 +88,10 @@ class ReplyReportController {
         // 5. Query Filtered Jobs for Detailed Activity Table
         [$logs, $totalItems] = $this->queryDetailedJobs($user->id, $accountIds, $filters, $limit, $offset);
 
+        // 6. Calculate Real Email Open Tracking Stats
+        $openStats = \App\Services\EmailOpenTrackingService::getAggregateStats($user->id, $accountId, $startDate, $endDate);
+        [$openRecipients, $totalOpenRecipients] = \App\Services\EmailOpenTrackingService::getRecipientStats($user->id, $accountId, $startDate, $endDate, $search, 15, 0);
+
         $totalPages = max(1, (int)ceil($totalItems / $limit));
 
         return View::render('reports/replies', [
@@ -85,6 +99,9 @@ class ReplyReportController {
             'logs' => $logs,
             'stats' => $stats,
             'dailyBreakdown' => $dailyBreakdown,
+            'openStats' => $openStats,
+            'openRecipients' => $openRecipients,
+            'totalOpenRecipients' => $totalOpenRecipients,
             'filters' => $filters,
             'currentPage' => $page,
             'totalPages' => $totalPages,
@@ -131,20 +148,7 @@ class ReplyReportController {
         $output = fopen('php://output', 'w');
 
         // CSV Headers
-        fputcsv($output, [
-            'Job ID',
-            'Type',
-            'Step',
-            'Connected Gmail Account',
-            'Recipient Email',
-            'Recipient Name',
-            'Subject',
-            'Status',
-            'Scheduled At',
-            'Sent / Processed At',
-            'Attempts',
-            'Error Details',
-        ]);
+        fputs($output, "Job ID,Type,Step,\"Connected Gmail Account\",\"Recipient Email\",\"Recipient Name\",Subject,Status,\"Scheduled At\",\"Sent / Processed At\",Attempts,\"Error Details\"\n");
 
         foreach ($logs as $log) {
             fputcsv($output, [
@@ -164,6 +168,9 @@ class ReplyReportController {
         }
 
         fclose($output);
+        if (defined('TESTING') || (getenv('APP_ENV') === 'testing') || (isset($_ENV['APP_ENV']) && $_ENV['APP_ENV'] === 'testing')) {
+            return;
+        }
         exit;
     }
 
@@ -566,6 +573,124 @@ class ReplyReportController {
             ];
         }
 
+        // Attach real open tracking metadata if available
+        $jobIds = array_filter(array_column($formatted, 'id'));
+        $trackingByJobId = [];
+        if (!empty($jobIds)) {
+            \App\Models\EmailOpenTracking::ensureSchema();
+            $idPlaceholders = implode(',', array_fill(0, count($jobIds), '?'));
+            $trackRows = Database::query("SELECT * FROM email_open_tracking WHERE scheduled_job_id IN ({$idPlaceholders})", array_values($jobIds));
+            foreach ($trackRows as $tRow) {
+                $trackingByJobId[(int)$tRow['scheduled_job_id']] = \App\Models\EmailOpenTracking::fromRow($tRow);
+            }
+        }
+
+        foreach ($formatted as &$fItem) {
+            $t = $trackingByJobId[$fItem['id']] ?? null;
+            $fItem['tracking_id'] = $t ? $t->id : null;
+            $fItem['open_count'] = $t ? $t->open_count : 0;
+            $fItem['open_status'] = ($t && $t->open_count > 0) ? 'Opened' : 'Not Opened';
+            $fItem['first_opened_at'] = $t ? $t->first_opened_at : null;
+            $fItem['last_opened_at'] = $t ? $t->last_opened_at : null;
+        }
+        unset($fItem);
+
         return [$formatted, $totalItems];
+    }
+
+    /**
+     * Real-time Open Rate Stats API for live dashboard polling
+     * GET /reports/open-rate/stats
+     */
+    public function openRateStats(Request $request): string {
+        $user = Auth::user();
+        if (!$user) {
+            http_response_code(401);
+            if (!headers_sent()) {
+                header('Content-Type: application/json');
+            }
+            return json_encode(['success' => false, 'error' => 'Unauthenticated']);
+        }
+
+        $accountId = $request->input('account_id') ? (int)$request->input('account_id') : null;
+        $dateRange = $request->input('date_range', '7days');
+        $search = trim((string)$request->input('search', ''));
+
+        [$startDate, $endDate] = $this->calculateDateBounds($dateRange, $request->input('start_date'), $request->input('end_date'));
+
+        $openStats = \App\Services\EmailOpenTrackingService::getAggregateStats($user->id, $accountId, $startDate, $endDate);
+        [$openRecipients, $totalOpenRecipients] = \App\Services\EmailOpenTrackingService::getRecipientStats($user->id, $accountId, $startDate, $endDate, $search, 15, 0);
+
+        if (!headers_sent()) {
+            header('Content-Type: application/json');
+        }
+
+        return json_encode([
+            'success' => true,
+            'stats' => $openStats,
+            'recipients' => $openRecipients,
+            'total_recipients' => $totalOpenRecipients,
+            'timestamp' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /**
+     * Get open event history timeline for a specific tracked email
+     * GET /reports/open-rate/events/{trackingId}
+     */
+    public function openEventDetails(Request $request, int $trackingId): string {
+        $user = Auth::user();
+        if (!$user) {
+            http_response_code(401);
+            if (!headers_sent()) {
+                header('Content-Type: application/json');
+            }
+            return json_encode(['success' => false, 'error' => 'Unauthenticated']);
+        }
+
+        $tracking = \App\Models\EmailOpenTracking::find($trackingId);
+        if (!$tracking || ($tracking->user_id !== $user->id && $user->role !== 'admin')) {
+            http_response_code(403);
+            if (!headers_sent()) {
+                header('Content-Type: application/json');
+            }
+            return json_encode(['success' => false, 'error' => 'Unauthorized or record not found']);
+        }
+
+        $events = $tracking->getEvents();
+        $eventList = [];
+        foreach ($events as $ev) {
+            $eventList[] = [
+                'id' => $ev->id,
+                'opened_at' => $ev->opened_at,
+                'opened_at_formatted' => date('M d, Y h:i:s A', strtotime($ev->opened_at)),
+                'ip_address' => $ev->ip_address,
+                'device_type' => $ev->device_type,
+                'operating_system' => $ev->operating_system,
+                'browser' => $ev->browser,
+                'mail_client' => $ev->mail_client,
+                'is_bot_or_prefetch' => (bool)$ev->is_bot_or_prefetch,
+                'user_agent' => $ev->user_agent,
+            ];
+        }
+
+        if (!headers_sent()) {
+            header('Content-Type: application/json');
+        }
+
+        return json_encode([
+            'success' => true,
+            'tracking' => [
+                'id' => $tracking->id,
+                'recipient_email' => $tracking->recipient_email,
+                'subject' => $tracking->subject,
+                'open_count' => $tracking->open_count,
+                'status' => $tracking->open_count > 0 ? 'Opened' : 'Not Opened',
+                'first_opened_at' => $tracking->first_opened_at ? date('M d, Y h:i:s A', strtotime($tracking->first_opened_at)) : null,
+                'last_opened_at' => $tracking->last_opened_at ? date('M d, Y h:i:s A', strtotime($tracking->last_opened_at)) : null,
+                'created_at' => date('M d, Y h:i:s A', strtotime($tracking->created_at)),
+            ],
+            'events' => $eventList,
+        ]);
     }
 }

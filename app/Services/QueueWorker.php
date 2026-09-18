@@ -424,12 +424,32 @@ class QueueWorker {
                 throw new Exception("Mailbox security violation: Attempted to send via mailbox #{$account->id} instead of source mailbox #{$thread->source_mailbox_id}");
             }
 
+            // Prepare open rate tracking pixel
+            $trackedBody = $finalBody;
+            $trackingRecord = null;
+            try {
+                [$trackedBody, $trackingRecord] = \App\Services\EmailOpenTrackingService::prepareTracking(
+                    $finalBody,
+                    [
+                        'user_id' => $account->user_id,
+                        'gmail_account_id' => $account->id,
+                        'recipient_email' => $recipientEmail,
+                        'thread_id' => $thread->id,
+                        'scheduled_job_id' => $job->id,
+                        'source_type' => $job->job_type,
+                        'subject' => $subject,
+                    ]
+                );
+            } catch (\Throwable $trackErr) {
+                logger("Open tracking prep notice: " . $trackErr->getMessage(), 'warning', $account->user_id, $account->id);
+            }
+
             // Send via Gmail API - Strictly User-Configured Content Only
             $gmailService = new GmailService($account);
             $sent = $gmailService->sendThreadReply(
                 $recipientEmail,
                 $subject,
-                $finalBody,
+                $trackedBody,
                 $thread->gmail_thread_id,
                 $payload['in_reply_to'] ?? null,
                 $payload['references'] ?? null
@@ -437,6 +457,10 @@ class QueueWorker {
 
             $sentMessageId = $sent['id'];
             $sentAt = date('Y-m-d H:i:s');
+
+            if ($trackingRecord) {
+                \App\Services\EmailOpenTrackingService::finalizeTracking($trackingRecord->id, $sentMessageId);
+            }
 
             // Record outgoing message with permanent source mailbox link
             EmailMessage::create([

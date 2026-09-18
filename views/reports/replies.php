@@ -114,6 +114,207 @@
     </div>
 </div>
 
+<!-- ========================================================================= -->
+<!-- Real Email Open-Rate Tracking & Recipient Analytics Section -->
+<!-- ========================================================================= -->
+<div class="card shadow-sm border-0 mb-4 rounded-3 bg-white" id="openRateAnalyticsSection">
+    <div class="card-header bg-white py-3 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2 border-bottom">
+        <div class="d-flex align-items-center gap-2">
+            <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                <i class="fa-solid fa-envelope-open-text fs-5 text-primary"></i>
+            </div>
+            <div>
+                <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                    <span>Email Open Rate &amp; Recipient Engagement</span>
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 fs-6 fw-normal px-2.5 py-0.5 rounded-pill" id="livePollingBadge">
+                        <i class="fa-solid fa-circle-dot text-success me-1"></i> Live Real-Time
+                    </span>
+                </h5>
+                <div class="text-muted" style="font-size: 0.8rem;">
+                    বাস্তব ইমেইল ওপেন রেট ট্র্যাকিং — ট্র্যাক করুন কোন প্রাপক কতবার কখন ইমেইল খুলেছেন।
+                </div>
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1.5 shadow-sm px-3 py-1.5" id="btnRefreshOpenStats" onclick="refreshOpenRateData()">
+                <i class="fa-solid fa-arrows-rotate" id="refreshOpenIcon"></i>
+                <span class="fw-semibold">Refresh Live Stats</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="card-body p-4">
+        <!-- Open Rate KPI Metric Cards Row -->
+        <div class="row g-3 mb-4">
+            <!-- Metric 1: Overall Open Rate % -->
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-none h-100 rounded-3 p-3 text-white" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="small fw-semibold text-white text-opacity-75">Open Rate</div>
+                            <div class="display-6 fw-bold mt-1" id="kpiOpenRate"><?= number_format($openStats['open_rate'] ?? 0, 1) ?>%</div>
+                            <div class="small text-white text-opacity-75 mt-1" style="font-size: 0.75rem;">
+                                Unique Opens ÷ Delivered Recipients
+                            </div>
+                        </div>
+                        <div class="rounded-circle bg-white bg-opacity-20 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                            <i class="fa-solid fa-percent text-white fs-5"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metric 2: Unique Opened Recipients -->
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-none h-100 rounded-3 p-3" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="small fw-semibold text-primary">Unique Opened Recipients</div>
+                            <div class="display-6 fw-bold text-primary mt-1" id="kpiUniqueOpened"><?= number_format($openStats['unique_opened'] ?? 0) ?></div>
+                            <div class="text-muted small mt-1" style="font-size: 0.75rem;">
+                                of <span class="fw-semibold text-dark" id="kpiTotalRecipients"><?= number_format($openStats['total_recipients'] ?? 0) ?></span> delivered recipients
+                            </div>
+                        </div>
+                        <div class="rounded-circle bg-white shadow-sm d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                            <i class="fa-solid fa-user-check text-primary fs-5"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metric 3: Total Open Events -->
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-none h-100 rounded-3 p-3" style="background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="small fw-semibold" style="color: #be185d;">Total Open Events</div>
+                            <div class="display-6 fw-bold mt-1" style="color: #be185d;" id="kpiTotalOpens"><?= number_format($openStats['total_opens'] ?? 0) ?></div>
+                            <div class="text-muted small mt-1" style="font-size: 0.75rem;">
+                                Multi-reads recorded
+                            </div>
+                        </div>
+                        <div class="rounded-circle bg-white shadow-sm d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                            <i class="fa-solid fa-fire" style="color: #be185d; font-size: 1.25rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metric 4: Unopened / Pending -->
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-none h-100 rounded-3 p-3" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="small fw-semibold text-secondary">Unopened / Not Opened</div>
+                            <div class="display-6 fw-bold text-dark mt-1" id="kpiNotOpened"><?= number_format($openStats['not_opened'] ?? 0) ?></div>
+                            <div class="text-muted small mt-1" style="font-size: 0.75rem;">
+                                Across <span class="fw-semibold text-dark" id="kpiTotalTracked"><?= number_format($openStats['total_tracked'] ?? 0) ?></span> sent emails
+                            </div>
+                        </div>
+                        <div class="rounded-circle bg-white shadow-sm d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                            <i class="fa-regular fa-envelope text-secondary fs-5"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recipient-Level Engagement Table -->
+        <div class="border rounded-3 overflow-hidden">
+            <div class="bg-light py-2.5 px-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span class="fw-bold text-dark small">
+                    <i class="fa-solid fa-users text-primary me-1"></i> Recipient-Level Open Information (প্রাপকভিত্তিক ওপেন রিপোর্ট)
+                </span>
+                <span class="badge bg-white text-muted border px-2 py-0.5 rounded-pill" id="openRecipientsCountBadge">
+                    <?= count($openRecipients ?? []) ?> Recipients
+                </span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="recipientOpenTable" style="min-width: 760px;">
+                    <thead class="table-light small text-muted text-uppercase" style="font-size: 0.74rem; letter-spacing: 0.5px;">
+                        <tr>
+                            <th class="ps-3 py-2.5">Recipient</th>
+                            <th class="py-2.5 text-center">Open Status</th>
+                            <th class="py-2.5 text-center">Total Opens</th>
+                            <th class="py-2.5">First Opened</th>
+                            <th class="py-2.5">Last Opened</th>
+                            <th class="pe-3 py-2.5 text-end">Telemetry</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recipientOpenTableBody">
+                        <?php if (empty($openRecipients)): ?>
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4 small">
+                                No tracked recipient emails found for this period. As outgoing emails are opened, recipient-level telemetry will appear here in real time.
+                            </td>
+                        </tr>
+                        <?php else: ?>
+                            <?php foreach ($openRecipients as $rRow): ?>
+                            <tr>
+                                <td class="ps-3">
+                                    <div class="fw-semibold text-dark font-monospace text-truncate" style="max-width: 240px;">
+                                        <?= e($rRow['recipient_email']) ?>
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.75rem;">
+                                        Via <?= e($rRow['sending_account']) ?> &bull; <?= e($rRow['last_subject']) ?>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <?php if ($rRow['status'] === 'Opened'): ?>
+                                        <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill fw-semibold">
+                                            <i class="fa-solid fa-check me-1"></i> Opened
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge bg-secondary bg-opacity-15 text-secondary border border-secondary border-opacity-25 px-2.5 py-1 rounded-pill">
+                                            <i class="fa-regular fa-envelope me-1"></i> Not Opened
+                                        </span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-center">
+                                    <?php if ($rRow['total_opens'] > 0): ?>
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1 rounded-pill fw-bold fs-6">
+                                            <?= (int)$rRow['total_opens'] ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="text-muted font-monospace small">0</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="small">
+                                    <?php if ($rRow['first_opened']): ?>
+                                        <div class="fw-semibold text-dark"><?= date('M j, Y', strtotime($rRow['first_opened'])) ?></div>
+                                        <div class="text-muted" style="font-size: 0.75rem;"><?= date('h:i A', strtotime($rRow['first_opened'])) ?></div>
+                                    <?php else: ?>
+                                        <span class="text-muted">&mdash;</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="small">
+                                    <?php if ($rRow['last_opened']): ?>
+                                        <div class="fw-semibold text-dark"><?= date('M j, Y', strtotime($rRow['last_opened'])) ?></div>
+                                        <div class="text-muted" style="font-size: 0.75rem;"><?= date('h:i A', strtotime($rRow['last_opened'])) ?></div>
+                                    <?php else: ?>
+                                        <span class="text-muted">&mdash;</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="pe-3 text-end">
+                                    <?php if (!empty($rRow['latest_tracking_id'])): ?>
+                                        <button type="button" class="btn btn-sm btn-outline-primary px-2 py-0.5" style="font-size: 0.78rem;" onclick="loadOpenEvents(<?= (int)$rRow['latest_tracking_id'] ?>, '<?= e(addslashes($rRow['recipient_email'])) ?>')">
+                                            <i class="fa-solid fa-timeline me-1"></i> Events
+                                        </button>
+                                    <?php else: ?>
+                                        <span class="text-muted small">&mdash;</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 7-Day Day-by-Day Activity Summary Section -->
 <?php if (!empty($dailyBreakdown)): ?>
 <div class="card shadow-sm border-0 mb-4 rounded-3">
@@ -433,6 +634,20 @@
                                     <?= e(ucfirst($status)) ?>
                                 </span>
                             <?php endif; ?>
+
+                            <?php if (!empty($log['open_count']) && $log['open_count'] > 0): ?>
+                                <div>
+                                    <span class="badge bg-primary bg-opacity-15 text-primary border border-primary border-opacity-25 px-2 py-0.5 rounded-pill mt-1 d-inline-flex align-items-center gap-1" style="font-size: 0.72rem;" title="Opened <?= (int)$log['open_count'] ?> times">
+                                        <i class="fa-solid fa-envelope-open text-primary"></i> Opened (<?= (int)$log['open_count'] ?>)
+                                    </span>
+                                </div>
+                            <?php elseif ($status === 'completed'): ?>
+                                <div>
+                                    <span class="badge bg-light text-muted border px-2 py-0.5 rounded-pill mt-1 d-inline-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                                        <i class="fa-regular fa-envelope"></i> Unopened
+                                    </span>
+                                </div>
+                            <?php endif; ?>
                         </td>
 
                         <!-- Action: View Modal -->
@@ -451,6 +666,11 @@
                                     data-status="<?= e(ucfirst($status)) ?>"
                                     data-error="<?= e($log['last_error'] ?? '') ?>"
                                     data-body="<?= e($log['message_body']) ?>"
+                                    data-tracking-id="<?= (int)($log['tracking_id'] ?? 0) ?>"
+                                    data-open-status="<?= e($log['open_status'] ?? 'Not Opened') ?>"
+                                    data-open-count="<?= (int)($log['open_count'] ?? 0) ?>"
+                                    data-first-opened="<?= e(!empty($log['first_opened_at']) ? date('M j, Y h:i A', strtotime($log['first_opened_at'])) : '—') ?>"
+                                    data-last-opened="<?= e(!empty($log['last_opened_at']) ? date('M j, Y h:i A', strtotime($log['last_opened_at'])) : '—') ?>"
                                     onclick="populateMessageModal(this)">
                                 <i class="fa-regular fa-eye me-1"></i> Details
                             </button>
@@ -542,11 +762,121 @@
                     </div>
                 </div>
 
+                <!-- Real Email Open-Tracking Card inside Message Details -->
+                <div class="card border rounded-3 mb-3" style="background: #fdfdfd;">
+                    <div class="card-header bg-white py-2 px-3 border-bottom d-flex justify-content-between align-items-center">
+                        <span class="small fw-bold text-dark">
+                            <i class="fa-solid fa-envelope-open-text text-primary me-1"></i> Open-Rate Tracking Status
+                        </span>
+                        <span class="badge bg-secondary rounded-pill" id="modalOpenStatusBadge">Not Opened</span>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="row g-2 small text-muted">
+                            <div class="col-6 col-sm-3">
+                                <div>Total Opens:</div>
+                                <div class="fw-bold fs-6 text-dark" id="modalTotalOpens">0</div>
+                            </div>
+                            <div class="col-6 col-sm-3">
+                                <div>Unique Open:</div>
+                                <div class="fw-semibold text-dark" id="modalUniqueOpen">—</div>
+                            </div>
+                            <div class="col-6 col-sm-3">
+                                <div>First Opened:</div>
+                                <div class="fw-semibold text-dark" id="modalFirstOpened">—</div>
+                            </div>
+                            <div class="col-6 col-sm-3">
+                                <div>Last Opened:</div>
+                                <div class="fw-semibold text-dark" id="modalLastOpened">—</div>
+                            </div>
+                        </div>
+
+                        <!-- Open Events Timeline Inside Modal -->
+                        <div class="mt-3 pt-2 border-top d-none" id="modalOpenEventsSection">
+                            <div class="small fw-bold text-dark mb-2">
+                                <i class="fa-solid fa-timeline text-primary me-1"></i> Open Event History:
+                            </div>
+                            <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                                <table class="table table-sm table-bordered align-middle mb-0" style="font-size: 0.78rem;">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Timestamp</th>
+                                            <th>Device &amp; OS</th>
+                                            <th>Client / Proxy</th>
+                                            <th>IP Address</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="modalEventsTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Message Body Preview -->
                 <div class="mb-2 fw-semibold text-dark small">
                     <i class="fa-regular fa-envelope-open me-1 text-primary"></i> Sent Email Content (মেসেজ বডি):
                 </div>
                 <div class="border rounded-3 p-3 bg-white" style="min-height: 180px; max-height: 400px; overflow-y: auto; line-height: 1.6; font-size: 0.92rem;" id="modalBodyContainer">
+                </div>
+            </div>
+            <div class="modal-footer border-top py-2.5 px-4 bg-light">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Recipient Open Events History -->
+<div class="modal fade" id="viewOpenEventsModal" tabindex="-1" aria-labelledby="viewOpenEventsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                        <i class="fa-solid fa-timeline"></i>
+                    </div>
+                    <h5 class="modal-title fw-bold fs-6 mb-0" id="viewOpenEventsModalLabel">Recipient Open Events History</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="bg-light p-3 rounded-3 mb-3 border">
+                    <div class="row g-2 small">
+                        <div class="col-sm-3 text-muted">Recipient:</div>
+                        <div class="col-sm-9 fw-bold text-dark font-monospace" id="eventModalRecipient"></div>
+
+                        <div class="col-sm-3 text-muted">Subject:</div>
+                        <div class="col-sm-9 text-dark" id="eventModalSubject"></div>
+
+                        <div class="col-sm-3 text-muted">Status:</div>
+                        <div class="col-sm-9">
+                            <span class="badge bg-success rounded-pill" id="eventModalStatusBadge">Opened</span>
+                            <span class="text-muted ms-2 small" id="eventModalTotalOpensText"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="small fw-bold text-dark mb-2">
+                    <i class="fa-solid fa-list-check text-primary me-1"></i> Recorded Open Events (বাস্তব ট্র্যাকিং ইভেন্টসমূহ):
+                </div>
+                <div class="table-responsive border rounded-3" style="max-height: 280px; overflow-y: auto;">
+                    <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.82rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3 py-2">Time</th>
+                                <th class="py-2">Client / App</th>
+                                <th class="py-2">Device &amp; OS</th>
+                                <th class="py-2">Type</th>
+                                <th class="pe-3 py-2 text-end">IP Address</th>
+                            </tr>
+                        </thead>
+                        <tbody id="openEventsFullTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-3">Loading open telemetry...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
             <div class="modal-footer border-top py-2.5 px-4 bg-light">
@@ -578,6 +908,12 @@ function populateMessageModal(btn) {
     var error = btn.getAttribute('data-error') || '';
     var body = btn.getAttribute('data-body') || '';
 
+    var trackingId = parseInt(btn.getAttribute('data-tracking-id') || '0', 10);
+    var openStatus = btn.getAttribute('data-open-status') || 'Not Opened';
+    var openCount = parseInt(btn.getAttribute('data-open-count') || '0', 10);
+    var firstOpened = btn.getAttribute('data-first-opened') || '—';
+    var lastOpened = btn.getAttribute('data-last-opened') || '—';
+
     document.getElementById('modalTypeBadge').textContent = type + ' ' + step;
     document.getElementById('modalRecipient').textContent = recipient;
     document.getElementById('modalSender').textContent = sender;
@@ -605,12 +941,178 @@ function populateMessageModal(btn) {
         errContainer.classList.add('d-none');
     }
 
+    // Open tracking information in modal
+    var openStatusBadge = document.getElementById('modalOpenStatusBadge');
+    if (openCount > 0) {
+        openStatusBadge.textContent = 'Opened (' + openCount + ')';
+        openStatusBadge.className = 'badge bg-success rounded-pill';
+        document.getElementById('modalUniqueOpen').textContent = 'Yes (1)';
+    } else {
+        openStatusBadge.textContent = 'Not Opened';
+        openStatusBadge.className = 'badge bg-secondary rounded-pill';
+        document.getElementById('modalUniqueOpen').textContent = 'No (0)';
+    }
+
+    document.getElementById('modalTotalOpens').textContent = openCount;
+    document.getElementById('modalFirstOpened').textContent = firstOpened || '—';
+    document.getElementById('modalLastOpened').textContent = lastOpened || '—';
+
+    var eventsSection = document.getElementById('modalOpenEventsSection');
+    var eventsTbody = document.getElementById('modalEventsTableBody');
+    eventsTbody.innerHTML = '';
+
+    if (trackingId > 0 && openCount > 0) {
+        eventsSection.classList.remove('d-none');
+        fetch('<?= url('/reports/open-rate/events') ?>/' + trackingId)
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success && data.events && data.events.length > 0) {
+                    var html = '';
+                    data.events.forEach(function(ev) {
+                        html += '<tr>' +
+                            '<td>' + ev.opened_at_formatted + '</td>' +
+                            '<td>' + (ev.device_type || 'Unknown') + ' / ' + (ev.operating_system || 'Unknown') + '</td>' +
+                            '<td>' + (ev.mail_client || ev.browser || 'Unknown') + '</td>' +
+                            '<td class="font-monospace">' + (ev.ip_address || '—') + '</td>' +
+                            '</tr>';
+                    });
+                    eventsTbody.innerHTML = html;
+                } else {
+                    eventsTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No individual event records.</td></tr>';
+                }
+            })
+            .catch(function() {
+                eventsTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Could not load event timeline.</td></tr>';
+            });
+    } else {
+        eventsSection.classList.add('d-none');
+    }
+
     var bodyContainer = document.getElementById('modalBodyContainer');
-    // If message body contains HTML tags, render it safely or display with preserve formatting
     if (body.indexOf('<') !== -1 && body.indexOf('>') !== -1) {
         bodyContainer.innerHTML = body;
     } else {
         bodyContainer.innerText = body;
     }
 }
+
+// Load full open events for recipient modal
+function loadOpenEvents(trackingId, recipientEmail) {
+    var modalEl = document.getElementById('viewOpenEventsModal');
+    var bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    
+    document.getElementById('eventModalRecipient').textContent = recipientEmail;
+    document.getElementById('eventModalSubject').textContent = 'Loading...';
+    var tbody = document.getElementById('openEventsFullTableBody');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3"><i class="fa-solid fa-spinner fa-spin me-2"></i> Loading telemetry...</td></tr>';
+    
+    bsModal.show();
+
+    fetch('<?= url('/reports/open-rate/events') ?>/' + trackingId)
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (!data.success) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-3">Could not load tracking record.</td></tr>';
+                return;
+            }
+            document.getElementById('eventModalSubject').textContent = data.tracking.subject || '(No Subject)';
+            var statusBadge = document.getElementById('eventModalStatusBadge');
+            if (data.tracking.open_count > 0) {
+                statusBadge.textContent = 'Opened (' + data.tracking.open_count + ' total opens)';
+                statusBadge.className = 'badge bg-success rounded-pill';
+            } else {
+                statusBadge.textContent = 'Not Opened';
+                statusBadge.className = 'badge bg-secondary rounded-pill';
+            }
+
+            if (data.events && data.events.length > 0) {
+                var html = '';
+                data.events.forEach(function(ev) {
+                    var botBadge = ev.is_bot_or_prefetch ? '<span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">Proxy/Prefetch</span>' : '<span class="badge bg-info text-white ms-1" style="font-size:0.65rem;">Direct</span>';
+                    html += '<tr>' +
+                        '<td class="ps-3 font-monospace">' + ev.opened_at_formatted + '</td>' +
+                        '<td><span class="fw-semibold">' + (ev.mail_client || 'Standard Client') + '</span></td>' +
+                        '<td>' + (ev.device_type || 'Unknown') + ' &bull; ' + (ev.operating_system || 'Unknown') + '</td>' +
+                        '<td>' + botBadge + '</td>' +
+                        '<td class="pe-3 text-end font-monospace text-muted">' + (ev.ip_address || '—') + '</td>' +
+                        '</tr>';
+                });
+                tbody.innerHTML = html;
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No open events recorded yet.</td></tr>';
+            }
+        })
+        .catch(function(err) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-3">Failed to load open events.</td></tr>';
+        });
+}
+
+// Live polling & stats refresh
+function refreshOpenRateData() {
+    var icon = document.getElementById('refreshOpenIcon');
+    if (icon) icon.classList.add('fa-spin');
+
+    var currentParams = new URLSearchParams(window.location.search);
+    var queryUrl = '<?= url('/reports/open-rate/stats') ?>?' + currentParams.toString();
+
+    fetch(queryUrl)
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (icon) icon.classList.remove('fa-spin');
+            if (!data.success) return;
+
+            var s = data.stats;
+            document.getElementById('kpiOpenRate').textContent = parseFloat(s.open_rate).toFixed(1) + '%';
+            document.getElementById('kpiUniqueOpened').textContent = s.unique_opened.toLocaleString();
+            document.getElementById('kpiTotalOpens').textContent = s.total_opens.toLocaleString();
+            document.getElementById('kpiNotOpened').textContent = s.not_opened.toLocaleString();
+            document.getElementById('kpiTotalTracked').textContent = s.total_tracked.toLocaleString();
+            document.getElementById('kpiTotalRecipients').textContent = s.total_recipients.toLocaleString();
+
+            // Update recipient table
+            var tbody = document.getElementById('recipientOpenTableBody');
+            if (tbody && data.recipients) {
+                document.getElementById('openRecipientsCountBadge').textContent = data.recipients.length + ' Recipients';
+                if (data.recipients.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4 small">No tracked recipient emails found for this period. As outgoing emails are opened, recipient-level telemetry will appear here in real time.</td></tr>';
+                } else {
+                    var html = '';
+                    data.recipients.forEach(function(r) {
+                        var statusBadge = (r.status === 'Opened')
+                            ? '<span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-25 px-2.5 py-1 rounded-pill fw-semibold"><i class="fa-solid fa-check me-1"></i> Opened</span>'
+                            : '<span class="badge bg-secondary bg-opacity-15 text-secondary border border-secondary border-opacity-25 px-2.5 py-1 rounded-pill"><i class="fa-regular fa-envelope me-1"></i> Not Opened</span>';
+                        
+                        var totalOpensBadge = (r.total_opens > 0)
+                            ? '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1 rounded-pill fw-bold fs-6">' + r.total_opens + '</span>'
+                            : '<span class="text-muted font-monospace small">0</span>';
+
+                        var firstOp = r.first_opened ? '<div class="fw-semibold text-dark">' + r.first_opened.substring(0, 10) + '</div><div class="text-muted" style="font-size:0.75rem;">' + r.first_opened.substring(11) + '</div>' : '&mdash;';
+                        var lastOp = r.last_opened ? '<div class="fw-semibold text-dark">' + r.last_opened.substring(0, 10) + '</div><div class="text-muted" style="font-size:0.75rem;">' + r.last_opened.substring(11) + '</div>' : '&mdash;';
+
+                        var actionBtn = r.latest_tracking_id
+                            ? '<button type="button" class="btn btn-sm btn-outline-primary px-2 py-0.5" style="font-size: 0.78rem;" onclick="loadOpenEvents(' + r.latest_tracking_id + ', \'' + (r.recipient_email || '').replace(/'/g, "\\'") + '\')"><i class="fa-solid fa-timeline me-1"></i> Events</button>'
+                            : '&mdash;';
+
+                        html += '<tr>' +
+                            '<td class="ps-3"><div class="fw-semibold text-dark font-monospace text-truncate" style="max-width: 240px;">' + r.recipient_email + '</div><div class="text-muted" style="font-size:0.75rem;">Via ' + (r.sending_account || '') + ' &bull; ' + (r.last_subject || '') + '</div></td>' +
+                            '<td class="text-center">' + statusBadge + '</td>' +
+                            '<td class="text-center">' + totalOpensBadge + '</td>' +
+                            '<td class="small">' + firstOp + '</td>' +
+                            '<td class="small">' + lastOp + '</td>' +
+                            '<td class="pe-3 text-end">' + actionBtn + '</td>' +
+                            '</tr>';
+                    });
+                    tbody.innerHTML = html;
+                }
+            }
+        })
+        .catch(function(err) {
+            if (icon) icon.classList.remove('fa-spin');
+        });
+}
+
+// Automatic background polling every 20 seconds
+setInterval(function() {
+    refreshOpenRateData();
+}, 20000);
 </script>

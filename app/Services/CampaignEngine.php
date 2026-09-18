@@ -139,14 +139,37 @@ class CampaignEngine {
                     'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
                 ];
 
+                // Prepare open tracking pixel
+                $trackedBody = $renderedBody;
+                $trackingRecord = null;
+                try {
+                    [$trackedBody, $trackingRecord] = \App\Services\EmailOpenTrackingService::prepareTracking(
+                        $renderedBody,
+                        [
+                            'user_id' => $campaign->user_id,
+                            'gmail_account_id' => $selectedAccount->id,
+                            'recipient_email' => $recipient->email,
+                            'campaign_id' => $campaign->id,
+                            'source_type' => 'campaign',
+                            'subject' => $renderedSubject,
+                        ]
+                    );
+                } catch (\Throwable $trackErr) {
+                    logger("Open tracking prep notice (Campaign #{$campaign->id}): " . $trackErr->getMessage(), 'warning');
+                }
+
                 $sendResult = $gmailService->sendNewEmail(
                     $recipient->email,
                     $renderedSubject,
-                    $renderedBody,
+                    $trackedBody,
                     $extraHeaders
                 );
 
                 $sentMessageId = $sendResult['id'] ?? 'msg_' . uniqid();
+
+                if ($trackingRecord) {
+                    \App\Services\EmailOpenTrackingService::finalizeTracking($trackingRecord->id, $sentMessageId);
+                }
 
                 // 10. Record Success
                 $recipient->markSent($selectedAccount->id, $sentMessageId);

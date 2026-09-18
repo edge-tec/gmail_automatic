@@ -94,6 +94,9 @@ class SkippedEmailController {
         }
 
         fclose($output);
+        if (defined('TESTING') || (getenv('APP_ENV') === 'testing') || (isset($_ENV['APP_ENV']) && $_ENV['APP_ENV'] === 'testing')) {
+            return;
+        }
         exit;
     }
 
