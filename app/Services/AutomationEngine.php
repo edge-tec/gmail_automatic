@@ -303,6 +303,12 @@ class AutomationEngine {
         if (!$effective['auto_reply_enabled']) {
             // If auto-reply is disabled, but follow-up is enabled, schedule follow-up campaign step 1
             if ($effective['followup_enabled'] && $thread->reply_count === 0 && $thread->followup_count === 0) {
+                if (ScheduledJob::hasPendingFollowup($thread->id)) {
+                    return [
+                        'status' => 'skipped',
+                        'reason' => 'Follow-up step #1 is already pending for this conversation'
+                    ];
+                }
                 $job = $this->scheduleNextFollowupStep($thread, 0);
                 return [
                     'status' => 'followup_scheduled',
@@ -1008,6 +1014,27 @@ class AutomationEngine {
             return null;
         }
 
+        // Idempotency: Do not reschedule a step that has already been sent or completed
+        if ($thread->followup_count >= $stepNumber) {
+            return null;
+        }
+
+        // Deduplication: If a job for this thread and step (or later step) is already pending/processing, do not duplicate!
+        $existingJob = ScheduledJob::findPendingFollowupByThread($thread->id);
+        if ($existingJob) {
+            $existingPayload = $existingJob->getPayloadArray();
+            $existingStep = (int)($existingPayload['step_number'] ?? 0);
+            if ($existingStep >= $stepNumber) {
+                return $existingJob;
+            }
+        }
+
+        // Deduplication: Check if this step is already sent or processing in followup_jobs
+        $existingFJob = FollowupJob::findByCampaignAndStep($campaign->id, $stepNumber);
+        if ($existingFJob && in_array($existingFJob->status, ['sent', 'processing'])) {
+            return null;
+        }
+
         $cleanCheck = trim(strip_tags($nextMsg, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
         $isPlaceholder = in_array(trim($nextMsg), ['', '<p><br></p>', '<p></p>', '<br>', '<div><br></div>']);
         if (empty($cleanCheck) || $isPlaceholder) {
@@ -1055,17 +1082,26 @@ class AutomationEngine {
             'max_attempts' => 3,
         ]);
 
-        FollowupJob::create([
-            'campaign_id' => $campaign->id,
-            'gmail_account_id' => $sourceAccount->id,
-            'source_mailbox_id' => $sourceAccount->id,
-            'thread_id' => $thread->id,
-            'followup_step' => $stepNumber,
-            'template_id' => $templateId,
-            'scheduled_at' => $scheduledAt,
-            'message' => $renderedMessage,
-            'status' => 'pending',
-        ]);
+        if ($existingFJob) {
+            $existingFJob->update([
+                'message' => $renderedMessage,
+                'scheduled_at' => $scheduledAt,
+                'template_id' => $templateId,
+                'status' => 'pending',
+            ]);
+        } else {
+            FollowupJob::create([
+                'campaign_id' => $campaign->id,
+                'gmail_account_id' => $sourceAccount->id,
+                'source_mailbox_id' => $sourceAccount->id,
+                'thread_id' => $thread->id,
+                'followup_step' => $stepNumber,
+                'template_id' => $templateId,
+                'scheduled_at' => $scheduledAt,
+                'message' => $renderedMessage,
+                'status' => 'pending',
+            ]);
+        }
 
         $campaign->update([
             'current_step' => $stepNumber,

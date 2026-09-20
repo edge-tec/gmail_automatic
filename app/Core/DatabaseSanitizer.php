@@ -242,6 +242,11 @@ class DatabaseSanitizer {
                 Database::execute("UPDATE auto_reply_recipients SET source_mailbox_id = gmail_account_id WHERE (source_mailbox_id IS NULL OR source_mailbox_id = 0) AND gmail_account_id > 0");
             } catch (\Throwable $t) {}
 
+            // Clean up any historical or pre-existing duplicate pending follow-up jobs
+            try {
+                self::sanitizeDuplicateFollowupJobs();
+            } catch (\Throwable $t) {}
+
             // Ensure professional plan features include bulk campaigns and sync active subscribers
             try {
                 $profPlan = Database::first("SELECT id, features FROM plans WHERE slug = 'professional' LIMIT 1");
@@ -802,6 +807,45 @@ class DatabaseSanitizer {
                 }
             }
         } catch (\Throwable $e) {}
+    }
+
+    /**
+     * Cancel duplicate pending follow-up jobs for the same thread so each step only sends once
+     */
+    public static function sanitizeDuplicateFollowupJobs(): void {
+        try {
+            $dupThreads = Database::query(
+                "SELECT thread_id, COUNT(*) as cnt 
+                 FROM scheduled_jobs 
+                 WHERE job_type = 'follow_up' AND status = 'pending' 
+                 GROUP BY thread_id 
+                 HAVING cnt > 1"
+            );
+
+            foreach ($dupThreads as $dt) {
+                $tid = (int)$dt['thread_id'];
+                $jobs = Database::query(
+                    "SELECT id, payload, scheduled_at FROM scheduled_jobs 
+                     WHERE thread_id = :tid AND job_type = 'follow_up' AND status = 'pending' 
+                     ORDER BY scheduled_at ASC, id ASC",
+                    ['tid' => $tid]
+                );
+
+                if (count($jobs) <= 1) continue;
+
+                $firstJob = true;
+                foreach ($jobs as $j) {
+                    if (!$firstJob) {
+                        Database::execute(
+                            "UPDATE scheduled_jobs SET status = 'cancelled', last_error = 'Duplicate follow-up job cancelled automatically' WHERE id = :id",
+                            ['id' => (int)$j['id']]
+                        );
+                    } else {
+                        $firstJob = false;
+                    }
+                }
+            }
+        } catch (\Throwable $t) {}
     }
 }
 

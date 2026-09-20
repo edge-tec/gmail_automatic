@@ -357,6 +357,35 @@ class QueueWorker {
                 }
 
                 $stepNumber = (int)($payload['step_number'] ?? 1);
+
+                // Concurrency & Duplicate Protection: Verify step has not already been sent
+                if ($thread->followup_count >= $stepNumber) {
+                    $job->cancel("Follow-up Step #{$stepNumber} already sent for this conversation.");
+                    echo "  ↳ Skipped: Follow-up Step #{$stepNumber} already sent to {$recipientEmail}.\n";
+                    return true;
+                }
+
+                if ($campaign) {
+                    $fJob = FollowupJob::findByCampaignAndStep($campaign->id, $stepNumber);
+                    if ($fJob && $fJob->status === 'sent') {
+                        $job->cancel("Follow-up Step #{$stepNumber} already marked sent.");
+                        echo "  ↳ Skipped: Follow-up Step #{$stepNumber} already marked sent.\n";
+                        return true;
+                    }
+
+                    // Atomic step-level lock: ensure no two concurrent workers send the same follow-up step
+                    $claimedStep = Database::executeUpdate(
+                        "UPDATE followup_jobs SET status = 'processing', attempts = attempts + 1, updated_at = :now 
+                         WHERE campaign_id = :cid AND followup_step = :step AND status = 'pending'",
+                        ['cid' => $campaign->id, 'step' => $stepNumber, 'now' => date('Y-m-d H:i:s')]
+                    );
+                    if ($claimedStep <= 0 && $fJob && in_array($fJob->status, ['processing', 'sent'])) {
+                        $job->cancel("Follow-up Step #{$stepNumber} is already {$fJob->status} by another worker.");
+                        echo "  ↳ Skipped: Follow-up Step #{$stepNumber} is already {$fJob->status}.\n";
+                        return true;
+                    }
+                }
+
                 $liveTemplate = '';
 
                 // LIVE DYNAMIC RELOAD FOR FOLLOW-UP
@@ -509,9 +538,11 @@ class QueueWorker {
                     'last_outgoing_at' => $sentAt,
                 ]);
 
-                // Schedule follow-up Step 1 if enabled
-                $engine = new AutomationEngine($account);
-                $engine->scheduleNextFollowupStep($thread, 0);
+                // Schedule follow-up Step 1 if not already scheduled or sent
+                if ($thread->followup_count === 0 && !ScheduledJob::hasPendingFollowup($thread->id, $job->id)) {
+                    $engine = new AutomationEngine($account);
+                    $engine->scheduleNextFollowupStep($thread, 0);
+                }
 
             } elseif ($job->job_type === 'follow_up') {
                 $stepNumber = (int)($payload['step_number'] ?? 1);
@@ -541,9 +572,11 @@ class QueueWorker {
                     'last_outgoing_at' => $sentAt,
                 ]);
 
-                // Schedule subsequent follow-up step
-                $engine = new AutomationEngine($account);
-                $engine->scheduleNextFollowupStep($thread, $stepNumber);
+                // Schedule subsequent follow-up step only if no duplicate follow-up job is already pending
+                if (!ScheduledJob::hasPendingFollowup($thread->id, $job->id)) {
+                    $engine = new AutomationEngine($account);
+                    $engine->scheduleNextFollowupStep($thread, $stepNumber);
+                }
             }
 
             // Mark job completed

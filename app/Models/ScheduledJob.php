@@ -32,6 +32,30 @@ class ScheduledJob {
         return array_map([self::class, 'fromRow'], $rows);
     }
 
+    public static function hasPendingFollowup(int $threadId, ?int $excludeJobId = null): bool {
+        $sql = "SELECT id FROM scheduled_jobs WHERE thread_id = :tid AND job_type = 'follow_up' AND status IN ('pending', 'processing')";
+        $params = ['tid' => $threadId];
+        if ($excludeJobId !== null) {
+            $sql .= " AND id != :ex_id";
+            $params['ex_id'] = $excludeJobId;
+        }
+        $sql .= " LIMIT 1";
+        $row = Database::first($sql, $params);
+        return $row !== null;
+    }
+
+    public static function findPendingFollowupByThread(int $threadId, ?int $excludeJobId = null): ?self {
+        $sql = "SELECT * FROM scheduled_jobs WHERE thread_id = :tid AND job_type = 'follow_up' AND status IN ('pending', 'processing')";
+        $params = ['tid' => $threadId];
+        if ($excludeJobId !== null) {
+            $sql .= " AND id != :ex_id";
+            $params['ex_id'] = $excludeJobId;
+        }
+        $sql .= " ORDER BY id ASC LIMIT 1";
+        $row = Database::first($sql, $params);
+        return $row ? self::fromRow($row) : null;
+    }
+
     public static function cancelPendingJobsForThread(int $threadId, string $reason = 'Cancelled due to recipient reply'): int {
         $driver = config('database.default', 'mysql');
         $now = $driver === 'mysql' ? 'NOW()' : "datetime('now')";
