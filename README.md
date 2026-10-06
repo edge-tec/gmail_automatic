@@ -36,6 +36,21 @@ A high-performance, enterprise-ready **Gmail Auto Reply & Follow-up Automation W
    - User registration, login, session security, and complete data isolation.
    - Admin Panel with system overview, user management (suspend/activate), system-wide automation pause/resume, audit logs, and Google Cloud credentials configuration.
 
+6. **Real Email Open-Rate Tracking**:
+   - Transparent 1x1 tracking pixel generation (`/track/open/{token}`) embedded into eligible HTML outgoing emails.
+   - Deduplication engine against rapid pre-fetching and bot filtering.
+   - Real-time analytics: Sent Count, Unique Opens, Total Opens, Open Rate %, and First/Last Opened timestamps.
+   - Zero mock or placeholder data: strictly derived from verified HTTP tracking hits.
+
+7. **Enterprise Lead Management, Deletion & File Cleanup**:
+   - Comprehensive Lead directory with real-time KPI dashboards, status management (new, contacted, engaged, qualified, unassigned), and CSV bulk import/export.
+   - **Transaction-Safe Deletion**: Single delete, chunked bulk deletion, and tenant-wide clear with explicit safety confirmation (`"DELETE ALL LEADS"`).
+   - **Lead File Storage & Deduplication**: Upload attachments/documents with SHA-256 content deduplication and storage utilization metrics.
+   - **Shared-File Protection & Outbox Pattern**: Physical file deletions decoupled into a durable outbox queue (`lead_storage_cleanups`) with exponential backoff and reference counting to prevent data loss.
+   - **Storage Orphan Scanner**: Identifies and reconciles untracked storage files on disk.
+   - **Granular RBAC**: 14 distinct permission capabilities with quick-assign role presets (`lead_viewer`, `lead_editor`, `lead_manager`, `lead_admin`).
+   - **Immutable Audit Logging**: Full audit trail recording actor IDs, IP addresses, user agents, action types, and before/after state diff snapshots.
+
 ---
 
 ## 🏗️ System Architecture
@@ -217,6 +232,28 @@ To connect Gmail accounts, obtain OAuth 2.0 credentials from Google Cloud:
    * **Step 2**: Delay `4 Days` -> Message template.
    * **Step 3**: Delay `7 Days` -> Message template.
 3. If the recipient replies to any automated email, the system automatically marks the thread as `replied` and cancels all pending follow-up steps.
+
+### 4. Lead Management & File Storage
+1. Navigate to **Leads** in the sidebar:
+   * **Search & Filter**: Find leads by search query, status (`new`, `contacted`, `engaged`, `qualified`, `unassigned`), or archive state.
+   * **Create / Import**: Manually add leads or bulk-upload via CSV files.
+   * **Bulk Operations**: Select multiple leads to perform batch deletion or status updates safely.
+   * **Safety Protection**: Tenant-wide complete deletion requires entering the confirmation phrase `"DELETE ALL LEADS"`.
+2. Navigate to **Lead Files**:
+   * Inspect active file attachments, storage sizes, and deduplication checksums.
+   * Run the **Storage Orphan Scanner** to detect unindexed files.
+   * Trigger the durable **Outbox Cleanup Queue** to safely remove files without blocking web requests.
+3. Admin Access Control (**Users > Permissions**):
+   * Assign preset roles (`lead_viewer`, `lead_editor`, `lead_manager`, `lead_admin`) or customize 14 individual permissions.
+4. **Audit Trail**:
+   * Inspect all operations with actor IDs, IP addresses, timestamps, and expandable before/after state diffs.
+
+### 5. Email Open-Rate Tracking
+1. Open tracking is automatically handled for eligible outgoing campaign and auto-reply messages.
+2. In the dashboard and analytics views, inspect real-time metrics:
+   * **Total Sent** vs **Unique Opens** vs **Total Opens**.
+   * **Open Rate %** computed accurately from verified tracking pixel fetches.
+   * **Timeline**: First Opened and Last Opened timestamps per recipient.
 
 ---
 
