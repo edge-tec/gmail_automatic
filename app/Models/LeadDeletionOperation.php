@@ -120,6 +120,15 @@ class LeadDeletionOperation {
         return $row ? self::fromRow($row) : null;
     }
 
+    public static function getRecentForUser(int $userId, int $limit = 5): array {
+        self::ensureSchema();
+        $rows = Database::query(
+            "SELECT * FROM lead_deletion_operations WHERE user_id = :uid ORDER BY id DESC LIMIT {$limit}",
+            ['uid' => $userId]
+        );
+        return array_map([self::class, 'fromRow'], $rows);
+    }
+
     public function update(array $data): bool {
         self::ensureSchema();
         $driver = config('database.default', 'mysql');
