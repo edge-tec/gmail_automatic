@@ -493,6 +493,75 @@ class CampaignController {
         redirect($redirect);
     }
 
+    public function clearRecipients(Request $request, int $id): void {
+        if (!$this->authorizeBulkSender()) {
+            return;
+        }
+        $userId = Auth::id();
+        $user = Auth::user();
+        $campaign = ($user && $user->role === 'admin')
+            ? EmailCampaign::find($id)
+            : EmailCampaign::findByUserAndId($userId, $id);
+
+        if (!$campaign) {
+            flash('danger', 'Campaign not found.');
+            redirect('/campaigns');
+            return;
+        }
+
+        $scope = trim((string)$request->input('scope', 'all'));
+        if (!in_array($scope, ['all', 'completed', 'sent', 'failed', 'pending'])) {
+            $scope = 'all';
+        }
+
+        $deletedCount = $campaign->clearRecipients($scope);
+
+        $scopeLabels = [
+            'all' => 'all',
+            'completed' => 'completed/sent/failed',
+            'sent' => 'sent',
+            'failed' => 'failed',
+            'pending' => 'pending/queued',
+        ];
+        $label = $scopeLabels[$scope] ?? 'selected';
+
+        flash('success', "Successfully cleared " . number_format($deletedCount) . " {$label} imported lead(s) from campaign '{$campaign->name}'.");
+        $redirect = $request->input('redirect_to') ?: ('/campaigns/' . $id);
+        redirect($redirect);
+    }
+
+    public function clearAllRecipients(Request $request): void {
+        if (!$this->authorizeBulkSender()) {
+            return;
+        }
+        $userId = Auth::id();
+        $campaignId = (int)$request->input('campaign_id', 0);
+        $scope = trim((string)$request->input('scope', 'all'));
+        if (!in_array($scope, ['all', 'completed', 'sent', 'failed', 'pending'])) {
+            $scope = 'all';
+        }
+
+        if ($campaignId > 0) {
+            $user = Auth::user();
+            $campaign = ($user && $user->role === 'admin')
+                ? EmailCampaign::find($campaignId)
+                : EmailCampaign::findByUserAndId($userId, $campaignId);
+
+            if (!$campaign) {
+                flash('danger', 'Selected campaign not found.');
+                redirect('/campaigns');
+                return;
+            }
+            $deletedCount = $campaign->clearRecipients($scope);
+            flash('success', "Successfully cleared " . number_format($deletedCount) . " imported lead(s) from campaign '{$campaign->name}'.");
+        } else {
+            $deletedCount = EmailCampaign::clearAllCampaignRecipientsForUser($userId, $scope);
+            flash('success', "Successfully cleared " . number_format($deletedCount) . " imported lead(s) across all campaigns.");
+        }
+
+        redirect('/campaigns');
+    }
+
     public function accounts(Request $request): string {
         if (!$this->authorizeBulkSender()) {
             return '';

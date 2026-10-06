@@ -775,5 +775,47 @@ class BulkCampaignEngineTest extends TestCase {
         $sentManual = CampaignEngine::processCampaign($campaign, 2, true, true);
         $this->assertGreaterThan(0, $sentManual, "Manual batch send with bypassSchedule must dispatch successfully");
     }
+
+    // ==========================================
+    // 13. CLEAR CAMPAIGN RECIPIENTS TEST
+    // ==========================================
+
+    public function testClearRecipientsByScopeAndResetCampaignStats(): void {
+        $campaign = $this->createCampaign(['name' => 'Clear Test Campaign', 'status' => 'completed']);
+
+        EmailCampaignRecipient::insertBatch($campaign->id, self::$testUser->id, [
+            ['email' => 'clear1@example.com'],
+            ['email' => 'clear2@example.com'],
+            ['email' => 'clear3@example.com'],
+            ['email' => 'clear4@example.com'],
+        ]);
+
+        $campaign->recalculateStats();
+        $this->assertEquals(4, $campaign->total_recipients);
+
+        // Mark one as sent, one as failed
+        $r1 = EmailCampaignRecipient::findByCampaignAndEmail($campaign->id, 'clear1@example.com');
+        $r1->markSent(1, 'mock_msg_1');
+        $r2 = EmailCampaignRecipient::findByCampaignAndEmail($campaign->id, 'clear2@example.com');
+        $r2->markFailed('SMTP timeout');
+
+        $campaign->recalculateStats();
+        $this->assertEquals(1, $campaign->sent_count);
+        $this->assertEquals(1, $campaign->failed_count);
+        $this->assertEquals(2, $campaign->getRemainingCount());
+
+        // 1. Clear failed only
+        $clearedFailed = $campaign->clearRecipients('failed');
+        $this->assertEquals(1, $clearedFailed);
+        $this->assertEquals(3, $campaign->total_recipients);
+        $this->assertEquals(0, $campaign->failed_count);
+
+        // 2. Clear all remaining
+        $clearedAll = $campaign->clearRecipients('all');
+        $this->assertEquals(3, $clearedAll);
+        $this->assertEquals(0, $campaign->total_recipients);
+        $this->assertEquals(0, $campaign->sent_count);
+        $this->assertEquals('draft', $campaign->status);
+    }
 }
 

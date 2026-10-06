@@ -4,6 +4,9 @@
         <p class="text-muted small mb-0">Multi-Gmail round-robin campaign engine with automated recipient import and personalization.</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#clearAllCampaignsLeadsModal">
+            <i class="fa-solid fa-broom me-1"></i> <span class="d-none d-sm-inline">Clear Campaign Leads</span><span class="d-sm-none">Clear Leads</span>
+        </button>
         <a href="<?= url('/campaigns/accounts') ?>" class="btn btn-outline-secondary">
             <i class="fa-brands fa-google me-1"></i> <span class="d-none d-sm-inline">Per-Gmail Sending Limits</span><span class="d-sm-none">Gmail Limits</span>
         </a>
@@ -180,6 +183,10 @@
                                 </form>
                             <?php endif; ?>
 
+                            <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#clearLeadsModal<?= $c->id ?>" title="Clear Imported Leads">
+                                <i class="fa-solid fa-broom"></i>
+                            </button>
+
                             <form action="<?= url('/campaigns/' . $c->id . '/delete') ?>" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to permanently delete campaign \'<?= htmlspecialchars(addslashes($c->name), ENT_QUOTES) ?>\' and all its recipients?');">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="redirect_to" value="/campaigns">
@@ -187,6 +194,66 @@
                                     <i class="fa-solid fa-trash-can"></i>
                                 </button>
                             </form>
+                        </div>
+
+                        <!-- Modal for Clearing Leads of Campaign #<?= $c->id ?> -->
+                        <div class="modal fade" id="clearLeadsModal<?= $c->id ?>" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <form action="<?= url('/campaigns/' . $c->id . '/clear-recipients') ?>" method="POST" class="modal-content text-start">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="redirect_to" value="/campaigns">
+                                    <div class="modal-header bg-warning-subtle text-dark">
+                                        <h5 class="modal-title fw-bold"><i class="fa-solid fa-broom text-warning me-2"></i>Clear Imported Leads</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p class="mb-2">You are about to clear imported recipient leads for campaign <strong><?= e($c->name) ?></strong>.</p>
+                                        <div class="p-3 bg-light rounded mb-3 small">
+                                            <div>Total Leads: <strong><?= number_format($c->total_recipients) ?></strong></div>
+                                            <div>Sent: <strong><?= number_format($c->sent_count) ?></strong> | Failed: <strong><?= number_format($c->failed_count) ?></strong> | Pending: <strong><?= number_format($c->getRemainingCount()) ?></strong></div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold small">Choose What to Clear:</label>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="radio" name="scope" id="scope_all_<?= $c->id ?>" value="all" checked>
+                                                <label class="form-check-label" for="scope_all_<?= $c->id ?>">
+                                                    <strong>Clear All Leads (<?= number_format($c->total_recipients) ?>)</strong>
+                                                    <div class="text-muted small">Wipes all imported leads and resets campaign status to draft.</div>
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="radio" name="scope" id="scope_completed_<?= $c->id ?>" value="completed">
+                                                <label class="form-check-label" for="scope_completed_<?= $c->id ?>">
+                                                    <strong>Clear Completed &amp; Failed Leads Only (<?= number_format($c->sent_count + $c->failed_count + $c->skipped_count) ?>)</strong>
+                                                    <div class="text-muted small">Retains pending queue leads and removes already sent or failed leads.</div>
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="radio" name="scope" id="scope_failed_<?= $c->id ?>" value="failed">
+                                                <label class="form-check-label" for="scope_failed_<?= $c->id ?>">
+                                                    <strong>Clear Failed Leads Only (<?= number_format($c->failed_count) ?>)</strong>
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="scope" id="scope_pending_<?= $c->id ?>" value="pending">
+                                                <label class="form-check-label" for="scope_pending_<?= $c->id ?>">
+                                                    <strong>Clear Pending Queue Only (<?= number_format($c->getRemainingCount()) ?>)</strong>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="form-check mb-0">
+                                            <input class="form-check-input" type="checkbox" id="confirm_check_<?= $c->id ?>" required>
+                                            <label class="form-check-label small text-danger fw-semibold" for="confirm_check_<?= $c->id ?>">
+                                                I confirm that I want to permanently delete these imported campaign leads.
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-broom me-1"></i> Clear Leads Now</button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </td>
                 </tr>
@@ -196,3 +263,69 @@
     </div>
 </div>
 <?php endif; ?>
+
+<!-- Top Modal: Clear All Campaign Leads -->
+<div class="modal fade" id="clearAllCampaignsLeadsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form action="<?= url('/campaigns/clear-all-recipients') ?>" method="POST" class="modal-content">
+            <?= csrf_field() ?>
+            <div class="modal-header bg-danger-subtle text-danger">
+                <h5 class="modal-title fw-bold"><i class="fa-solid fa-broom me-2"></i>Clear Bulk Campaign Leads</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-start">
+                <p class="mb-3 text-muted small">Select which campaign you want to clear imported leads from, or clear leads across all campaigns at once.</p>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small">Select Target Campaign:</label>
+                    <select name="campaign_id" class="form-select">
+                        <option value="0">All Campaigns (<?= number_format($stats['total_recipients'] ?? 0) ?> total leads)</option>
+                        <?php if (!empty($campaigns)): ?>
+                            <?php foreach ($campaigns as $camp): ?>
+                                <option value="<?= $camp->id ?>"><?= e($camp->name) ?> (<?= number_format($camp->total_recipients) ?> leads)</option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small">Choose What to Clear:</label>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="scope" id="scope_all_global" value="all" checked>
+                        <label class="form-check-label" for="scope_all_global">
+                            <strong>Clear All Imported Leads</strong>
+                            <div class="text-muted small">Wipes all imported recipient records and resets campaigns to draft.</div>
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="scope" id="scope_completed_global" value="completed">
+                        <label class="form-check-label" for="scope_completed_global">
+                            <strong>Clear Completed &amp; Failed Leads Only</strong>
+                            <div class="text-muted small">Deletes already sent or failed records to free database space.</div>
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="scope" id="scope_failed_global" value="failed">
+                        <label class="form-check-label" for="scope_failed_global">
+                            <strong>Clear Failed Leads Only</strong>
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="scope" id="scope_pending_global" value="pending">
+                        <label class="form-check-label" for="scope_pending_global">
+                            <strong>Clear Pending Queue Only</strong>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" id="confirm_check_global" required>
+                    <label class="form-check-label small text-danger fw-semibold" for="confirm_check_global">
+                        I confirm that I want to permanently delete these imported campaign leads.
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-danger"><i class="fa-solid fa-broom me-1"></i> Clear Campaign Leads</button>
+            </div>
+        </form>
+    </div>
+</div>

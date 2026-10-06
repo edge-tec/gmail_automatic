@@ -56,6 +56,10 @@
             <i class="fa-solid fa-file-csv me-1"></i> Download Leads (CSV)
         </a>
 
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#clearCampaignLeadsModal">
+            <i class="fa-solid fa-broom me-1"></i> Clear Leads
+        </button>
+
         <?php if ($campaign->status === 'active' && $campaign->getRemainingCount() > 0): ?>
             <form action="<?= url('/campaigns/' . $campaign->id . '/send-batch-now') ?>" method="POST">
                 <?= csrf_field() ?>
@@ -407,7 +411,12 @@
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white py-3 border-0">
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <h6 class="fw-bold mb-0"><i class="fa-solid fa-address-book text-primary me-2"></i>Recipients (<?= number_format($pagination['total_count']) ?>)</h6>
+            <div class="d-flex align-items-center gap-2">
+                <h6 class="fw-bold mb-0"><i class="fa-solid fa-address-book text-primary me-2"></i>Recipients (<?= number_format($pagination['total_count']) ?>)</h6>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#clearCampaignLeadsModal" title="Clear Leads">
+                    <i class="fa-solid fa-broom me-1"></i> Clear Leads
+                </button>
+            </div>
             <!-- Search & Filter Controls -->
             <form action="<?= url('/campaigns/' . $campaign->id) ?>" method="GET" class="d-flex gap-2">
                 <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -565,5 +574,65 @@
                 <?php endif; ?>
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Modal: Clear Leads for this Campaign -->
+<div class="modal fade" id="clearCampaignLeadsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form action="<?= url('/campaigns/' . $campaign->id . '/clear-recipients') ?>" method="POST" class="modal-content">
+            <?= csrf_field() ?>
+            <input type="hidden" name="redirect_to" value="/campaigns/<?= $campaign->id ?>">
+            <div class="modal-header bg-danger-subtle text-danger">
+                <h5 class="modal-title fw-bold"><i class="fa-solid fa-broom me-2"></i>Clear Campaign Leads</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-start">
+                <p class="mb-2">You are about to clear imported leads for campaign <strong><?= e($campaign->name) ?></strong>.</p>
+                <div class="p-3 bg-light rounded mb-3 small">
+                    <div>Total Leads: <strong><?= number_format($campaign->total_recipients) ?></strong></div>
+                    <div>Sent: <strong><?= number_format($campaign->sent_count) ?></strong> | Failed: <strong><?= number_format($campaign->failed_count) ?></strong> | Pending: <strong><?= number_format($campaign->getRemainingCount()) ?></strong></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small">Choose What to Clear:</label>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="scope" id="show_scope_all" value="all" checked>
+                        <label class="form-check-label" for="show_scope_all">
+                            <strong>Clear All Leads (<?= number_format($campaign->total_recipients) ?>)</strong>
+                            <div class="text-muted small">Wipes all imported leads and resets campaign status to draft.</div>
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="scope" id="show_scope_completed" value="completed">
+                        <label class="form-check-label" for="show_scope_completed">
+                            <strong>Clear Completed &amp; Failed Leads Only (<?= number_format($campaign->sent_count + $campaign->failed_count + $campaign->skipped_count) ?>)</strong>
+                            <div class="text-muted small">Retains pending queue leads and removes already sent or failed leads.</div>
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="scope" id="show_scope_failed" value="failed">
+                        <label class="form-check-label" for="show_scope_failed">
+                            <strong>Clear Failed Leads Only (<?= number_format($campaign->failed_count) ?>)</strong>
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="scope" id="show_scope_pending" value="pending">
+                        <label class="form-check-label" for="show_scope_pending">
+                            <strong>Clear Pending Queue Only (<?= number_format($campaign->getRemainingCount()) ?>)</strong>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" id="show_confirm_check" required>
+                    <label class="form-check-label small text-danger fw-semibold" for="show_confirm_check">
+                        I confirm that I want to permanently delete these imported campaign leads.
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-danger"><i class="fa-solid fa-broom me-1"></i> Clear Leads Now</button>
+            </div>
+        </form>
     </div>
 </div>

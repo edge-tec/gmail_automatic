@@ -138,6 +138,8 @@ $router->post('/campaigns/{id}/pause', 'CampaignController@pause', [AuthMiddlewa
 $router->post('/campaigns/{id}/resume', 'CampaignController@resume', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/campaigns/{id}/cancel', 'CampaignController@cancel', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->post('/campaigns/{id}/delete', 'CampaignController@delete', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/campaigns/{id}/clear-recipients', 'CampaignController@clearRecipients', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/campaigns/clear-all-recipients', 'CampaignController@clearAllRecipients', [AuthMiddleware::class, CSRFMiddleware::class]);
 $router->get('/campaigns/{id}/export-recipients', 'CampaignController@exportRecipients', [AuthMiddleware::class]);
 
 // Admin Panel Routes

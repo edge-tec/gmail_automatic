@@ -112,6 +112,54 @@ class EmailCampaign {
         return Database::execute("DELETE FROM email_campaigns WHERE id = :id", ['id' => $this->id]);
     }
 
+    public function clearRecipients(string $scope = 'all'): int {
+        $where = "campaign_id = :cid";
+        $params = ['cid' => $this->id];
+
+        if ($scope === 'completed') {
+            $where .= " AND status IN ('sent', 'failed', 'skipped', 'cancelled')";
+        } elseif ($scope === 'sent') {
+            $where .= " AND status = 'sent'";
+        } elseif ($scope === 'failed') {
+            $where .= " AND status = 'failed'";
+        } elseif ($scope === 'pending') {
+            $where .= " AND status IN ('pending', 'queued')";
+        }
+
+        // 1. Delete associated sends logs for target recipients
+        if ($scope === 'all') {
+            Database::execute("DELETE FROM email_campaign_sends WHERE campaign_id = :cid", ['cid' => $this->id]);
+        } else {
+            Database::execute("DELETE FROM email_campaign_sends WHERE campaign_id = :cid_s AND recipient_id IN (SELECT id FROM email_campaign_recipients WHERE {$where})", array_merge($params, ['cid_s' => $this->id]));
+        }
+
+        // 2. Count before delete
+        $countRow = Database::first("SELECT COUNT(*) as c FROM email_campaign_recipients WHERE {$where}", $params);
+        $deletedCount = (int)($countRow['c'] ?? 0);
+
+        // 3. Delete recipients
+        Database::execute("DELETE FROM email_campaign_recipients WHERE {$where}", $params);
+
+        // 4. Recalculate stats
+        $this->recalculateStats();
+
+        // 5. If all recipients were cleared, set status to draft if completed/active
+        if ($this->total_recipients === 0 && in_array($this->status, ['completed', 'active', 'paused'])) {
+            $this->update(['status' => 'draft']);
+        }
+
+        return $deletedCount;
+    }
+
+    public static function clearAllCampaignRecipientsForUser(int $userId, string $scope = 'all'): int {
+        $campaigns = self::findByUserId($userId);
+        $totalDeleted = 0;
+        foreach ($campaigns as $camp) {
+            $totalDeleted += $camp->clearRecipients($scope);
+        }
+        return $totalDeleted;
+    }
+
     public function isWithinSendingSchedule(?string $customTime = null): bool {
         try {
             $tz = new DateTimeZone($this->timezone ?: 'Asia/Dhaka');
