@@ -86,6 +86,16 @@ class MigrationRunner {
 }
 
 if (php_sapi_name() === 'cli' && isset($argv[0]) && basename($argv[0]) === 'MigrationRunner.php') {
-    new \App\Core\App();
-    MigrationRunner::run();
+    if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+        require_once __DIR__ . '/../vendor/autoload.php';
+    }
+    try {
+        new \App\Core\App();
+        echo "Running database schema migrations...\n";
+        MigrationRunner::run();
+        echo "✓ Database schema migrations & seeders completed successfully.\n";
+    } catch (\Throwable $e) {
+        echo "✗ Migration failed: " . $e->getMessage() . "\n";
+        exit(1);
+    }
 }
