@@ -293,8 +293,8 @@ class SeedData {
             if (!$exists) {
                 Database::execute(
                     "INSERT INTO seo_settings (setting_key, setting_value, created_at, updated_at) 
-                     VALUES (:k, :v, :now, :now)",
-                    ['k' => $key, 'v' => $val, 'now' => date('Y-m-d H:i:s')]
+                     VALUES (:k, :v, :created_at, :updated_at)",
+                    ['k' => $key, 'v' => $val, 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')]
                 );
             }
         }
@@ -398,7 +398,7 @@ class SeedData {
             if (!$exists) {
                 Database::execute("
                     INSERT INTO seo_pages (route_path, page_name, seo_title, meta_description, focus_keyword, secondary_keywords, is_indexable, is_followable, schema_type, created_at, updated_at)
-                    VALUES (:rp, :pn, :st, :md, :fk, :sk, :idx, 1, :stype, :now, :now)
+                    VALUES (:rp, :pn, :st, :md, :fk, :sk, :idx, 1, :stype, :created_at, :updated_at)
                 ", [
                     'rp' => $dp['route_path'],
                     'pn' => $dp['page_name'],
@@ -408,7 +408,8 @@ class SeedData {
                     'sk' => $dp['secondary_keywords'],
                     'idx' => $dp['is_indexable'],
                     'stype' => $dp['schema_type'],
-                    'now' => date('Y-m-d H:i:s'),
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
                 ]);
             }
         }
@@ -458,13 +459,14 @@ class SeedData {
             if (!$fExists) {
                 Database::execute("
                     INSERT INTO seo_faqs (question, answer, category, sort_order, is_active, created_at, updated_at)
-                    VALUES (:q, :a, :c, :ord, 1, :now, :now)
+                    VALUES (:q, :a, :c, :ord, 1, :created_at, :updated_at)
                 ", [
                     'q' => $df['q'],
                     'a' => $df['a'],
                     'c' => $df['cat'],
                     'ord' => $df['order'],
-                    'now' => date('Y-m-d H:i:s'),
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
                 ]);
             }
         }
@@ -500,7 +502,7 @@ class SeedData {
             if (!$bExists) {
                 Database::execute("
                     INSERT INTO blog_posts (title, slug, excerpt, content, author_name, category, seo_title, meta_description, focus_keyword, status, published_at, created_at, updated_at)
-                    VALUES (:t, :s, :ex, :cnt, :auth, :cat, :st, :md, :fk, 'published', :now, :now, :now)
+                    VALUES (:t, :s, :ex, :cnt, :auth, :cat, :st, :md, :fk, 'published', :pub_at, :created_at, :updated_at)
                 ", [
                     't' => $db['title'],
                     's' => $db['slug'],
@@ -511,7 +513,9 @@ class SeedData {
                     'st' => $db['seo_title'],
                     'md' => $db['meta_desc'],
                     'fk' => $db['focus_kw'],
-                    'now' => date('Y-m-d H:i:s'),
+                    'pub_at' => date('Y-m-d H:i:s'),
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
                 ]);
             }
         }

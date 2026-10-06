@@ -123,8 +123,13 @@ class LeadManagementService {
         // Search text
         if (!empty($filters['search'])) {
             $search = '%' . trim($filters['search']) . '%';
-            $where[] = "(l.first_name LIKE :s OR l.last_name LIKE :s OR l.email LIKE :s OR l.phone LIKE :s OR l.company LIKE :s OR l.tags LIKE :s)";
-            $params['s'] = $search;
+            $where[] = "(l.first_name LIKE :s1 OR l.last_name LIKE :s2 OR l.email LIKE :s3 OR l.phone LIKE :s4 OR l.company LIKE :s5 OR l.tags LIKE :s6)";
+            $params['s1'] = $search;
+            $params['s2'] = $search;
+            $params['s3'] = $search;
+            $params['s4'] = $search;
+            $params['s5'] = $search;
+            $params['s6'] = $search;
         }
 
         // Status filter

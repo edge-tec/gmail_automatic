@@ -116,8 +116,9 @@ class LeadAuditLog {
         $params = [];
 
         if (!empty($filters['user_id'])) {
-            $where[] = "(target_user_id = :uid OR actor_id = :uid)";
-            $params['uid'] = (int)$filters['user_id'];
+            $where[] = "(target_user_id = :target_uid OR actor_id = :actor_uid)";
+            $params['target_uid'] = (int)$filters['user_id'];
+            $params['actor_uid'] = (int)$filters['user_id'];
         }
 
         if (!empty($filters['action'])) {
