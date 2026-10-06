@@ -116,6 +116,11 @@
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
 
+                                <!-- Lead Permissions Button -->
+                                <a href="<?= url("/admin/users/{$u->id}/permissions") ?>" class="btn btn-sm btn-outline-info" title="Manage Lead Permissions & RBAC">
+                                    <i class="fa-solid fa-user-shield"></i>
+                                </a>
+
                                 <?php if ($u->id !== auth_user()->id): ?>
                                     <!-- Suspend / Activate Toggle -->
                                     <form action="<?= url("/admin/users/{$u->id}/toggle") ?>" method="POST" class="d-inline">

@@ -303,6 +303,26 @@ class User {
         return (int)($this->can_bulk_send ?? 0) === 1;
     }
 
+    public function hasPermission(string $permissionKey): bool {
+        return UserLeadPermission::hasPermission($this->id, $permissionKey);
+    }
+
+    public function hasLeadPermission(string $permissionKey): bool {
+        return $this->hasPermission($permissionKey);
+    }
+
+    public function getLeadPermissions(): array {
+        return UserLeadPermission::getPermissionsForUser($this->id);
+    }
+
+    public function setLeadPermission(string $permissionKey, bool $granted, ?int $grantedBy = null): bool {
+        return UserLeadPermission::setPermission($this->id, $permissionKey, $granted, $grantedBy);
+    }
+
+    public function applyLeadRolePreset(string $preset, ?int $grantedBy = null): void {
+        UserLeadPermission::applyPreset($this->id, $preset, $grantedBy);
+    }
+
     public static function fromRow(array $row): self {
         $user = new self();
         $user->id = (int)$row['id'];

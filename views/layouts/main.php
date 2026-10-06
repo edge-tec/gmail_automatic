@@ -82,6 +82,30 @@ if (auth_user() && (auth_user()->role ?? '') === 'admin') {
                     </a>
                 </li>
                 <?php endif; ?>
+                <?php if (auth_user() && auth_user()->hasLeadPermission('leads.view')): ?>
+                <li>
+                    <a href="<?= url('/leads') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/leads') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-address-book text-success"></i>
+                        <span>Lead Management</span>
+                    </a>
+                </li>
+                <?php endif; ?>
+                <?php if (auth_user() && auth_user()->hasLeadPermission('lead_files.view')): ?>
+                <li>
+                    <a href="<?= url('/lead-files') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/lead-files') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-folder-tree text-info"></i>
+                        <span>Lead Files &amp; Storage</span>
+                    </a>
+                </li>
+                <?php endif; ?>
+                <?php if (auth_user() && auth_user()->hasLeadPermission('lead_audit.view')): ?>
+                <li>
+                    <a href="<?= url('/lead-audit') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/lead-audit') ? 'active' : '' ?>">
+                        <i class="fa-solid fa-clipboard-list text-primary"></i>
+                        <span>Lead Audit Logs</span>
+                    </a>
+                </li>
+                <?php endif; ?>
                 <li>
                     <a href="<?= url('/rules') ?>" class="nav-link <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/rules') ? 'active' : '' ?>">
                         <i class="fa-solid fa-filter text-info"></i>

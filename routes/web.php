@@ -217,3 +217,36 @@ $router->post('/admin/seo/ai-search', 'AdminSeoController@updateAiSearch', [Admi
 $router->get('/admin/seo/sitemap-robots', 'AdminSeoController@sitemapRobots', [AdminMiddleware::class]);
 $router->post('/admin/seo/robots', 'AdminSeoController@updateRobots', [AdminMiddleware::class, CSRFMiddleware::class]);
 
+// Lead Management System Routes
+$router->get('/leads', 'LeadController@index', [AuthMiddleware::class]);
+$router->post('/leads', 'LeadController@store', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->get('/leads/export', 'LeadController@export', [AuthMiddleware::class]);
+$router->post('/leads/import', 'LeadController@import', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/leads/bulk-delete', 'LeadController@bulkDelete', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/leads/clear', 'LeadController@clear', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->get('/leads/operations', 'LeadController@operations', [AuthMiddleware::class]);
+$router->get('/leads/{id}', 'LeadController@show', [AuthMiddleware::class]);
+$router->post('/leads/{id}/update', 'LeadController@update', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/leads/{id}/archive', 'LeadController@archive', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/leads/{id}/restore', 'LeadController@restore', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/leads/{id}/delete', 'LeadController@destroy', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->delete('/leads/{id}', 'LeadController@destroy', [AuthMiddleware::class, CSRFMiddleware::class]);
+
+// Lead Files & Storage Management Routes
+$router->get('/lead-files', 'LeadFileController@index', [AuthMiddleware::class]);
+$router->post('/lead-files/upload', 'LeadFileController@upload', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->get('/lead-files/scan', 'LeadFileController@scan', [AuthMiddleware::class]);
+$router->post('/lead-files/scan', 'LeadFileController@scan', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/lead-files/cleanup', 'LeadFileController@cleanup', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/lead-files/retry', 'LeadFileController@retryFailed', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->post('/lead-files/{id}/delete', 'LeadFileController@deleteFile', [AuthMiddleware::class, CSRFMiddleware::class]);
+$router->delete('/lead-files/{id}', 'LeadFileController@deleteFile', [AuthMiddleware::class, CSRFMiddleware::class]);
+
+// Lead Audit Trail Routes
+$router->get('/lead-audit', 'LeadAuditController@index', [AuthMiddleware::class]);
+
+// Admin User Lead Permissions
+$router->get('/admin/users/{id}/permissions', 'LeadPermissionController@show', [AdminMiddleware::class]);
+$router->post('/admin/users/{id}/permissions', 'LeadPermissionController@update', [AdminMiddleware::class, CSRFMiddleware::class]);
+$router->post('/admin/users/{id}/permissions/preset', 'LeadPermissionController@applyPreset', [AdminMiddleware::class, CSRFMiddleware::class]);
+

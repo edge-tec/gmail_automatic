@@ -13,6 +13,14 @@ class Router {
         $this->addRoute('POST', $path, $action, $middleware);
     }
 
+    public function put(string $path, string|array|callable $action, array $middleware = []): void {
+        $this->addRoute('PUT', $path, $action, $middleware);
+    }
+
+    public function delete(string $path, string|array|callable $action, array $middleware = []): void {
+        $this->addRoute('DELETE', $path, $action, $middleware);
+    }
+
     public function any(string $path, string|array|callable $action, array $middleware = []): void {
         $this->addRoute('GET', $path, $action, $middleware);
         $this->addRoute('POST', $path, $action, $middleware);

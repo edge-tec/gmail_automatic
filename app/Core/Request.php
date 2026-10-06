@@ -52,7 +52,16 @@ class Request {
     }
 
     public function getMethod(): string {
-        return strtoupper($this->server['REQUEST_METHOD'] ?? 'GET');
+        $method = strtoupper($this->server['REQUEST_METHOD'] ?? 'GET');
+        if ($method === 'POST') {
+            if (!empty($this->post['_method'])) {
+                return strtoupper((string)$this->post['_method']);
+            }
+            if (!empty($this->server['HTTP_X_HTTP_METHOD_OVERRIDE'])) {
+                return strtoupper((string)$this->server['HTTP_X_HTTP_METHOD_OVERRIDE']);
+            }
+        }
+        return $method;
     }
 
     public function getPath(): string {
