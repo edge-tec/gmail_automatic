@@ -21,6 +21,13 @@ class AuthController {
     public function login(Request $request): void {
         $email = trim($request->input('email', ''));
         $password = $request->input('password', '');
+        $clientIp = $this->resolveClientIp();
+
+        if (!\App\Services\Turnstile::verify((string)$request->input('cf-turnstile-response', ''), $clientIp)) {
+            flash('error', 'Please complete the security check ("I am human") and try again.');
+            redirect('/login');
+            return;
+        }
 
         if (empty($email) || empty($password)) {
             flash('error', 'Please enter email and password.');
@@ -63,7 +70,7 @@ class AuthController {
             return;
         }
 
-        $clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        $clientIp = $this->resolveClientIp();
 
         // Cloudflare Turnstile bot check (only enforced when keys are configured in .env)
         if (!\App\Services\Turnstile::verify((string)$request->input('cf-turnstile-response', ''), $clientIp)) {
@@ -176,5 +183,13 @@ class AuthController {
         Auth::logout();
         flash('success', 'You have been logged out.');
         redirect('/login');
+    }
+
+    private function resolveClientIp(): string {
+        $cfIp = trim((string)($_SERVER['HTTP_CF_CONNECTING_IP'] ?? ''));
+        if ($cfIp !== '' && filter_var($cfIp, FILTER_VALIDATE_IP)) {
+            return $cfIp;
+        }
+        return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     }
 }
