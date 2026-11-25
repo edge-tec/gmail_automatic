@@ -2,6 +2,7 @@
 /.env
 /storage/database/*.sqlite
 /storage/logs/*.log
+/storage/logs/.schema_sync_*
 /storage/sessions/*
 !/storage/sessions/.gitkeep
 /storage/installed.lock
