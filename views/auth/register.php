@@ -3,7 +3,11 @@
 
 <form action="<?= url('/register') ?>" method="POST">
     <?= csrf_field() ?>
-    
+    <div style="position:absolute;left:-9999px;" aria-hidden="true">
+        <label>Website</label>
+        <input type="text" name="website" tabindex="-1" autocomplete="off">
+    </div>
+
     <div class="mb-3">
         <label class="form-label small fw-semibold">Full Name</label>
         <div class="input-group">

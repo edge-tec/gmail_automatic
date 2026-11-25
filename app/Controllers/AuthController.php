@@ -56,8 +56,28 @@ class AuthController {
         $passwordConfirm = $request->input('password_confirmation', '');
         $startTrial = $request->input('start_trial', '1') === '1';
 
+        // Anti-spam: honeypot field (real users never see/fill it)
+        if (trim((string)$request->input('website', '')) !== '') {
+            flash('error', 'Registration could not be completed.');
+            redirect('/register');
+            return;
+        }
+
         if (empty($name) || empty($email) || empty($password)) {
             flash('error', 'All fields are required.');
+            redirect('/register');
+            return;
+        }
+
+        if (\App\Services\SpamGuard::isSpamName($name) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            flash('error', 'Please enter your real name (no links or promotional text) and a valid email address.');
+            redirect('/register');
+            return;
+        }
+
+        $clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        if (!\App\Services\SpamGuard::allowRegistration($clientIp)) {
+            flash('error', 'Too many registration attempts. Please try again later.');
             redirect('/register');
             return;
         }
