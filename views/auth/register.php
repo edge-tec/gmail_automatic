@@ -40,6 +40,8 @@
         </div>
     </div>
 
+    <?= \App\Services\Turnstile::widget() ?>
+
     <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold mb-3">
         Register Account <i class="fa-solid fa-arrow-right ms-1"></i>
     </button>

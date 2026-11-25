@@ -63,6 +63,15 @@ class AuthController {
             return;
         }
 
+        $clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+
+        // Cloudflare Turnstile bot check (only enforced when keys are configured in .env)
+        if (!\App\Services\Turnstile::verify((string)$request->input('cf-turnstile-response', ''), $clientIp)) {
+            flash('error', 'Please complete the security check ("I am human") and try again.');
+            redirect('/register');
+            return;
+        }
+
         if (empty($name) || empty($email) || empty($password)) {
             flash('error', 'All fields are required.');
             redirect('/register');
@@ -75,7 +84,6 @@ class AuthController {
             return;
         }
 
-        $clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
         if (!\App\Services\SpamGuard::allowRegistration($clientIp)) {
             flash('error', 'Too many registration attempts. Please try again later.');
             redirect('/register');
