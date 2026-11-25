@@ -13,6 +13,11 @@ class MigrationRunner {
         $schemaFile = __DIR__ . '/migrations/schema.sql';
         $sql = file_get_contents($schemaFile);
 
+        $logFile = dirname(__DIR__) . '/storage/logs/php-error.log';
+        if (!is_dir(dirname($logFile))) {
+            @mkdir(dirname($logFile), 0775, true);
+        }
+
         if ($driver === 'sqlite') {
             $statements = self::convertMysqlToSqlite($sql);
             foreach ($statements as $stmt) {
@@ -20,7 +25,7 @@ class MigrationRunner {
                     try {
                         $db->exec($stmt);
                     } catch (\Throwable $e) {
-                        error_log("MigrationRunner SQLite statement notice: " . $e->getMessage());
+                        @error_log("MigrationRunner SQLite statement notice: " . $e->getMessage() . "\n", 3, $logFile);
                     }
                 }
             }
@@ -33,7 +38,7 @@ class MigrationRunner {
                     try {
                         $db->exec($stmt);
                     } catch (\Throwable $e) {
-                        error_log("MigrationRunner statement notice: " . $e->getMessage());
+                        @error_log("MigrationRunner statement notice: " . $e->getMessage() . "\n", 3, $logFile);
                     }
                 }
             }
@@ -43,7 +48,7 @@ class MigrationRunner {
         try {
             SeedData::run();
         } catch (\Throwable $e) {
-            error_log("MigrationRunner SeedData notice: " . $e->getMessage());
+            @error_log("MigrationRunner SeedData notice: " . $e->getMessage() . "\n", 3, $logFile);
         }
     }
 

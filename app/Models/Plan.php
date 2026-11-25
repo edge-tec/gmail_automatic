@@ -96,12 +96,12 @@ class Plan {
 
     public static function fromRow(array $row): self {
         $p = new self();
-        $p->id = (int)$row['id'];
-        $p->slug = $row['slug'];
-        $p->name = $row['name'];
-        $p->price = (float)$row['price'];
-        $p->billing_period = $row['billing_period'];
-        $p->gmail_limit = (int)$row['gmail_limit'];
+        $p->id = (int)($row['id'] ?? 0);
+        $p->slug = (string)($row['slug'] ?? '');
+        $p->name = (string)($row['name'] ?? 'Plan');
+        $p->price = (float)($row['price'] ?? 0);
+        $p->billing_period = (string)($row['billing_period'] ?? 'monthly');
+        $p->gmail_limit = (int)($row['gmail_limit'] ?? 1);
         $p->features = $row['features'] ?? null;
         $p->stripe_price_id = $row['stripe_price_id'] ?? null;
         $p->is_popular = (bool)($row['is_popular'] ?? false);

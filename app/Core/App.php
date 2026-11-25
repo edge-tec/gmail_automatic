@@ -6,11 +6,24 @@ class App {
     private Request $request;
 
     public function __construct() {
+        $this->configureErrorLogging();
         $this->loadEnvironment();
         $this->setTimezone();
         DatabaseSanitizer::runOnce();
         $this->router = new Router();
         $this->request = new Request();
+    }
+
+    private function configureErrorLogging(): void {
+        $logDir = storage_path('logs');
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0775, true);
+        }
+        if (is_dir($logDir) && is_writable($logDir)) {
+            @ini_set('log_errors', '1');
+            @ini_set('display_errors', '0');
+            @ini_set('error_log', $logDir . '/php-error.log');
+        }
     }
 
     private function loadEnvironment(): void {
@@ -49,7 +62,13 @@ class App {
     }
 
     private function handleException(\Throwable $e): void {
-        error_log("Application Exception: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+        $logMessage = '[' . date('Y-m-d H:i:s') . '] Application Exception: ' . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n";
+        $logDir = storage_path('logs');
+        if (is_dir($logDir) && is_writable($logDir)) {
+            @error_log($logMessage, 3, $logDir . '/php-error.log');
+        } else {
+            @error_log("Application Exception: " . substr($e->getMessage(), 0, 500));
+        }
 
         http_response_code(500);
         if (config('app.debug', false)) {

@@ -249,6 +249,14 @@ class User {
         return $this->role === 'admin' || $this->hasActiveSubscription() || $this->isTrialActive();
     }
 
+    private static ?int $cachedTrialGmailLimit = null;
+    private static array $planSlugCache = [];
+
+    public static function clearRuntimeCache(): void {
+        self::$cachedTrialGmailLimit = null;
+        self::$planSlugCache = [];
+    }
+
     /**
      * Maximum allowed connected Gmail accounts
      */
@@ -260,7 +268,10 @@ class User {
             return max($this->gmail_limit, 100);
         }
         if ($this->isTrialActive()) {
-            return max($this->gmail_limit, (int)SystemSetting::get('trial_gmail_limit', '5'));
+            if (self::$cachedTrialGmailLimit === null) {
+                self::$cachedTrialGmailLimit = (int)SystemSetting::get('trial_gmail_limit', '5');
+            }
+            return max($this->gmail_limit, self::$cachedTrialGmailLimit);
         }
         return max($this->gmail_limit, 1);
     }
@@ -290,21 +301,39 @@ class User {
         if ($this->role === 'admin') {
             return true;
         }
+        if ((int)($this->can_bulk_send ?? 0) === 1) {
+            return true;
+        }
         // Active Professional Plan subscribers automatically receive bulk sender access
         if ($this->hasActiveSubscription()) {
             if ($this->plan_type === 'professional') {
                 return true;
             }
-            $plan = $this->getPlan();
-            if ($plan && $plan->slug === 'professional') {
-                return true;
+            if ($this->plan_id) {
+                if (!array_key_exists($this->plan_id, self::$planSlugCache)) {
+                    $plan = $this->getPlan();
+                    self::$planSlugCache[$this->plan_id] = $plan ? $plan->slug : '';
+                }
+                if (self::$planSlugCache[$this->plan_id] === 'professional') {
+                    return true;
+                }
             }
         }
-        return (int)($this->can_bulk_send ?? 0) === 1;
+        return false;
     }
 
     public function hasPermission(string $permissionKey): bool {
-        return UserLeadPermission::hasPermission($this->id, $permissionKey);
+        if ($this->role === 'admin') {
+            return true;
+        }
+        try {
+            if (!class_exists(UserLeadPermission::class)) {
+                return false;
+            }
+            return UserLeadPermission::hasPermission($this->id, $permissionKey);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     public function hasLeadPermission(string $permissionKey): bool {
@@ -325,18 +354,18 @@ class User {
 
     public static function fromRow(array $row): self {
         $user = new self();
-        $user->id = (int)$row['id'];
-        $user->name = $row['name'];
-        $user->email = $row['email'];
-        $user->password = $row['password'];
-        $user->role = $row['role'] ?? 'user';
-        $user->status = $row['status'] ?? 'active';
-        $user->plan_id = isset($row['plan_id']) ? (int)$row['plan_id'] : null;
-        $user->plan_type = $row['plan_type'] ?? 'free';
-        $user->subscription_status = $row['subscription_status'] ?? 'inactive';
+        $user->id = (int)($row['id'] ?? 0);
+        $user->name = (string)($row['name'] ?? 'Unknown User');
+        $user->email = (string)($row['email'] ?? '');
+        $user->password = (string)($row['password'] ?? '');
+        $user->role = (string)($row['role'] ?? 'user');
+        $user->status = (string)($row['status'] ?? 'active');
+        $user->plan_id = isset($row['plan_id']) && $row['plan_id'] !== '' ? (int)$row['plan_id'] : null;
+        $user->plan_type = (string)($row['plan_type'] ?? 'free');
+        $user->subscription_status = (string)($row['subscription_status'] ?? 'inactive');
         $user->gmail_limit = (int)($row['gmail_limit'] ?? 1);
         $user->can_bulk_send = (int)($row['can_bulk_send'] ?? 0);
-        $user->trial_status = $row['trial_status'] ?? 'not_started';
+        $user->trial_status = (string)($row['trial_status'] ?? 'not_started');
         $user->trial_started_at = $row['trial_started_at'] ?? null;
         $user->trial_ends_at = $row['trial_ends_at'] ?? null;
         $user->trial_days = (int)($row['trial_days'] ?? 0);

@@ -98,10 +98,49 @@ class AdminController {
         ]);
     }
 
-    public function users(): string {
-        $users = User::all();
+    public function users(?Request $request = null): string {
+        $search = trim((string)($request ? $request->input('q', '') : ''));
+        $page = max(1, (int)($request ? $request->input('page', 1) : 1));
+        $perPage = 25;
+
+        $whereParts = [];
+        $params = [];
+        if ($search !== '') {
+            $orParts = ['name LIKE :q_name', 'email LIKE :q_email'];
+            $params['q_name'] = '%' . $search . '%';
+            $params['q_email'] = '%' . $search . '%';
+            $cleanId = ltrim($search, '#');
+            if ($cleanId !== '' && ctype_digit($cleanId)) {
+                $orParts[] = 'id = :q_id';
+                $params['q_id'] = (int)$cleanId;
+            }
+            $whereParts[] = '(' . implode(' OR ', $orParts) . ')';
+        }
+
+        $whereSql = !empty($whereParts) ? ('WHERE ' . implode(' AND ', $whereParts)) : '';
+        $totalUsers = (int)(Database::first("SELECT COUNT(*) as c FROM users {$whereSql}", $params)['c'] ?? 0);
+        $totalPages = max(1, (int)ceil($totalUsers / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+
+        $rows = Database::query(
+            "SELECT * FROM users {$whereSql} ORDER BY id DESC LIMIT {$perPage} OFFSET {$offset}",
+            $params
+        );
+        $users = array_map([User::class, 'fromRow'], $rows);
         $plans = Plan::all();
-        return View::render('admin/users', ['users' => $users, 'plans' => $plans]);
+
+        return View::render('admin/users', [
+            'users' => $users,
+            'plans' => $plans,
+            'search' => $search,
+            'page' => $page,
+            'perPage' => $perPage,
+            'totalUsers' => $totalUsers,
+            'totalPages' => $totalPages,
+        ]);
     }
 
     public function createUser(Request $request): void {

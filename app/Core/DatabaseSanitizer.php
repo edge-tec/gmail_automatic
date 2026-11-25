@@ -10,21 +10,41 @@ class DatabaseSanitizer {
 
     public static function run(): void {
         self::$hasRun = false;
-        self::runOnce();
+        self::runOnce(true);
     }
 
-    public static function runOnce(): void {
+    public static function runOnce(bool $force = false): void {
         if (self::$hasRun) {
             return;
         }
         self::$hasRun = true;
+
+        $driver = config('database.default', 'mysql');
+        $isTesting = defined('TESTING') || getenv('APP_ENV') === 'testing' || (($_ENV['APP_ENV'] ?? '') === 'testing') || $driver === 'sqlite';
+        $stampFile = null;
+
+        if (!$force && !$isTesting) {
+            $logDir = storage_path('logs');
+            if (!is_dir($logDir)) {
+                @mkdir($logDir, 0775, true);
+            }
+            if (is_dir($logDir) && is_writable($logDir)) {
+                $schemaFile = base_path('database/migrations/schema.sql');
+                $stampHash = md5(__FILE__ . ':' . @filemtime(__FILE__) . ':' . @filemtime($schemaFile) . ':' . date('Y-m-d-H'));
+                $stampFile = $logDir . '/.schema_sync_' . $stampHash;
+                if (file_exists($stampFile)) {
+                    return;
+                }
+            }
+        }
 
         try {
             // 0. Ensure schema migrations and seeds are up to date
             try {
                 \Database\MigrationRunner::run();
             } catch (\Throwable $t) {
-                error_log("Notice: MigrationRunner non-critical error: " . $t->getMessage());
+                $errLog = storage_path('logs/php-error.log');
+                @error_log('[' . date('Y-m-d H:i:s') . '] Notice: MigrationRunner non-critical error: ' . $t->getMessage() . "\n", 3, $errLog);
             }
 
             // Safe ALTER for existing users table on MySQL
@@ -738,6 +758,15 @@ class DatabaseSanitizer {
                         ]);
                     }
                 } catch (\Throwable $t) {}
+            }
+
+            if ($stampFile !== null) {
+                foreach (glob(dirname($stampFile) . '/.schema_sync_*') ?: [] as $oldStamp) {
+                    if ($oldStamp !== $stampFile) {
+                        @unlink($oldStamp);
+                    }
+                }
+                @file_put_contents($stampFile, date('c'));
             }
 
         } catch (\Throwable $e) {
