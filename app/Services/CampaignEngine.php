@@ -121,7 +121,7 @@ class CampaignEngine {
             $renderedSubject = self::renderVariables($message->subject, $recipient, $unsubUrl);
 
             // Double check rendered body is non-empty
-            $cleanBody = trim(strip_tags($renderedBody));
+            $cleanBody = trim(strip_tags($renderedBody, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
             if (empty($cleanBody)) {
                 $recipient->resetToPending();
                 logger("Rendered message body is empty for recipient {$recipient->email}. Send aborted.", 'warning', $campaign->user_id);

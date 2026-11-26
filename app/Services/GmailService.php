@@ -546,28 +546,12 @@ class GmailService {
         }
 
         $isHtml = (strip_tags($bodyText) !== $bodyText || str_contains($bodyText, '<') || str_contains($bodyText, 'http'));
-        
+
         $replyHeaders = [];
         $replyHeaders[] = "From: <{$fromEmail}>";
         $replyHeaders[] = "To: <{$toEmail}>";
         $replyHeaders[] = "Subject: =?UTF-8?B?" . base64_encode($replySubject) . "?=";
         $replyHeaders[] = "MIME-Version: 1.0";
-        
-        if ($isHtml) {
-            $replyHeaders[] = "Content-Type: text/html; charset=UTF-8";
-            // Ensure basic HTML wrapper if not present
-            if (!str_contains($bodyText, '<html')) {
-                $htmlBody = "<div style=\"font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #222222;\">" . $bodyText . "</div>";
-            } else {
-                $htmlBody = $bodyText;
-            }
-            $formattedBody = $htmlBody;
-        } else {
-            $replyHeaders[] = "Content-Type: text/plain; charset=UTF-8";
-            $formattedBody = $bodyText;
-        }
-        
-        $replyHeaders[] = "Content-Transfer-Encoding: 8bit";
 
         if ($inReplyToMessageIdHeader) {
             $replyHeaders[] = "In-Reply-To: {$inReplyToMessageIdHeader}";
@@ -575,7 +559,12 @@ class GmailService {
             $replyHeaders[] = "References: {$ref}";
         }
 
-        $rawMime = implode("\r\n", $replyHeaders) . "\r\n\r\n" . $formattedBody;
+        $mimePayload = self::buildMimePayload($bodyText, $isHtml);
+        foreach ($mimePayload['headers'] as $hdr) {
+            $replyHeaders[] = $hdr;
+        }
+
+        $rawMime = implode("\r\n", $replyHeaders) . "\r\n\r\n" . $mimePayload['body'];
 
         // Enforce Google Gmail API RFC 2822 payload size limit (25 MB)
         $maxMimeSize = 25 * 1024 * 1024;
@@ -642,26 +631,16 @@ class GmailService {
         $headers[] = "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=";
         $headers[] = "MIME-Version: 1.0";
 
-        if ($isHtml) {
-            $headers[] = "Content-Type: text/html; charset=UTF-8";
-            if (!str_contains($bodyText, '<html')) {
-                $htmlBody = "<div style=\"font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #222222;\">" . $bodyText . "</div>";
-            } else {
-                $htmlBody = $bodyText;
-            }
-            $formattedBody = $htmlBody;
-        } else {
-            $headers[] = "Content-Type: text/plain; charset=UTF-8";
-            $formattedBody = $bodyText;
-        }
-
-        $headers[] = "Content-Transfer-Encoding: 8bit";
-
         foreach ($extraHeaders as $k => $v) {
             $headers[] = "{$k}: {$v}";
         }
 
-        $rawMime = implode("\r\n", $headers) . "\r\n\r\n" . $formattedBody;
+        $mimePayload = self::buildMimePayload($bodyText, $isHtml);
+        foreach ($mimePayload['headers'] as $hdr) {
+            $headers[] = $hdr;
+        }
+
+        $rawMime = implode("\r\n", $headers) . "\r\n\r\n" . $mimePayload['body'];
         $mimeSize = strlen($rawMime);
         if ($mimeSize > $maxMimeSize) {
             $formattedMB = round($mimeSize / (1024 * 1024), 2);
@@ -689,6 +668,172 @@ class GmailService {
             'id' => $sentMessage->getId(),
             'thread_id' => $sentMessage->getThreadId(),
             'label_ids' => $sentMessage->getLabelIds() ?? [],
+        ];
+    }
+
+    /**
+     * Build MIME headers & body, embedding any local /uploads/... or data:image/... <img> tags
+     * as RFC 2387 multipart/related inline CID attachments so Gmail always renders them.
+     */
+    public static function buildMimePayload(string $bodyText, bool $isHtml): array {
+        if (!$isHtml) {
+            return [
+                'headers' => [
+                    'Content-Type: text/plain; charset=UTF-8',
+                    'Content-Transfer-Encoding: 8bit',
+                ],
+                'body' => $bodyText,
+                'inline_count' => 0,
+            ];
+        }
+
+        $htmlBody = !str_contains($bodyText, '<html')
+            ? '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #222222;">' . $bodyText . '</div>'
+            : $bodyText;
+
+        $inlineImages = [];
+        $cidCache = [];
+
+        $processedHtml = preg_replace_callback(
+            '/<img\b([^>]*?)\bsrc\s*=\s*(["\'])([^"\']+)\2([^>]*)>/i',
+            function (array $matches) use (&$inlineImages, &$cidCache) {
+                $before = $matches[1];
+                $quote = $matches[2];
+                $src = html_entity_decode($matches[3], ENT_QUOTES, 'UTF-8');
+                $after = $matches[4];
+
+                // Never inline open-tracking pixels
+                if (str_contains($src, '/tracking/open/')) {
+                    return $matches[0];
+                }
+
+                $resolved = self::resolveInlineImageSource($src);
+                if ($resolved === null) {
+                    return $matches[0];
+                }
+
+                $cacheKey = sha1($resolved['bytes']);
+                if (!isset($cidCache[$cacheKey])) {
+                    $cid = 'img_' . bin2hex(random_bytes(8)) . '@gmailauto.local';
+                    $cidCache[$cacheKey] = $cid;
+                    $inlineImages[] = [
+                        'cid' => $cid,
+                        'mime' => $resolved['mime'],
+                        'filename' => $resolved['filename'],
+                        'bytes' => $resolved['bytes'],
+                    ];
+                } else {
+                    $cid = $cidCache[$cacheKey];
+                }
+
+                $attrs = $before . 'src=' . $quote . 'cid:' . $cid . $quote . $after;
+                if (!preg_match('/\bstyle\s*=/i', $attrs)) {
+                    $attrs .= ' style="max-width:100%;height:auto;display:block;margin:10px 0;border-radius:6px;"';
+                }
+                return '<img' . $attrs . '>';
+            },
+            $htmlBody
+        ) ?? $htmlBody;
+
+        if (empty($inlineImages)) {
+            return [
+                'headers' => [
+                    'Content-Type: text/html; charset=UTF-8',
+                    'Content-Transfer-Encoding: 8bit',
+                ],
+                'body' => $processedHtml,
+                'inline_count' => 0,
+            ];
+        }
+
+        $boundary = '=_rel_' . bin2hex(random_bytes(12));
+        $parts = [];
+
+        $parts[] = "--{$boundary}\r\n"
+            . "Content-Type: text/html; charset=UTF-8\r\n"
+            . "Content-Transfer-Encoding: base64\r\n\r\n"
+            . chunk_split(base64_encode($processedHtml));
+
+        foreach ($inlineImages as $img) {
+            $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $img['filename']);
+            $parts[] = "--{$boundary}\r\n"
+                . "Content-Type: {$img['mime']}; name=\"{$safeName}\"\r\n"
+                . "Content-Transfer-Encoding: base64\r\n"
+                . "Content-Disposition: inline; filename=\"{$safeName}\"\r\n"
+                . "Content-ID: <{$img['cid']}>\r\n\r\n"
+                . chunk_split(base64_encode($img['bytes']));
+        }
+
+        $parts[] = "--{$boundary}--";
+
+        return [
+            'headers' => [
+                "Content-Type: multipart/related; boundary=\"{$boundary}\"",
+            ],
+            'body' => implode("\r\n", $parts),
+            'inline_count' => count($inlineImages),
+        ];
+    }
+
+    /**
+     * Resolve an <img src> value to raw bytes + MIME type if it is a data URI or local /uploads/ file.
+     */
+    private static function resolveInlineImageSource(string $src): ?array {
+        if (preg_match('/^data:(image\/(?:png|jpeg|jpg|gif|webp));base64,(.+)$/is', trim($src), $m)) {
+            $mime = strtolower($m[1]);
+            if ($mime === 'image/jpg') {
+                $mime = 'image/jpeg';
+            }
+            $bytes = base64_decode(preg_replace('/\s+/', '', $m[2]), true);
+            if ($bytes === false || $bytes === '') {
+                return null;
+            }
+            $extMap = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/gif' => 'gif', 'image/webp' => 'webp'];
+            return [
+                'mime' => $mime,
+                'filename' => 'inline_image.' . ($extMap[$mime] ?? 'png'),
+                'bytes' => $bytes,
+            ];
+        }
+
+        $path = str_starts_with($src, '/') ? $src : (parse_url($src, PHP_URL_PATH) ?: '');
+        $path = '/' . ltrim($path, '/');
+        if (!str_starts_with($path, '/uploads/')) {
+            return null;
+        }
+
+        $uploadsBase = realpath(public_path('uploads'));
+        $candidate = realpath(public_path(ltrim($path, '/')));
+        if ($uploadsBase === false || $candidate === false || !str_starts_with($candidate, $uploadsBase . DIRECTORY_SEPARATOR) || !is_file($candidate)) {
+            return null;
+        }
+
+        $bytes = @file_get_contents($candidate);
+        if ($bytes === false || $bytes === '') {
+            return null;
+        }
+
+        $ext = strtolower(pathinfo($candidate, PATHINFO_EXTENSION));
+        $mimeMap = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'];
+        $mime = $mimeMap[$ext] ?? null;
+        if ($mime === null && function_exists('finfo_open')) {
+            $finfo = @finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo) {
+                $detected = (string)@finfo_file($finfo, $candidate);
+                unset($finfo);
+                if (str_starts_with($detected, 'image/')) {
+                    $mime = $detected;
+                }
+            }
+        }
+        if ($mime === null) {
+            return null;
+        }
+
+        return [
+            'mime' => $mime,
+            'filename' => basename($candidate),
+            'bytes' => $bytes,
         ];
     }
 

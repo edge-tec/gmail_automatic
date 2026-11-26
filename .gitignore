@@ -13,4 +13,6 @@ scratch/
 .phpunit.result.cache
 /storage/framework/*
 !/storage/framework/.gitkeep
+/public/uploads/*
+!/public/uploads/.gitkeep
 

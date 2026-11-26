@@ -3,6 +3,7 @@ namespace App\Controllers;
 
 use App\Core\Auth;
 use App\Core\Request;
+use App\Core\Response;
 use App\Core\View;
 use App\Models\GmailAccount;
 use App\Models\GlobalAutomationSetting;
@@ -316,5 +317,97 @@ class GlobalAutomationController {
 
         flash('success', 'Global schedule, limits, and behavior rules updated successfully!');
         redirect('/settings/automation/global#tab-settings');
+    }
+
+    /**
+     * Upload an image for Global Auto-Reply or Follow-up message variations
+     */
+    public function uploadImage(Request $request): void {
+        $user = Auth::user();
+        if (!$user) {
+            Response::json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $file = $_FILES['image'] ?? null;
+        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            Response::json(['success' => false, 'message' => 'Please select a valid image file to upload.'], 422);
+        }
+
+        try {
+            $result = self::storeUploadedImage((int)$user->id, $file);
+            Response::json($result, 200);
+        } catch (\Throwable $e) {
+            Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * Validate and persist an uploaded automation image under public/uploads/automation/{userId}/
+     */
+    public static function storeUploadedImage(int $userId, array $file): array {
+        $maxBytes = 5 * 1024 * 1024; // 5 MB
+        $size = (int)($file['size'] ?? 0);
+        if ($size <= 0 || $size > $maxBytes) {
+            throw new \RuntimeException('Image size must be between 1 byte and 5 MB.');
+        }
+
+        $tmpPath = (string)($file['tmp_name'] ?? '');
+        if ($tmpPath === '' || !file_exists($tmpPath)) {
+            throw new \RuntimeException('Uploaded file could not be read.');
+        }
+
+        $mime = '';
+        if (function_exists('finfo_open')) {
+            $finfo = @finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo) {
+                $mime = (string)@finfo_file($finfo, $tmpPath);
+                unset($finfo);
+            }
+        }
+        if ($mime === '' && function_exists('getimagesize')) {
+            $info = @getimagesize($tmpPath);
+            $mime = (string)($info['mime'] ?? '');
+        }
+
+        $mimeMap = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+        ];
+        if (!isset($mimeMap[$mime])) {
+            throw new \RuntimeException('Unsupported image type. Allowed: PNG, JPG, GIF, WEBP.');
+        }
+
+        $ext = $mimeMap[$mime];
+        $uploadsRoot = public_path('uploads');
+        $targetDir = $uploadsRoot . DIRECTORY_SEPARATOR . 'automation' . DIRECTORY_SEPARATOR . $userId;
+        if (!is_dir($targetDir) && !@mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+            throw new \RuntimeException('Failed to create image upload directory.');
+        }
+
+        $htaccessPath = $uploadsRoot . DIRECTORY_SEPARATOR . '.htaccess';
+        if (!file_exists($htaccessPath)) {
+            @file_put_contents($htaccessPath, "<FilesMatch \"\\.(php|phtml|php3|php4|php5|phar)$\">\n    Require all denied\n</FilesMatch>\n");
+        }
+
+        $filename = 'img_' . bin2hex(random_bytes(8)) . '.' . $ext;
+        $destPath = $targetDir . DIRECTORY_SEPARATOR . $filename;
+
+        $moved = is_uploaded_file($tmpPath) ? @move_uploaded_file($tmpPath, $destPath) : @copy($tmpPath, $destPath);
+        if (!$moved || !file_exists($destPath)) {
+            throw new \RuntimeException('Failed to save uploaded image.');
+        }
+
+        @chmod($destPath, 0644);
+
+        $relativePath = '/uploads/automation/' . $userId . '/' . $filename;
+        return [
+            'success' => true,
+            'path' => $relativePath,
+            'url' => url($relativePath),
+            'mime' => $mime,
+            'size' => $size,
+        ];
     }
 }

@@ -680,11 +680,13 @@ class CampaignController {
             'status' => $status,
         ]);
 
-        // Message Variations update/add
+        // Message Variations update/add/delete
         $messageIds = $request->input('message_ids', []);
         $subjects = $request->input('subjects', []);
         $bodies = $request->input('bodies', []);
 
+        $validUpdates = [];
+        $keptIds = [];
         if (is_array($bodies)) {
             foreach ($bodies as $idx => $bodyText) {
                 $bClean = trim(strip_tags($bodyText, '<img><picture><figure><svg><video><audio><object><embed><canvas><hr><input>'));
@@ -692,24 +694,47 @@ class CampaignController {
 
                 $mId = (int)($messageIds[$idx] ?? 0);
                 $sText = trim($subjects[$idx] ?? '') ?: '(No Subject)';
+                $validUpdates[] = [
+                    'id' => $mId,
+                    'subject' => $sText,
+                    'body' => $bodyText,
+                ];
+            }
+        }
 
-                if ($mId > 0) {
-                    $msg = EmailCampaignMessage::find($mId);
-                    if ($msg && (int)$msg->campaign_id === (int)$campaign->id) {
-                        $msg->update([
-                            'subject' => $sText,
-                            'body' => $bodyText,
-                        ]);
-                    }
-                } else {
-                    EmailCampaignMessage::create([
-                        'campaign_id' => $campaign->id,
-                        'user_id' => $userId,
-                        'subject' => $sText,
-                        'body' => $bodyText,
-                        'status' => 'active',
+        if (empty($validUpdates)) {
+            flash('danger', 'At least one valid message variation is required. Zero fallback policy prevents leaving a campaign without active messages.');
+            redirect('/campaigns/' . $campaign->id . '/edit');
+            return;
+        }
+
+        foreach ($validUpdates as $item) {
+            if ($item['id'] > 0) {
+                $msg = EmailCampaignMessage::find($item['id']);
+                if ($msg && (int)$msg->campaign_id === (int)$campaign->id) {
+                    $msg->update([
+                        'subject' => $item['subject'],
+                        'body' => $item['body'],
                     ]);
+                    $keptIds[] = (int)$msg->id;
                 }
+            } else {
+                $createdMsg = EmailCampaignMessage::create([
+                    'campaign_id' => $campaign->id,
+                    'user_id' => $userId,
+                    'subject' => $item['subject'],
+                    'body' => $item['body'],
+                    'status' => 'active',
+                ]);
+                $keptIds[] = (int)$createdMsg->id;
+            }
+        }
+
+        // Remove any message variations that were deleted by the user in the Edit form
+        $existingMessages = EmailCampaignMessage::findByCampaignId($campaign->id);
+        foreach ($existingMessages as $existingMsg) {
+            if (!in_array((int)$existingMsg->id, $keptIds, true)) {
+                $existingMsg->delete();
             }
         }
 

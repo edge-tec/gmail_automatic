@@ -232,14 +232,25 @@ $connectedAccountsCount = count($accounts);
                                 </div>
                             </div>
 
-                            <!-- Variable Chips -->
-                            <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
-                                <span class="small text-muted me-1 fw-semibold">Insert:</span>
-                                <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
-                                <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
-                                <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
-                                <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
-                                <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+                            <!-- Variable Chips + Image Upload Bar -->
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
+                                <div class="d-flex align-items-center gap-1 flex-wrap">
+                                    <span class="small text-muted me-1 fw-semibold">Insert:</span>
+                                    <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
+                                    <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
+                                    <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
+                                    <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
+                                    <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="file" class="d-none var-image-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="handleVariationImageFile(this)">
+                                    <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold upload-var-image-btn" onclick="triggerVariationImageUpload(this)">
+                                        <i class="fa-regular fa-image me-1"></i> Upload Image
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2 remove-var-images-btn d-none" onclick="clearVariationImages(this)">
+                                        <i class="fa-solid fa-trash-can me-1"></i> Remove Image
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Quill Editor -->
@@ -381,14 +392,25 @@ $connectedAccountsCount = count($accounts);
                                 <input type="text" name="followup_steps[<?= $fStepNum ?>][variations][<?= $fvIndex ?>][subject]" value="<?= e($fv->subject ?? '') ?>" class="form-control form-control-sm" placeholder="e.g. Re: {{subject}}">
                             </div>
 
-                            <!-- Variable Chips -->
-                            <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
-                                <span class="small text-muted me-1 fw-semibold">Insert:</span>
-                                <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
-                                <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
-                                <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
-                                <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
-                                <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+                            <!-- Variable Chips + Image Upload Bar -->
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
+                                <div class="d-flex align-items-center gap-1 flex-wrap">
+                                    <span class="small text-muted me-1 fw-semibold">Insert:</span>
+                                    <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
+                                    <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
+                                    <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
+                                    <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
+                                    <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="file" class="d-none var-image-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="handleVariationImageFile(this)">
+                                    <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold upload-var-image-btn" onclick="triggerVariationImageUpload(this)">
+                                        <i class="fa-regular fa-image me-1"></i> Upload Image
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2 remove-var-images-btn d-none" onclick="clearVariationImages(this)">
+                                        <i class="fa-solid fa-trash-can me-1"></i> Remove Image
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Quill Editor -->
@@ -582,8 +604,106 @@ $connectedAccountsCount = count($accounts);
 <!-- Quill.js JS -->
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
 <script>
+const GLOBAL_IMAGE_UPLOAD_URL = '<?= url('/settings/automation/global/upload-image') ?>';
+const GLOBAL_CSRF_TOKEN = '<?= e(csrf_token()) ?>';
 let lastFocusedQuill = null;
 const quillInstances = new Map();
+
+function updateVariationImageButtonState(varBox, quill) {
+    if (!varBox || !quill) return;
+    const removeBtn = varBox.querySelector('.remove-var-images-btn');
+    if (!removeBtn) return;
+    const hasImg = quill.root.querySelector('img') !== null;
+    removeBtn.classList.toggle('d-none', !hasImg);
+}
+
+async function uploadImageAndInsert(file, quill, triggerBtn = null) {
+    if (!file || !quill) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+        alert('Please select a valid image file (PNG, JPG, GIF, or WEBP).');
+        return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        alert('Image must be smaller than 5 MB.');
+        return;
+    }
+
+    const originalHtml = triggerBtn ? triggerBtn.innerHTML : '';
+    if (triggerBtn) {
+        triggerBtn.disabled = true;
+        triggerBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Uploading...';
+    }
+
+    try {
+        const fd = new FormData();
+        fd.append('_token', GLOBAL_CSRF_TOKEN);
+        fd.append('image', file);
+
+        const res = await fetch(GLOBAL_IMAGE_UPLOAD_URL, {
+            method: 'POST',
+            body: fd,
+            headers: { 'X-CSRF-TOKEN': GLOBAL_CSRF_TOKEN }
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success || !data.url) {
+            throw new Error(data.message || 'Image upload failed.');
+        }
+
+        const range = quill.getSelection(true);
+        const index = range ? range.index : Math.max(0, quill.getLength() - 1);
+        quill.insertEmbed(index, 'image', data.url, 'user');
+        quill.setSelection(index + 1, 0);
+
+        const wrapper = quill.root.closest('.quill-editor-wrapper');
+        if (wrapper) {
+            const textarea = wrapper.querySelector('.quill-textarea');
+            if (textarea) textarea.value = quill.root.innerHTML;
+        }
+        updateVariationImageButtonState(quill.root.closest('.variation-box'), quill);
+    } catch (err) {
+        alert(err.message || 'Failed to upload image.');
+    } finally {
+        if (triggerBtn) {
+            triggerBtn.disabled = false;
+            triggerBtn.innerHTML = originalHtml;
+        }
+    }
+}
+
+function triggerVariationImageUpload(btn) {
+    const varBox = btn.closest('.variation-box');
+    const input = varBox ? varBox.querySelector('.var-image-input') : null;
+    if (input) {
+        input.value = '';
+        input.click();
+    }
+}
+
+function handleVariationImageFile(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const varBox = input.closest('.variation-box');
+    const editorDiv = varBox ? varBox.querySelector('.quill-editor') : null;
+    const quill = editorDiv ? quillInstances.get(editorDiv) : null;
+    const btn = varBox ? varBox.querySelector('.upload-var-image-btn') : null;
+    uploadImageAndInsert(file, quill, btn);
+}
+
+function clearVariationImages(btn) {
+    const varBox = btn.closest('.variation-box');
+    const editorDiv = varBox ? varBox.querySelector('.quill-editor') : null;
+    const quill = editorDiv ? quillInstances.get(editorDiv) : null;
+    if (!quill) return;
+    if (!confirm('Remove all images from this variation?')) return;
+    quill.root.querySelectorAll('img').forEach(img => img.remove());
+    const wrapper = editorDiv.closest('.quill-editor-wrapper');
+    if (wrapper) {
+        const textarea = wrapper.querySelector('.quill-textarea');
+        if (textarea) textarea.value = quill.root.innerHTML;
+    }
+    updateVariationImageButtonState(varBox, quill);
+}
 
 function initQuillForWrapper(wrapper) {
     const editorDiv = wrapper.querySelector('.quill-editor');
@@ -603,8 +723,34 @@ function initQuillForWrapper(wrapper) {
         }
     });
 
+    const toolbar = quill.getModule('toolbar');
+    if (toolbar) {
+        toolbar.addHandler('image', () => {
+            const varBox = editorDiv.closest('.variation-box');
+            const input = varBox ? varBox.querySelector('.var-image-input') : null;
+            if (input) {
+                input.value = '';
+                input.click();
+            } else {
+                const tempInput = document.createElement('input');
+                tempInput.type = 'file';
+                tempInput.accept = 'image/png,image/jpeg,image/gif,image/webp';
+                tempInput.onchange = () => {
+                    if (tempInput.files && tempInput.files[0]) {
+                        uploadImageAndInsert(tempInput.files[0], quill);
+                    }
+                };
+                tempInput.click();
+            }
+        });
+    }
+
+    const varBox = editorDiv.closest('.variation-box');
+    updateVariationImageButtonState(varBox, quill);
+
     quill.on('text-change', () => {
         textarea.value = quill.root.innerHTML;
+        updateVariationImageButtonState(varBox, quill);
     });
 
     quill.root.addEventListener('focus', () => {
@@ -700,13 +846,24 @@ function addReplyVariation(stepNum) {
                 </button>
             </div>
         </div>
-        <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
-            <span class="small text-muted me-1 fw-semibold">Insert:</span>
-            <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
-            <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
-            <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
-            <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
-            <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
+            <div class="d-flex align-items-center gap-1 flex-wrap">
+                <span class="small text-muted me-1 fw-semibold">Insert:</span>
+                <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
+                <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
+                <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
+                <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
+                <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <input type="file" class="d-none var-image-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="handleVariationImageFile(this)">
+                <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold upload-var-image-btn" onclick="triggerVariationImageUpload(this)">
+                    <i class="fa-regular fa-image me-1"></i> Upload Image
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2 remove-var-images-btn d-none" onclick="clearVariationImages(this)">
+                    <i class="fa-solid fa-trash-can me-1"></i> Remove Image
+                </button>
+            </div>
         </div>
         <div class="quill-editor-wrapper">
             <div class="quill-editor" style="min-height: 120px;"></div>
@@ -770,13 +927,24 @@ function addNewReplyStep() {
                         </button>
                     </div>
                 </div>
-                <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
-                    <span class="small text-muted me-1 fw-semibold">Insert:</span>
-                    <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
-                    <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
-                    <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
-                    <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
-                    <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+                <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
+                    <div class="d-flex align-items-center gap-1 flex-wrap">
+                        <span class="small text-muted me-1 fw-semibold">Insert:</span>
+                        <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
+                        <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
+                        <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
+                        <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
+                        <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="file" class="d-none var-image-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="handleVariationImageFile(this)">
+                        <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold upload-var-image-btn" onclick="triggerVariationImageUpload(this)">
+                            <i class="fa-regular fa-image me-1"></i> Upload Image
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2 remove-var-images-btn d-none" onclick="clearVariationImages(this)">
+                            <i class="fa-solid fa-trash-can me-1"></i> Remove Image
+                        </button>
+                    </div>
                 </div>
                 <div class="quill-editor-wrapper">
                     <div class="quill-editor" style="min-height: 120px;"></div>
@@ -827,13 +995,24 @@ function addFollowupVariation(stepNum) {
             <label class="form-label small text-muted mb-1 fw-semibold">Subject (Leave empty to keep thread subject):</label>
             <input type="text" name="followup_steps[${stepNum}][variations][${vIndex}][subject]" value="" class="form-control form-control-sm" placeholder="e.g. Re: {{subject}}">
         </div>
-        <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
-            <span class="small text-muted me-1 fw-semibold">Insert:</span>
-            <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
-            <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
-            <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
-            <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
-            <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
+            <div class="d-flex align-items-center gap-1 flex-wrap">
+                <span class="small text-muted me-1 fw-semibold">Insert:</span>
+                <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
+                <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
+                <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
+                <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
+                <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <input type="file" class="d-none var-image-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="handleVariationImageFile(this)">
+                <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold upload-var-image-btn" onclick="triggerVariationImageUpload(this)">
+                    <i class="fa-regular fa-image me-1"></i> Upload Image
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2 remove-var-images-btn d-none" onclick="clearVariationImages(this)">
+                    <i class="fa-solid fa-trash-can me-1"></i> Remove Image
+                </button>
+            </div>
         </div>
         <div class="quill-editor-wrapper">
             <div class="quill-editor" style="min-height: 120px;"></div>
@@ -910,13 +1089,24 @@ function addNewFollowupStep() {
                     <label class="form-label small text-muted mb-1 fw-semibold">Subject:</label>
                     <input type="text" name="followup_steps[${newStep}][variations][0][subject]" value="" class="form-control form-control-sm" placeholder="e.g. Re: {{subject}}">
                 </div>
-                <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
-                    <span class="small text-muted me-1 fw-semibold">Insert:</span>
-                    <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
-                    <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
-                    <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
-                    <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
-                    <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+                <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
+                    <div class="d-flex align-items-center gap-1 flex-wrap">
+                        <span class="small text-muted me-1 fw-semibold">Insert:</span>
+                        <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
+                        <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
+                        <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
+                        <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
+                        <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="file" class="d-none var-image-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="handleVariationImageFile(this)">
+                        <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold upload-var-image-btn" onclick="triggerVariationImageUpload(this)">
+                            <i class="fa-regular fa-image me-1"></i> Upload Image
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2 remove-var-images-btn d-none" onclick="clearVariationImages(this)">
+                            <i class="fa-solid fa-trash-can me-1"></i> Remove Image
+                        </button>
+                    </div>
                 </div>
                 <div class="quill-editor-wrapper">
                     <div class="quill-editor" style="min-height: 120px;"></div>

@@ -103,9 +103,14 @@
                             <?php foreach ($messages as $idx => $msg): ?>
                                 <div class="card border p-3 mb-3 bg-light variation-card" id="variation_<?= $idx ?>">
                                     <input type="hidden" name="message_ids[]" value="<?= $msg->id ?>">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span class="fw-bold small text-dark"><i class="fa-solid fa-shuffle text-warning me-1"></i> Variation #<?= $idx + 1 ?></span>
-                                        <span class="badge bg-secondary-subtle text-dark border"><?= (int)($msg->usage_count ?? 0) ?> sent</span>
+                                    <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                                        <span class="fw-bold small text-dark variation-title"><i class="fa-solid fa-shuffle text-warning me-1"></i> Variation #<?= $idx + 1 ?></span>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-secondary-subtle text-dark border"><?= (int)($msg->usage_count ?? 0) ?> sent</span>
+                                            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="removeVariationCard(this)" title="Delete this message variation">
+                                                <i class="fa-solid fa-trash-can me-1"></i> Delete
+                                            </button>
+                                        </div>
                                     </div>
                                     <div class="mb-2">
                                         <input type="text" name="subjects[]" class="form-control form-control-sm mb-2" value="<?= e($msg->subject) ?>" placeholder="Subject line" required>
@@ -116,8 +121,11 @@
                         <?php else: ?>
                             <div class="card border p-3 mb-3 bg-light variation-card" id="variation_0">
                                 <input type="hidden" name="message_ids[]" value="0">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="fw-bold small text-dark"><i class="fa-solid fa-shuffle text-warning me-1"></i> Variation #1</span>
+                                <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                                    <span class="fw-bold small text-dark variation-title"><i class="fa-solid fa-shuffle text-warning me-1"></i> Variation #1</span>
+                                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="removeVariationCard(this)" title="Delete this message variation">
+                                        <i class="fa-solid fa-trash-can me-1"></i> Delete
+                                    </button>
                                 </div>
                                 <div class="mb-2">
                                     <input type="text" name="subjects[]" class="form-control form-control-sm mb-2" placeholder="Subject line" required>
@@ -289,18 +297,49 @@ function insertTag(tag) {
     lastFocusedTextarea.selectionStart = lastFocusedTextarea.selectionEnd = start + tag.length;
 }
 
+function renumberVariationCards() {
+    document.querySelectorAll('#variationsContainer .variation-card').forEach((card, idx) => {
+        const title = card.querySelector('.variation-title');
+        if (title) {
+            const isNew = card.getAttribute('data-is-new') === '1';
+            title.innerHTML = `<i class="fa-solid fa-shuffle text-warning me-1"></i> Variation #${idx + 1}${isNew ? ' (New)' : ''}`;
+        }
+    });
+}
+
+function removeVariationCard(btn) {
+    const container = document.getElementById('variationsContainer');
+    const cards = container.querySelectorAll('.variation-card');
+    if (cards.length <= 1) {
+        alert('At least one message variation is required. Add another variation before deleting this one.');
+        return;
+    }
+    const card = btn.closest('.variation-card');
+    const msgIdInput = card ? card.querySelector('input[name="message_ids[]"]') : null;
+    const isSaved = msgIdInput && parseInt(msgIdInput.value, 10) > 0;
+    if (isSaved && !confirm('Are you sure you want to delete this message variation?')) {
+        return;
+    }
+    if (card) {
+        card.remove();
+        renumberVariationCards();
+    }
+}
+
 document.getElementById('addVariationBtn').addEventListener('click', function() {
     variationCount++;
     const container = document.getElementById('variationsContainer');
+    const nextNum = container.querySelectorAll('.variation-card').length + 1;
     const div = document.createElement('div');
     div.className = 'card border p-3 mb-3 bg-light variation-card';
     div.id = 'variation_' + variationCount;
+    div.setAttribute('data-is-new', '1');
     div.innerHTML = `
         <input type="hidden" name="message_ids[]" value="0">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="fw-bold small text-dark"><i class="fa-solid fa-shuffle text-warning me-1"></i> Variation #${variationCount} (New)</span>
-            <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none" onclick="document.getElementById('variation_${variationCount}').remove()">
-                <i class="fa-solid fa-trash-can me-1"></i> Remove
+        <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+            <span class="fw-bold small text-dark variation-title"><i class="fa-solid fa-shuffle text-warning me-1"></i> Variation #${nextNum} (New)</span>
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="removeVariationCard(this)" title="Delete this message variation">
+                <i class="fa-solid fa-trash-can me-1"></i> Delete
             </button>
         </div>
         <div class="mb-2">
