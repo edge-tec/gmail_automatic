@@ -232,16 +232,25 @@ $connectedAccountsCount = count($accounts);
                                 </div>
                             </div>
 
-                            <!-- Variable Chips + Image Upload Bar -->
-                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
-                                <div class="d-flex align-items-center gap-1 flex-wrap">
-                                    <span class="small text-muted me-1 fw-semibold">Insert:</span>
-                                    <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
-                                    <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
-                                    <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
-                                    <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
-                                    <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
-                                </div>
+                            <!-- Variable Chips -->
+                            <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
+                                <span class="small text-muted me-1 fw-semibold">Insert:</span>
+                                <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
+                                <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
+                                <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
+                                <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
+                                <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+                            </div>
+
+                            <!-- Quill Editor -->
+                            <div class="quill-editor-wrapper">
+                                <div class="quill-editor" style="min-height: 120px;"><?= $v->body_html ?></div>
+                                <textarea name="steps[<?= $stepNum ?>][variations][<?= $vIndex ?>][body_html]" class="d-none quill-textarea"><?= e($v->body_html) ?></textarea>
+                            </div>
+
+                            <!-- Image Upload Bar (Below Text) -->
+                            <div class="d-flex align-items-center justify-content-between gap-2 mt-2 pt-2 border-top flex-wrap">
+                                <span class="small text-muted"><i class="fa-regular fa-image me-1 text-primary"></i> Image will be added below the message text &amp; sent inside the email.</span>
                                 <div class="d-flex align-items-center gap-2">
                                     <input type="file" class="d-none var-image-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="handleVariationImageFile(this)">
                                     <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold upload-var-image-btn" onclick="triggerVariationImageUpload(this)">
@@ -251,12 +260,6 @@ $connectedAccountsCount = count($accounts);
                                         <i class="fa-solid fa-trash-can me-1"></i> Remove Image
                                     </button>
                                 </div>
-                            </div>
-
-                            <!-- Quill Editor -->
-                            <div class="quill-editor-wrapper">
-                                <div class="quill-editor" style="min-height: 120px;"><?= $v->body_html ?></div>
-                                <textarea name="steps[<?= $stepNum ?>][variations][<?= $vIndex ?>][body_html]" class="d-none quill-textarea"><?= e($v->body_html) ?></textarea>
                             </div>
                         </div>
                         <?php endforeach; ?>
@@ -392,16 +395,25 @@ $connectedAccountsCount = count($accounts);
                                 <input type="text" name="followup_steps[<?= $fStepNum ?>][variations][<?= $fvIndex ?>][subject]" value="<?= e($fv->subject ?? '') ?>" class="form-control form-control-sm" placeholder="e.g. Re: {{subject}}">
                             </div>
 
-                            <!-- Variable Chips + Image Upload Bar -->
-                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
-                                <div class="d-flex align-items-center gap-1 flex-wrap">
-                                    <span class="small text-muted me-1 fw-semibold">Insert:</span>
-                                    <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
-                                    <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
-                                    <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
-                                    <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
-                                    <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
-                                </div>
+                            <!-- Variable Chips -->
+                            <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
+                                <span class="small text-muted me-1 fw-semibold">Insert:</span>
+                                <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
+                                <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
+                                <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
+                                <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
+                                <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+                            </div>
+
+                            <!-- Quill Editor -->
+                            <div class="quill-editor-wrapper">
+                                <div class="quill-editor" style="min-height: 120px;"><?= $fv->body_html ?></div>
+                                <textarea name="followup_steps[<?= $fStepNum ?>][variations][<?= $fvIndex ?>][body_html]" class="d-none quill-textarea"><?= e($fv->body_html) ?></textarea>
+                            </div>
+
+                            <!-- Image Upload Bar (Below Text) -->
+                            <div class="d-flex align-items-center justify-content-between gap-2 mt-2 pt-2 border-top flex-wrap">
+                                <span class="small text-muted"><i class="fa-regular fa-image me-1 text-primary"></i> Image will be added below the message text &amp; sent inside the email.</span>
                                 <div class="d-flex align-items-center gap-2">
                                     <input type="file" class="d-none var-image-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="handleVariationImageFile(this)">
                                     <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold upload-var-image-btn" onclick="triggerVariationImageUpload(this)">
@@ -411,12 +423,6 @@ $connectedAccountsCount = count($accounts);
                                         <i class="fa-solid fa-trash-can me-1"></i> Remove Image
                                     </button>
                                 </div>
-                            </div>
-
-                            <!-- Quill Editor -->
-                            <div class="quill-editor-wrapper">
-                                <div class="quill-editor" style="min-height: 120px;"><?= $fv->body_html ?></div>
-                                <textarea name="followup_steps[<?= $fStepNum ?>][variations][<?= $fvIndex ?>][body_html]" class="d-none quill-textarea"><?= e($fv->body_html) ?></textarea>
                             </div>
                         </div>
                         <?php endforeach; ?>
@@ -650,10 +656,15 @@ async function uploadImageAndInsert(file, quill, triggerBtn = null) {
             throw new Error(data.message || 'Image upload failed.');
         }
 
-        const range = quill.getSelection(true);
-        const index = range ? range.index : Math.max(0, quill.getLength() - 1);
-        quill.insertEmbed(index, 'image', data.url, 'user');
-        quill.setSelection(index + 1, 0);
+        // Always insert uploaded image below the message text
+        let insertIndex = Math.max(0, quill.getLength() - 1);
+        const currentText = quill.getText();
+        if (insertIndex > 0 && !currentText.endsWith('\n\n')) {
+            quill.insertText(insertIndex, '\n', 'user');
+            insertIndex++;
+        }
+        quill.insertEmbed(insertIndex, 'image', data.url, 'user');
+        quill.setSelection(insertIndex + 1, 0);
 
         const wrapper = quill.root.closest('.quill-editor-wrapper');
         if (wrapper) {
@@ -846,15 +857,20 @@ function addReplyVariation(stepNum) {
                 </button>
             </div>
         </div>
-        <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
-            <div class="d-flex align-items-center gap-1 flex-wrap">
-                <span class="small text-muted me-1 fw-semibold">Insert:</span>
-                <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
-                <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
-                <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
-                <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
-                <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
-            </div>
+        <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
+            <span class="small text-muted me-1 fw-semibold">Insert:</span>
+            <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
+            <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
+            <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
+            <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
+            <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+        </div>
+        <div class="quill-editor-wrapper">
+            <div class="quill-editor" style="min-height: 120px;"></div>
+            <textarea name="steps[${stepNum}][variations][${vIndex}][body_html]" class="d-none quill-textarea"></textarea>
+        </div>
+        <div class="d-flex align-items-center justify-content-between gap-2 mt-2 pt-2 border-top flex-wrap">
+            <span class="small text-muted"><i class="fa-regular fa-image me-1 text-primary"></i> Image will be added below the message text &amp; sent inside the email.</span>
             <div class="d-flex align-items-center gap-2">
                 <input type="file" class="d-none var-image-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="handleVariationImageFile(this)">
                 <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold upload-var-image-btn" onclick="triggerVariationImageUpload(this)">
@@ -864,10 +880,6 @@ function addReplyVariation(stepNum) {
                     <i class="fa-solid fa-trash-can me-1"></i> Remove Image
                 </button>
             </div>
-        </div>
-        <div class="quill-editor-wrapper">
-            <div class="quill-editor" style="min-height: 120px;"></div>
-            <textarea name="steps[${stepNum}][variations][${vIndex}][body_html]" class="d-none quill-textarea"></textarea>
         </div>
     `;
 
@@ -927,15 +939,20 @@ function addNewReplyStep() {
                         </button>
                     </div>
                 </div>
-                <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
-                    <div class="d-flex align-items-center gap-1 flex-wrap">
-                        <span class="small text-muted me-1 fw-semibold">Insert:</span>
-                        <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
-                        <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
-                        <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
-                        <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
-                        <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
-                    </div>
+                <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
+                    <span class="small text-muted me-1 fw-semibold">Insert:</span>
+                    <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
+                    <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
+                    <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
+                    <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
+                    <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+                </div>
+                <div class="quill-editor-wrapper">
+                    <div class="quill-editor" style="min-height: 120px;"></div>
+                    <textarea name="steps[${newStep}][variations][0][body_html]" class="d-none quill-textarea"></textarea>
+                </div>
+                <div class="d-flex align-items-center justify-content-between gap-2 mt-2 pt-2 border-top flex-wrap">
+                    <span class="small text-muted"><i class="fa-regular fa-image me-1 text-primary"></i> Image will be added below the message text &amp; sent inside the email.</span>
                     <div class="d-flex align-items-center gap-2">
                         <input type="file" class="d-none var-image-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="handleVariationImageFile(this)">
                         <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold upload-var-image-btn" onclick="triggerVariationImageUpload(this)">
@@ -945,10 +962,6 @@ function addNewReplyStep() {
                             <i class="fa-solid fa-trash-can me-1"></i> Remove Image
                         </button>
                     </div>
-                </div>
-                <div class="quill-editor-wrapper">
-                    <div class="quill-editor" style="min-height: 120px;"></div>
-                    <textarea name="steps[${newStep}][variations][0][body_html]" class="d-none quill-textarea"></textarea>
                 </div>
             </div>
         </div>
@@ -995,15 +1008,20 @@ function addFollowupVariation(stepNum) {
             <label class="form-label small text-muted mb-1 fw-semibold">Subject (Leave empty to keep thread subject):</label>
             <input type="text" name="followup_steps[${stepNum}][variations][${vIndex}][subject]" value="" class="form-control form-control-sm" placeholder="e.g. Re: {{subject}}">
         </div>
-        <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
-            <div class="d-flex align-items-center gap-1 flex-wrap">
-                <span class="small text-muted me-1 fw-semibold">Insert:</span>
-                <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
-                <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
-                <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
-                <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
-                <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
-            </div>
+        <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
+            <span class="small text-muted me-1 fw-semibold">Insert:</span>
+            <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
+            <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
+            <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
+            <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
+            <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+        </div>
+        <div class="quill-editor-wrapper">
+            <div class="quill-editor" style="min-height: 120px;"></div>
+            <textarea name="followup_steps[${stepNum}][variations][${vIndex}][body_html]" class="d-none quill-textarea"></textarea>
+        </div>
+        <div class="d-flex align-items-center justify-content-between gap-2 mt-2 pt-2 border-top flex-wrap">
+            <span class="small text-muted"><i class="fa-regular fa-image me-1 text-primary"></i> Image will be added below the message text &amp; sent inside the email.</span>
             <div class="d-flex align-items-center gap-2">
                 <input type="file" class="d-none var-image-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="handleVariationImageFile(this)">
                 <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold upload-var-image-btn" onclick="triggerVariationImageUpload(this)">
@@ -1013,10 +1031,6 @@ function addFollowupVariation(stepNum) {
                     <i class="fa-solid fa-trash-can me-1"></i> Remove Image
                 </button>
             </div>
-        </div>
-        <div class="quill-editor-wrapper">
-            <div class="quill-editor" style="min-height: 120px;"></div>
-            <textarea name="followup_steps[${stepNum}][variations][${vIndex}][body_html]" class="d-none quill-textarea"></textarea>
         </div>
     `;
 
@@ -1089,15 +1103,20 @@ function addNewFollowupStep() {
                     <label class="form-label small text-muted mb-1 fw-semibold">Subject:</label>
                     <input type="text" name="followup_steps[${newStep}][variations][0][subject]" value="" class="form-control form-control-sm" placeholder="e.g. Re: {{subject}}">
                 </div>
-                <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
-                    <div class="d-flex align-items-center gap-1 flex-wrap">
-                        <span class="small text-muted me-1 fw-semibold">Insert:</span>
-                        <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
-                        <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
-                        <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
-                        <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
-                        <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
-                    </div>
+                <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
+                    <span class="small text-muted me-1 fw-semibold">Insert:</span>
+                    <span class="var-pill" onclick="insertVariable(this, '{{first_name}}')">{{first_name}}</span>
+                    <span class="var-pill" onclick="insertVariable(this, '{{sender_name}}')">{{sender_name}}</span>
+                    <span class="var-pill" onclick="insertVariable(this, '{{email}}')">{{email}}</span>
+                    <span class="var-pill" onclick="insertVariable(this, '{{company}}')">{{company}}</span>
+                    <span class="var-pill" onclick="insertVariable(this, '{{subject}}')">{{subject}}</span>
+                </div>
+                <div class="quill-editor-wrapper">
+                    <div class="quill-editor" style="min-height: 120px;"></div>
+                    <textarea name="followup_steps[${newStep}][variations][0][body_html]" class="d-none quill-textarea"></textarea>
+                </div>
+                <div class="d-flex align-items-center justify-content-between gap-2 mt-2 pt-2 border-top flex-wrap">
+                    <span class="small text-muted"><i class="fa-regular fa-image me-1 text-primary"></i> Image will be added below the message text &amp; sent inside the email.</span>
                     <div class="d-flex align-items-center gap-2">
                         <input type="file" class="d-none var-image-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="handleVariationImageFile(this)">
                         <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold upload-var-image-btn" onclick="triggerVariationImageUpload(this)">
@@ -1107,10 +1126,6 @@ function addNewFollowupStep() {
                             <i class="fa-solid fa-trash-can me-1"></i> Remove Image
                         </button>
                     </div>
-                </div>
-                <div class="quill-editor-wrapper">
-                    <div class="quill-editor" style="min-height: 120px;"></div>
-                    <textarea name="followup_steps[${newStep}][variations][0][body_html]" class="d-none quill-textarea"></textarea>
                 </div>
             </div>
         </div>
